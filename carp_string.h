@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define carp_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#define carp_string_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
 typedef struct {
 	size_t l;	// ×Ö·û´®³¤¶È
@@ -18,11 +18,11 @@ static bool carp_string_setcap(carp_string_t* s, size_t size)
 {
 	if (s->m >= size) return true;
 
-	s->m = size;
-	carp_roundup32(s->m);
-	
-	char* tmp = (char*)realloc(s->s, s->m);
+	carp_string_roundup32(size);	
+	char* tmp = (char*)realloc(s->s, size);
 	if (tmp == 0) return false;
+	
+	s->m = size;
 	s->s = tmp;
 	return true;
 }
@@ -76,6 +76,39 @@ static void carp_string_putc(carp_string_t* s, char c)
 	s->s[s->l] = 0;
 }
 
+static void carp_string_assigns(carp_string_t* s, const char* p)
+{
+	carp_string_setlen(s, 0);
+	carp_string_puts(s, p);
+}
+
+static void carp_string_assignsn(carp_string_t* s, const char* p, size_t l)
+{
+	carp_string_setlen(s, 0);
+	carp_string_putsn(s, p, l);
+}
+
+#define carp_string_npos ((size_t)(-1))
+
+static size_t carp_string_findc(carp_string_t* s, char c)
+{
+	if (s->s == 0) return carp_string_npos;
+	for (size_t i = 0; i < s->l; ++i)
+	{
+		if (s->s[i] == c)
+			return i;
+	}
+	return carp_string_npos;
+}
+
+static size_t carp_string_finds(carp_string_t* s, const char* p)
+{
+	if (s->s == 0) return carp_string_npos;
+	char* t = strstr(s->s, p);
+	if (t == 0) return carp_string_npos;
+	return t - s->s;
+}
+
 typedef struct {
 	size_t l;	// ×Ö·û´®³¤¶È
 	size_t m;	// ×Ö·û´®ÈÝÁ¿
@@ -87,11 +120,11 @@ static bool carp_wstring_setcap(carp_wstring_t* s, size_t size)
 {
 	if (s->m >= size) return true;
 
-	s->m = size;
-	carp_roundup32(s->m);
-
-	wchar_t* tmp = (wchar_t*)realloc(s->s, s->m * sizeof(wchar_t));
+	carp_string_roundup32(size);
+	wchar_t* tmp = (wchar_t*)realloc(s->s, size * sizeof(wchar_t));
 	if (tmp == 0) return false;
+	
+	s->m = size;
 	s->s = tmp;
 	return true;
 }
@@ -143,6 +176,39 @@ static void carp_wstring_putc(carp_wstring_t* s, wchar_t c)
 	if (!carp_wstring_setcap(s, s->l + 1)) return;
 	s->s[s->l++] = c;
 	s->s[s->l] = 0;
+}
+
+#define carp_wstring_npos ((size_t)(-1))
+
+static size_t carp_wstring_findc(carp_wstring_t* s, wchar_t c)
+{
+	if (s->s == 0) return carp_wstring_npos;
+	for (size_t i = 0; i < s->l; ++i)
+	{
+		if (s->s[i] == c)
+			return i;
+	}
+	return carp_wstring_npos;
+}
+
+static size_t carp_wstring_finds(carp_wstring_t* s, const wchar_t* p)
+{
+	if (s->s == 0) return carp_wstring_npos;
+	wchar_t* t = wcsstr(s->s, p);
+	if (t == 0) return carp_wstring_npos;
+	return t - s->s;
+}
+
+static void carp_wstring_assigns(carp_wstring_t* s, const wchar_t* p)
+{
+	carp_wstring_setlen(s, 0);
+	carp_wstring_puts(s, p);
+}
+
+static void carp_wstring_assignsn(carp_wstring_t* s, const wchar_t* p, size_t l)
+{
+	carp_wstring_setlen(s, 0);
+	carp_wstring_putsn(s, p, l);
 }
 
 #endif

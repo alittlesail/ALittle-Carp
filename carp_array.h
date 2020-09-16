@@ -6,6 +6,16 @@
 
 #define carp_array_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
+// 使用范例
+/*
+ * int* s = 0;	// 一定要初始化为空指针
+ * carp_array_push(s, 1);
+ * carp_array_push(s, 2);
+ * carp_array_pop(s);
+ * size_t len = carp_array_len(s);
+ * carp_array_free(s);
+ */
+
 typedef struct
 {
 	size_t l;

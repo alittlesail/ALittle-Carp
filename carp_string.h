@@ -45,7 +45,6 @@ static bool _carp_string_setlen(carp_string_t* s, size_t size)
 	return true;
 }
 
-
 static const char* _carp_string_str(carp_string_t* s)
 {
 	static char s_empty[1] = { 0 };

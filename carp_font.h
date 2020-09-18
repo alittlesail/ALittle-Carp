@@ -113,13 +113,10 @@ static int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_ch
 	int pre_index = 0;
 	if (pre_char != 0) pre_index = carp_font_get_glyph_index(font, pre_char);
 
-	int x0 = 0;
-	int y0 = 0;
-	int x1 = 0;
-	int y1 = 0;
-	stbtt_GetGlyphBitmapBox(&font->font, index, font->scale, font->scale, &x0, &y0, &x1, &y1);
+	int advance, lsb;
+	stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
 
-	int width = x1;
+	int width = (int)(advance * font->scale);
 	if (pre_index != 0) width += (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
 	
 	return width;
@@ -203,15 +200,11 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 	for (size_t i = 0; i < len; ++i)
 	{
 		int index = carp_font_get_glyph_index(font, unicode_char[i]);
-		int x0, y0, x1, y1;
-		stbtt_GetGlyphBitmapBox(&font->font, index, font->scale, font->scale, &x0, &y0, &x1, &y1);
+		int advance, lsb;
+		stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
+		acc_width += (int)(advance * font->scale);
 		if (pre_index != 0)
-		{
-			int kern = (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
-			x0 += kern;
-			x1 += kern;
-		}
-		acc_width += x1;
+			acc_width += (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
 		pre_index = index;
 	}
 
@@ -231,6 +224,9 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 	for (size_t i = 0; i < len; ++i)
 	{
 		int index = carp_font_get_glyph_index(font, unicode_char[i]);
+		int advance, lsb;
+		stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
+		int w = (int)(advance * font->scale);
 		int x0, y0, x1, y1;
 		stbtt_GetGlyphBitmapBox(&font->font, index, font->scale, font->scale, &x0, &y0, &x1, &y1);
 		if (pre_index != 0)
@@ -238,8 +234,8 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 			int kern = (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
 			x0 += kern;
 			x1 += kern;
+			w += kern;
 		}
-		int w = x1;
 		int off_x = x0;
 		int off_y = font->baseline + y0;
 		stbtt_MakeGlyphBitmap(&font->font, bitmap + tw + off_x + off_y * acc_width, w - off_x, acc_height - off_y, acc_width, font->scale, font->scale, index);

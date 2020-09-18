@@ -15,7 +15,7 @@ typedef struct _carp_font_t
 	int font_height;
 	int font_italic_extra_width;
 	stbtt_fontinfo font;
-	char* font_buffer;
+	const char* font_buffer;
 
 	struct { unsigned int key; int value; }* unicode_map_glyphindex;
 
@@ -34,29 +34,23 @@ typedef struct _carp_font_t
 /* same value as in FT_GlyphSlot_Oblique, fixed point 16.16 */
 #define CARP_FONT_GLYPH_ITALICS  0x0366AL
 
+#define CARP_FONT_LINE_THICKNESS 33
+
 static carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size, int font_style)
 {
-	font_size += 4;
-	char* data = (char*)malloc(len);
-	if (data == 0) return 0;
-
-	carp_font_t* t = (carp_font_t*)malloc(sizeof(carp_font_t));
-	if (t == 0)
-	{
-		free(data);
-		return 0;
-	}
-	memset(t, 0, sizeof(carp_font_t));
-	memcpy(data, buffer, len);
+	font_size += 5;
 	
-	if (stbtt_InitFont(&t->font, (unsigned char*)data, stbtt_GetFontOffsetForIndex((unsigned char*)buffer, 0)) == 0)
+	carp_font_t* t = (carp_font_t*)malloc(sizeof(carp_font_t));
+	if (t == 0) return 0;
+	memset(t, 0, sizeof(carp_font_t));
+	
+	if (stbtt_InitFont(&t->font, (unsigned char*)buffer, stbtt_GetFontOffsetForIndex((unsigned char*)buffer, 0)) == 0)
 	{
-		free(data);
 		free(t);
 		return 0;
 	}
 
-	t->font_buffer = data;
+	t->font_buffer = buffer;
 	t->font_size = font_size;
 	t->font_style = font_style;
 	t->scale = stbtt_ScaleForPixelHeight(&t->font, (float)font_size);
@@ -66,10 +60,17 @@ static carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size
 	t->font_height = (int)((ascent - descent) * t->scale);
 	t->line_gap = (int)(t->line_gap * t->scale);
 
-	if (font_style & CARP_FONT_STYLE_ITALIC) t->font_italic_extra_width = (CARP_FONT_GLYPH_ITALICS * t->font_height) >> 16;
+	if (t->font_style & CARP_FONT_STYLE_ITALIC) t->font_italic_extra_width = (CARP_FONT_GLYPH_ITALICS * t->font_height) >> 16;
 
 	stbds_hmdefault(t->unicode_map_glyphindex, 0);
 	return t;
+}
+
+static void carp_font_free(carp_font_t* font)
+{
+	if (font == 0) return;
+	stbds_hmfree(font->unicode_map_glyphindex);
+	free(font);
 }
 
 static int carp_font_get_glyph_index(carp_font_t* font, unsigned int unicode_char)
@@ -103,14 +104,6 @@ static int carp_font_italic_extra_wdith(carp_font_t* font)
 	return font->font_italic_extra_width;
 }
 
-static void carp_font_free(carp_font_t* font)
-{
-	if (font == 0) return;
-	free(font->font_buffer);
-	stbds_hmfree(font->unicode_map_glyphindex);
-	free(font);
-}
-
 static int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_char, unsigned int pre_char)
 {
 	if (font == 0) return 0;
@@ -130,6 +123,75 @@ static int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_ch
 	if (pre_index != 0) width += (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
 	
 	return width;
+}
+
+static void _carp_font_draw_underline(carp_font_t* font, unsigned char* bitmap, int width, int height)
+{
+	int start = font->baseline + (int)(CARP_FONT_LINE_THICKNESS * font->scale);
+	int end = start + (int)(CARP_FONT_LINE_THICKNESS * font->scale);
+	if (end <= start) end = start + 1;
+	if (end >= height)
+	{
+		start = height - 1;
+		end = height;
+	}
+	for (int row = start; row < end; ++row)
+	{
+		int offset = row * width;
+		for (int col = 0; col < width; ++col)
+			bitmap[offset + col] = 255;
+	}
+}
+
+static void _carp_font_draw_italic(carp_font_t* font, unsigned char* bitmap, int width, int height)
+{
+	for (int row = 0; row < height; ++row)
+	{
+		int offx = ((height - row) * CARP_FONT_GLYPH_ITALICS) >> 16;
+		if (offx == 0) continue;
+
+		int offset = row * width;
+		for (int col = width - 1; col >= 0; --col)
+		{
+			unsigned char value = 0;
+			if (col - offx >= 0)
+				value = bitmap[offset + col - offx];
+			bitmap[offset + col] = value;
+		}
+	}
+}
+
+static void _carp_font_draw_bold(carp_font_t* font, unsigned char* bitmap, int width, int height)
+{
+	int overhang = (int)(CARP_FONT_LINE_THICKNESS * font->scale);
+	for (int row = height - 1; row >= 0; --row) {
+		unsigned char* pixmap = bitmap + row * width;
+		for (int offset = 1; offset <= overhang; ++offset) {
+			for (int col = width - 1; col > 0; --col) {
+				int pixel = (pixmap[col] + pixmap[col - 1]);
+				if (pixel > 255) pixel = 255;
+				pixmap[col] = (unsigned char)pixel;
+			}
+		}
+	}
+}
+
+static void _carp_font_draw_deleteline(carp_font_t* font, unsigned char* bitmap, int width, int height)
+{
+	int start = (height + (int)(CARP_FONT_LINE_THICKNESS * font->scale)) / 2;
+	int end = start + (int)(CARP_FONT_LINE_THICKNESS * font->scale);
+	if (end <= start) end = start + 1;
+	if (end >= height)
+	{
+		start = height - 1;
+		end = height;
+	}
+	for (int row = start; row < end; ++row)
+	{
+		int offset = row * width;
+		for (int col = 0; col < width; ++col)
+			bitmap[offset + col] = 255;
+	}
 }
 
 static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* unicode_char, size_t len, int* width, int* height)
@@ -184,6 +246,18 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 		tw += w;
 		pre_index = index;
 	}
+
+	// italic
+	if (font->font_style & CARP_FONT_STYLE_ITALIC) _carp_font_draw_italic(font, bitmap, acc_width, acc_height);
+
+	// bold
+	if (font->font_style & CARP_FONT_STYLE_BOLD) _carp_font_draw_bold(font, bitmap, acc_width, acc_height);
+
+	// underline
+	if (font->font_style & CARP_FONT_STYLE_UNDERLINE) _carp_font_draw_underline(font, bitmap, acc_width, acc_height);
+
+	// deleteline
+	if (font->font_style & CARP_FONT_STYLE_DELETELINE) _carp_font_draw_deleteline(font, bitmap, acc_width, acc_height);
 
 	return bitmap;
 }

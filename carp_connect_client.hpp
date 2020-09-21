@@ -4,8 +4,6 @@
 #include <memory>
 #include <asio.hpp>
 
-#include "carp_message.hpp"
-
 class CarpConnectClient;
 typedef std::shared_ptr<CarpConnectClient> CarpConnectClientPtr;
 typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;

@@ -12,12 +12,12 @@ typedef unsigned int CARP_MESSAGE_SIZE;
 typedef int CARP_MESSAGE_ID;
 typedef int CARP_MESSAGE_RPCID;
 
-const static int CARP_PROTOCOL_HEAD_SIZE = sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID);
+#define CARP_PROTOCOL_HEAD_SIZE (sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID))
 
 class CarpConnectClient : public std::enable_shared_from_this<CarpConnectClient>
 {
 public:
-	CarpConnectClient(int head_of_size, int offset_of_size, int size_of_size)
+	CarpConnectClient()
 		: m_port(0), m_memory(0), m_excuting(false), m_is_connecting(false), m_message_head()
 	{
 	}

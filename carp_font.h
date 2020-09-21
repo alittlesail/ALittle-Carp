@@ -1,12 +1,7 @@
 #ifndef CARP_FONT_INCLUDED
 #define CARP_FONT_INCLUDED (1)
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb/stb_truetype.h"
-
-#define STB_DS_IMPLEMENTATION
-#define STBDS_NO_SHORT_NAMES
-#include "stb/stb_ds.h"
+struct stbtt_fontinfo;
 
 typedef struct _carp_font_t
 {
@@ -14,10 +9,10 @@ typedef struct _carp_font_t
 	int font_style;
 	int font_height;
 	int font_italic_extra_width;
-	stbtt_fontinfo font;
+	stbtt_fontinfo* font;
 	const char* font_buffer;
 
-	struct { unsigned int key; int value; }* unicode_map_glyphindex;
+	struct { unsigned int key; int value; }*unicode_map_glyphindex;
 
 	float scale;
 	int line_gap;
@@ -29,6 +24,24 @@ typedef struct _carp_font_t
 #define CARP_FONT_STYLE_ITALIC 2
 #define CARP_FONT_STYLE_UNDERLINE 4
 #define CARP_FONT_STYLE_DELETELINE 8
+
+extern carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size, int font_style);
+extern void carp_font_free(carp_font_t* font);
+extern int carp_font_height(carp_font_t* font);
+extern int carp_font_linegap(carp_font_t* font);
+extern int carp_font_italic_extra_wdith(carp_font_t* font);
+extern int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_char, unsigned int pre_char);
+extern unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* unicode_char, size_t len, int* width, int* height);
+extern void carp_font_release_bitmap(unsigned char* bitmap);
+
+#ifdef CARP_FONT_IMPL
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb/stb_truetype.h"
+
+#define STB_DS_IMPLEMENTATION
+#define STBDS_NO_SHORT_NAMES
+#include "stb/stb_ds.h"
 
 /* x offset = cos(((90.0-12)/360) * 2 * M_PI), or 12 degree angle */
 /* same value as in FT_GlyphSlot_Oblique, fixed point 16.16 */
@@ -43,9 +56,16 @@ static carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size
 	carp_font_t* t = (carp_font_t*)malloc(sizeof(carp_font_t));
 	if (t == 0) return 0;
 	memset(t, 0, sizeof(carp_font_t));
-	
-	if (stbtt_InitFont(&t->font, (unsigned char*)buffer, stbtt_GetFontOffsetForIndex((unsigned char*)buffer, 0)) == 0)
+	t->font = (stbtt_fontinfo*)malloc(sizeof(stbtt_fontinfo));
+	if (t->font == 0)
 	{
+		free(t);
+		return 0;
+	}
+	
+	if (stbtt_InitFont(t->font, (unsigned char*)buffer, stbtt_GetFontOffsetForIndex((unsigned char*)buffer, 0)) == 0)
+	{
+		free(t->font);
 		free(t);
 		return 0;
 	}
@@ -53,9 +73,9 @@ static carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size
 	t->font_buffer = buffer;
 	t->font_size = font_size;
 	t->font_style = font_style;
-	t->scale = stbtt_ScaleForPixelHeight(&t->font, (float)font_size);
+	t->scale = stbtt_ScaleForPixelHeight(t->font, (float)font_size);
 	int ascent, descent;
-	stbtt_GetFontVMetrics(&t->font, &ascent, &descent, &t->line_gap);
+	stbtt_GetFontVMetrics(t->font, &ascent, &descent, &t->line_gap);
 	t->baseline = (int)(ascent * t->scale);
 	t->font_height = (int)((ascent - descent) * t->scale);
 	t->line_gap = (int)(t->line_gap * t->scale);
@@ -69,6 +89,7 @@ static carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size
 static void carp_font_free(carp_font_t* font)
 {
 	if (font == 0) return;
+	free(font->font);
 	stbds_hmfree(font->unicode_map_glyphindex);
 	free(font);
 }
@@ -79,7 +100,7 @@ static int carp_font_get_glyph_index(carp_font_t* font, unsigned int unicode_cha
 	int index = stbds_hmget(font->unicode_map_glyphindex, unicode_char);
 	if (index == 0)
 	{
-		index = stbtt_FindGlyphIndex(&font->font, unicode_char);
+		index = stbtt_FindGlyphIndex(font->font, unicode_char);
 		if (index == 0) return 0;
 		stbds_hmput(font->unicode_map_glyphindex, unicode_char, index);
 	}
@@ -114,10 +135,10 @@ static int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_ch
 	if (pre_char != 0) pre_index = carp_font_get_glyph_index(font, pre_char);
 
 	int advance, lsb;
-	stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
+	stbtt_GetGlyphHMetrics(font->font, index, &advance, &lsb);
 
 	int width = (int)(advance * font->scale);
-	if (pre_index != 0) width += (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
+	if (pre_index != 0) width += (int)(font->scale * stbtt_GetGlyphKernAdvance(font->font, pre_index, index));
 	
 	return width;
 }
@@ -201,10 +222,10 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 	{
 		int index = carp_font_get_glyph_index(font, unicode_char[i]);
 		int advance, lsb;
-		stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
+		stbtt_GetGlyphHMetrics(font->font, index, &advance, &lsb);
 		acc_width += (int)(advance * font->scale);
 		if (pre_index != 0)
-			acc_width += (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
+			acc_width += (int)(font->scale * stbtt_GetGlyphKernAdvance(font->font, pre_index, index));
 		pre_index = index;
 	}
 
@@ -225,20 +246,20 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 	{
 		int index = carp_font_get_glyph_index(font, unicode_char[i]);
 		int advance, lsb;
-		stbtt_GetGlyphHMetrics(&font->font, index, &advance, &lsb);
+		stbtt_GetGlyphHMetrics(font->font, index, &advance, &lsb);
 		int w = (int)(advance * font->scale);
 		int x0, y0, x1, y1;
-		stbtt_GetGlyphBitmapBox(&font->font, index, font->scale, font->scale, &x0, &y0, &x1, &y1);
+		stbtt_GetGlyphBitmapBox(font->font, index, font->scale, font->scale, &x0, &y0, &x1, &y1);
 		if (pre_index != 0)
 		{
-			int kern = (int)(font->scale * stbtt_GetGlyphKernAdvance(&font->font, pre_index, index));
+			int kern = (int)(font->scale * stbtt_GetGlyphKernAdvance(font->font, pre_index, index));
 			x0 += kern;
 			x1 += kern;
 			w += kern;
 		}
 		int off_x = x0;
 		int off_y = font->baseline + y0;
-		stbtt_MakeGlyphBitmap(&font->font, bitmap + tw + off_x + off_y * acc_width, w - off_x, acc_height - off_y, acc_width, font->scale, font->scale, index);
+		stbtt_MakeGlyphBitmap(font->font, bitmap + tw + off_x + off_y * acc_width, w - off_x, acc_height - off_y, acc_width, font->scale, font->scale, index);
 		tw += w;
 		pre_index = index;
 	}
@@ -263,4 +284,5 @@ static void carp_font_release_bitmap(unsigned char* bitmap)
 	free(bitmap);
 }
 
+#endif
 #endif

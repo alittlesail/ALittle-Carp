@@ -1,11 +1,6 @@
 #ifndef CARP_MIXER_INCLUDED
 #define CARP_MIXER_INCLUDED (1)
 
-#define SOKOL_IMPL
-#include "sokol/sokol_audio.h"
-
-#include "stb/stb_vorbis.c"
-
 typedef struct _carp_mixer_chunk_t
 {
 	short* data;
@@ -17,6 +12,29 @@ typedef struct _carp_mixer_chunk_t
 #define CARP_MIXER_CHANNELS 32
 
 typedef void (*CARP_MIXER_STOPED_FUNC)(int);
+
+extern carp_mixer_chunk_t* carp_mixer_load_chunk(const char* buffer, size_t len);
+
+/*
+Please keep in mind that the stoped_func callback function is running in a
+separate thread, if you need to share data with the main thread you need
+to take care yourself to make the access to the shared data thread - safe!
+*/
+// loop <= 0 is Infinity
+extern int carp_mixer_play_chunk(carp_mixer_chunk_t* chunk, float volume, int loop, CARP_MIXER_STOPED_FUNC stoped_func);
+extern void carp_mixer_set_volume(int channel, float volume);
+extern float carp_mixer_get_volume(int channel);
+extern void carp_mixer_stop_chunk(carp_mixer_chunk_t* chunk);
+extern void carp_mixer_stop_channel(int channel);
+extern void carp_mixer_free_chunk(carp_mixer_chunk_t* chunk);
+extern void carp_mixer_shutdown();
+
+#ifdef CARP_MIXER_IMPL
+
+#define SOKOL_IMPL
+#include "sokol/sokol_audio.h"
+
+#include "stb/stb_vorbis.c"
 
 typedef struct 
 {
@@ -240,4 +258,5 @@ static void carp_mixer_shutdown()
 	_saudio_mutex_destroy(&_carp_mixer.mutex);
 }
 
+#endif
 #endif

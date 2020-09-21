@@ -43,22 +43,6 @@ extern void _carp_array_free(void** s);
 
 #define carp_array_roundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 
-// 使用范例
-/*
- * int* s = 0;	// 一定要初始化为空指针
- * carp_array_push(s, 1);
- * carp_array_push(s, 2);
- * carp_array_pop(s);
- * size_t len = carp_array_len(s);
- * carp_array_free(s);
- */
-
-typedef struct
-{
-	size_t l;
-	size_t m;
-} carp_array_header;
-
 // 如果容量不足size，就扩展到size，否则不变
 static bool _carp_array_setcap(void** s, size_t type_size, size_t size)
 {

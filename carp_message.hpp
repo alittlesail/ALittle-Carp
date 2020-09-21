@@ -21,7 +21,7 @@ typedef unsigned int CARP_MESSAGE_SIZE;
 typedef int CARP_MESSAGE_ID;
 typedef int CARP_MESSAGE_RPCID;
 
-const static int CARP_PROTOCOL_HEAD_SIZE = sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID);
+#define CARP_PROTOCOL_HEAD_SIZE (sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID))
 
 class CarpMessage
 {
@@ -201,7 +201,7 @@ public:
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
 		for (auto it = object.begin(); it != object.end(); ++it)
-			current_data += CarpMessage_Serialize(*it, current_data);
+			current_data += Serialize(*it, current_data);
 
 		// return serialize size
 		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
@@ -215,7 +215,7 @@ public:
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
 		for (auto it = object.begin(); it != object.end(); ++it)
-			current_data += CarpMessage_Serialize(*it, current_data);
+			current_data += Serialize(*it, current_data);
 
 		// return serialize size
 		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
@@ -229,7 +229,7 @@ public:
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
 		for (int i = 0; i < len; ++i)
-			current_data += CarpMessage_Serialize(object[i], current_data);
+			current_data += Serialize(object[i], current_data);
 
 		// return serialize size
 		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
@@ -342,7 +342,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			T t;
-			int result = Message_Deserialize(t, current_data, len);
+			int result = Deserialize(t, current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 			object.insert(t);
 		}
@@ -374,7 +374,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			object.push_back(T());
-			int result = Message_Deserialize(object.back(), current_data, len);
+			int result = Deserialize(object.back(), current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 		}
 
@@ -409,7 +409,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			object.push_back(T());
-			int result = Message_Deserialize(object.back(), current_data, len);
+			int result = Deserialize(object.back(), current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 		}
 
@@ -442,11 +442,11 @@ public:
 		{
 			// deserialize key
 			K key;
-			int key_result = Message_Deserialize(key, current_data, len);
+			int key_result = Deserialize(key, current_data, len);
 			if (key_result < CARP_MESSAGE_DR_NO_DATA) return key_result; current_data += key_result; len -= key_result;
 			// deserialize value
 			V& value = object[key] = V();
-			int value_result = Message_Deserialize(value, current_data, len);
+			int value_result = Deserialize(value, current_data, len);
 			if (value_result < CARP_MESSAGE_DR_NO_DATA) return value_result; current_data += value_result; len -= value_result;
 		}
 
@@ -964,7 +964,7 @@ public:
 	inline int WritePrimaryType(T value)
 	{
 		ResizeMemory(sizeof(value));
-		m_size += Message_Serialize(value, m_memory.data() + m_size);
+		m_size += CarpMessageTemplate::Serialize(value, m_memory.data() + m_size);
 		return static_cast<int>(sizeof(value));
 	}
 

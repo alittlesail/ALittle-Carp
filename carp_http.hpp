@@ -383,47 +383,47 @@ public:
 /// Socket
 /// </summary>
 
-typedef std::shared_ptr<asio::io_service> CarpNetServicePtr;
-typedef std::shared_ptr<asio::ip::tcp::resolver> CarpNetResolverPtr;
+typedef std::shared_ptr<asio::io_service> CarpHttpServicePtr;
+typedef std::shared_ptr<asio::ip::tcp::resolver> CarpHttpResolverPtr;
 
-typedef std::shared_ptr<asio::ip::tcp::socket> CarpNetNTVSocketPtr;
-typedef std::shared_ptr<asio::ip::tcp::acceptor> CarpNetAcceptorPtr;
+typedef std::shared_ptr<asio::ip::tcp::socket> CarpHttpNTVSocketPtr;
+typedef std::shared_ptr<asio::ip::tcp::acceptor> CarpHttpAcceptorPtr;
 
-class CarpNetSocket;
-typedef std::shared_ptr<CarpNetSocket> CarpNetSocketPtr;
+class CarpHttpSocket;
+typedef std::shared_ptr<CarpHttpSocket> CarpHttpSocketPtr;
 
 #ifdef CARP_HAS_SSL
 #include <asio/ssl.hpp>
-typedef std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>> CarpNetSSLSocketPtr;
-class CarpNetSocket
+typedef std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>> CarpHttpSSLSocketPtr;
+class CarpHttpSocket
 {
 public:
-	CarpNetSocket(bool is_ssl, asio::io_service* service, const std::string& domain)
+	CarpHttpSocket(bool is_ssl, asio::io_service* service, const std::string& domain)
 	{
 		if (is_ssl)
 		{
 			asio::ssl::context cxt(asio::ssl::context::sslv23);
-			ssl_socket = CarpNetSSLSocketPtr(new asio::ssl::stream<asio::ip::tcp::socket>(*service, cxt));
+			ssl_socket = CarpHttpSSLSocketPtr(new asio::ssl::stream<asio::ip::tcp::socket>(*service, cxt));
 			// Set SNI Hostname (many hosts need this to handshake successfully)
 			SSL_set_tlsext_host_name(ssl_socket->native_handle(), domain.c_str());
 		}
 		else
-			ntv_socket = CarpNetNTVSocketPtr(new asio::ip::tcp::socket(*service));
+			ntv_socket = CarpHttpNTVSocketPtr(new asio::ip::tcp::socket(*service));
 	}
 
-	CarpNetSocket(bool is_ssl, asio::io_service* service, asio::ssl::context* context)
+	CarpHttpSocket(bool is_ssl, asio::io_service* service, asio::ssl::context* context)
 	{
 		if (is_ssl)
-			ssl_socket = CarpNetSSLSocketPtr(new asio::ssl::stream<asio::ip::tcp::socket>(*service, *context));
+			ssl_socket = CarpHttpSSLSocketPtr(new asio::ssl::stream<asio::ip::tcp::socket>(*service, *context));
 		else
-			ntv_socket = CarpNetNTVSocketPtr(new asio::ip::tcp::socket(*service));
+			ntv_socket = CarpHttpNTVSocketPtr(new asio::ip::tcp::socket(*service));
 	}
 
-	~CarpNetSocket() {}
+	~CarpHttpSocket() {}
 
 public:
-	CarpNetNTVSocketPtr ntv_socket;
-	CarpNetSSLSocketPtr ssl_socket;
+	CarpHttpNTVSocketPtr ntv_socket;
+	CarpHttpSSLSocketPtr ssl_socket;
 };
 
 #define CARPSOCKETHELPER_Connect(self, it, ec) \
@@ -549,23 +549,23 @@ do { \
 		result = self->ssl_socket->lowest_layer().remote_endpoint().port(); \
 } while(0)
 #else
-class CarpNetSocket
+class CarpHttpSocket
 {
 public:
-	CarpNetSocket(bool is_ssl, asio::io_service* service, const std::string& domain)
+	CarpHttpSocket(bool is_ssl, asio::io_service* service, const std::string& domain)
 	{
-		ntv_socket = CarpNetNTVSocketPtr(new asio::ip::tcp::socket(*service));
+		ntv_socket = CarpHttpNTVSocketPtr(new asio::ip::tcp::socket(*service));
 	}
 
-	CarpNetSocket(bool is_ssl, asio::io_service* service)
+	CarpHttpSocket(bool is_ssl, asio::io_service* service)
 	{
-		ntv_socket = CarpNetNTVSocketPtr(new asio::ip::tcp::socket(*service));
+		ntv_socket = CarpHttpNTVSocketPtr(new asio::ip::tcp::socket(*service));
 	}
 
-	~CarpNetSocket() {}
+	~CarpHttpSocket() {}
 
 public:
-	CarpNetNTVSocketPtr ntv_socket;
+	CarpHttpNTVSocketPtr ntv_socket;
 };
 
 #define CARPSOCKETHELPER_Connect(self, it, ec) \
@@ -644,25 +644,25 @@ do { \
 /// HttpClientText
 /// </summary>
 
-class CarpNetHttpClientText;
-typedef std::shared_ptr<CarpNetHttpClientText> CarpNetHttpClientTextPtr;
-typedef std::shared_ptr<asio::ip::tcp::resolver> CarpNetResolverPtr;
+class CarpHttpClientText;
+typedef std::shared_ptr<CarpHttpClientText> CarpHttpClientTextPtr;
+typedef std::shared_ptr<asio::ip::tcp::resolver> CarpHttpResolverPtr;
 
 #define CARP_NET_HTTP_HEAD_BUFFER_SIZE 1024
 
-class CarpNetHttpClientText : public std::enable_shared_from_this<CarpNetHttpClientText>
+class CarpHttpClientText : public std::enable_shared_from_this<CarpHttpClientText>
 {
 public:
-	CarpNetHttpClientText() : m_get_or_post(false)
+	CarpHttpClientText() : m_get_or_post(false)
 		, m_response_type(CarpHttpHelper::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)
 		, m_response_size(0), m_total_size(0), m_http_buffer(), m_io_service(0)
-		, m_stoped(false) {}
-	~CarpNetHttpClientText() {}
+		, m_stoped(false), m_start_size(0) {}
+	~CarpHttpClientText() {}
 
 public:
 	/* send request
 	 * @param get_or_post: true: get method, false: post method
-	 * @param type type of content. ie text/xml. text/html text/json
+	 * @param type type of content. ie text/xml. text/html application/json
 	 * @param file_path: write content of response to file(if file_path is not empry, then string of callback is empty£©
 	 * @param func: callback function, bool:succeed or not, string:content of response, string:head of response, string:error
 	 * @param is_ssl: is ssl
@@ -672,7 +672,7 @@ public:
 		, std::function<void(bool, const std::string&, const std::string&, const std::string&)> complete_func
 		, std::function<void(int, int)> progress_func
 		, asio::io_service* io_service
-		, const std::string& file_path = "", const std::string& add_header = "")
+		, const std::string& file_path = "", int start_size = 0, const std::string& add_header = "")
 	{
 		// get domain and port from url
 		std::string domain;
@@ -697,6 +697,7 @@ public:
 		m_content.resize(content_len);
 		if (content && content_len > 0) memcpy(&m_content[0], content, content_len);
 		m_file_path = file_path;
+		m_start_size = start_size;
 		m_domain = domain;
 		m_io_service = io_service;
 
@@ -708,16 +709,16 @@ public:
 			return;
 		}
 
-		m_socket = CarpNetSocketPtr(new CarpNetSocket(is_ssl, m_io_service, domain));
+		m_socket = CarpHttpSocketPtr(new CarpHttpSocket(is_ssl, m_io_service, domain));
 
 		// get ip dress by domain
-		m_resolver = CarpNetResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
+		m_resolver = CarpHttpResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
 		asio::ip::tcp::resolver::query ip_query(domain, std::to_string(port));
 
 		// bind callback
 		std::function<void(const asio::error_code& ec
 			, asio::ip::tcp::resolver::iterator endpoint_iterator)> query_func;
-		query_func = std::bind(&CarpNetHttpClientText::HandleQueryIPByDemain, this->shared_from_this()
+		query_func = std::bind(&CarpHttpClientText::HandleQueryIPByDemain, this->shared_from_this()
 			, std::placeholders::_1, std::placeholders::_2, domain, std::to_string(port));
 
 		// query
@@ -738,12 +739,12 @@ private:
 		{
 			m_error = "query ip by domain failed and try again:" + domain + ", " + port;
 			// try again
-			m_resolver = CarpNetResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
+			m_resolver = CarpHttpResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
 			asio::ip::tcp::resolver::query ip_query(domain, port);
 
 			std::function<void(const asio::error_code& ec
 				, asio::ip::tcp::resolver::iterator endpoint_iterator)> query_func;
-			query_func = std::bind(&CarpNetHttpClientText::HandleQueryIPByDemainAgain, this->shared_from_this()
+			query_func = std::bind(&CarpHttpClientText::HandleQueryIPByDemainAgain, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2);
 
 			m_resolver->async_resolve(ip_query, query_func);
@@ -759,7 +760,7 @@ private:
 
 		asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 		CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-			, std::bind(&CarpNetHttpClientText::HandleSocketConnect, this->shared_from_this()
+			, std::bind(&CarpHttpClientText::HandleSocketConnect, this->shared_from_this()
 				, std::placeholders::_1, ++endpoint_iterator));
 	}
 
@@ -782,7 +783,7 @@ private:
 
 		asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 		CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-			, std::bind(&CarpNetHttpClientText::HandleSocketConnect, this->shared_from_this()
+			, std::bind(&CarpHttpClientText::HandleSocketConnect, this->shared_from_this()
 				, std::placeholders::_1, ++endpoint_iterator));
 	}
 
@@ -804,7 +805,7 @@ private:
 		{
 			asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 			CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-				, std::bind(&CarpNetHttpClientText::HandleSocketConnect, this->shared_from_this()
+				, std::bind(&CarpHttpClientText::HandleSocketConnect, this->shared_from_this()
 					, std::placeholders::_1, ++endpoint_iterator));
 		}
 		else
@@ -832,7 +833,7 @@ private:
 
 		// connect succeed and send request
 		CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_head.c_str(), m_request_head.size()
-			, std::bind(&CarpNetHttpClientText::HandleSocketSendRequestHead1, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpHttpClientText::HandleSocketSendRequestHead1, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
 	bool GenerateRequestHead(const std::string& domain, const std::string& add_header = "")
@@ -841,6 +842,8 @@ private:
 		std::string new_url;
 		if (m_url.substr(0, 8) == "https://")
 			new_url = m_url.substr(8);
+		else if (m_url.substr(0, 7) == "http://")
+			new_url = m_url.substr(7);
 		else
 			new_url = m_url;
 
@@ -902,13 +905,13 @@ private:
 		{
 			// connect succeed and send request
 			CARPSOCKETHELPER_AsyncWrite(m_socket, &m_content[0], m_content.size()
-				, std::bind(&CarpNetHttpClientText::HandleSocketSendRequestHead2, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientText::HandleSocketSendRequestHead2, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 		else
 		{
 			// start receive http response
 			CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-				, std::bind(&CarpNetHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 	}
 
@@ -931,7 +934,7 @@ private:
 
 		// start receive http response
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
 	void HandleResponseHead(const asio::error_code& ec, std::size_t actual_size)
@@ -1005,13 +1008,17 @@ private:
 			if (m_file_path.size())
 			{
 				// open file
-				m_file.open(m_file_path.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
+				if (m_start_size > 0)
+					m_file.open(m_file_path.c_str(), std::ios::out | std::ios::app | std::ios::binary);
+				else
+					m_file.open(m_file_path.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
 				if (!m_file)
 				{
 					m_error = "file create failed!" + m_file_path;
 					m_complete_callback(false, "", m_response_head, m_error);
 					return;
 				}
+				if (m_start_size > 0) m_file.seekp(m_start_size);
 			}
 
 			// split handle
@@ -1026,7 +1033,7 @@ private:
 		{
 			// read next bytes
 			CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-				, std::bind(&CarpNetHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientText::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 	}
 
@@ -1081,7 +1088,7 @@ private:
 
 		// read next bytes
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientText::HandleResponseByContentLength, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+			, std::bind(&CarpHttpClientText::HandleResponseByContentLength, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 	}
 	void HandleResponseByChunk(const asio::error_code& ec, std::size_t actual_size, int buffer_offset)
 	{
@@ -1120,7 +1127,7 @@ private:
 				}
 
 				CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-					, std::bind(&CarpNetHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+					, std::bind(&CarpHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 				return;
 			}
 			else if (chunk_pos == 0)
@@ -1131,7 +1138,7 @@ private:
 					HandleResponseByChunk(ec, (int)actual_size - add_chunk_size, buffer_offset + add_chunk_size);
 				else
 					CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-						, std::bind(&CarpNetHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+						, std::bind(&CarpHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 				return;
 			}
 
@@ -1176,7 +1183,7 @@ private:
 				HandleResponseByChunk(ec, (int)actual_size - add_chunk_size, buffer_offset + add_chunk_size);
 			else
 				CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-					, std::bind(&CarpNetHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+					, std::bind(&CarpHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 			return;
 		}
 
@@ -1189,7 +1196,7 @@ private:
 
 			m_response_size -= (int)actual_size;
 			CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-				, std::bind(&CarpNetHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+				, std::bind(&CarpHttpClientText::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 			return;
 		}
 
@@ -1239,7 +1246,7 @@ private:
 
 		// read next bytes
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientText::HandleResponseByDataFollow, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+			, std::bind(&CarpHttpClientText::HandleResponseByDataFollow, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 	}
 
 private:
@@ -1256,13 +1263,14 @@ private:
 	int m_response_size;			// size of response
 	int m_total_size;
 
-	CarpNetSocketPtr m_socket;		// socket
-	CarpNetResolverPtr m_resolver;			// reslover
+	CarpHttpSocketPtr m_socket;		// socket
+	CarpHttpResolverPtr m_resolver;			// reslover
 	asio::io_service* m_io_service;	// io_service
 
 	std::function<void(bool, const std::string&, const std::string&, const std::string&)> m_complete_callback; // callback
 	std::function<void(int, int)> m_progress_callback; // callback
 	std::string m_file_path;		// file path to write
+	int m_start_size;
 	std::ofstream m_file;			// file object
 	std::string m_error;
 
@@ -1272,19 +1280,19 @@ private:
 	bool m_stoped;
 };
 
-class CarpNetHttpClientPost;
-typedef std::shared_ptr<CarpNetHttpClientPost> CarpNetHttpClientPostPtr;
+class CarpHttpClientPost;
+typedef std::shared_ptr<CarpHttpClientPost> CarpHttpClientPostPtr;
 
 #define CARP_CONTENT_TYPE_BOUNDARY "----WebKitFormBoundarywP43vY132opdlHoz"
 
 
-class CarpNetHttpClientPost : public std::enable_shared_from_this<CarpNetHttpClientPost>
+class CarpHttpClientPost : public std::enable_shared_from_this<CarpHttpClientPost>
 {
 public:
-	CarpNetHttpClientPost() : m_file(0), m_response_type(CarpHttpHelper::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)
+	CarpHttpClientPost() : m_file(0), m_response_type(CarpHttpHelper::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)
 		, m_response_size(0), m_cur_size(0), m_total_size(0), m_http_buffer(), m_io_service(0)
-		, m_stoped(false) {}
-	~CarpNetHttpClientPost() { if (m_file) { fclose(m_file); m_file = 0; } }
+		, m_stoped(false), m_start_size(0) {}
+	~CarpHttpClientPost() { if (m_file) { fclose(m_file); m_file = 0; } }
 
 public:
 	/* send request
@@ -1297,6 +1305,7 @@ public:
 		, const std::map<std::string, std::string>& value_map
 		, const std::string& file_name
 		, const std::string& file_path
+		, int start_size
 		, std::function<void(bool, const std::string&, const std::string&, const std::string&)> complete_func
 		, std::function<void(int, int)> progress_func
 		, asio::io_service* io_service
@@ -1321,6 +1330,7 @@ public:
 		m_progress_callback = progress_func;
 		m_url = url;
 		m_file_path = file_path;
+		m_start_size = start_size;
 		m_file_name = file_name;
 		m_value_map = value_map;
 		m_io_service = io_service;
@@ -1333,16 +1343,16 @@ public:
 			return;
 		}
 
-		m_socket = CarpNetSocketPtr(new CarpNetSocket(is_ssl, m_io_service, domain));
+		m_socket = CarpHttpSocketPtr(new CarpHttpSocket(is_ssl, m_io_service, domain));
 
 		// get ip dress by domain
-		m_resolver = CarpNetResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
+		m_resolver = CarpHttpResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
 		asio::ip::tcp::resolver::query ip_query(domain, std::to_string(port));
 
 		// bind callback
 		std::function<void(const asio::error_code& ec
 			, asio::ip::tcp::resolver::iterator endpoint_iterator)> query_func;
-		query_func = std::bind(&CarpNetHttpClientPost::HandleQueryIPByDemain, this->shared_from_this()
+		query_func = std::bind(&CarpHttpClientPost::HandleQueryIPByDemain, this->shared_from_this()
 			, std::placeholders::_1, std::placeholders::_2, domain, std::to_string(port));
 
 		// query
@@ -1363,12 +1373,12 @@ private:
 		{
 			m_error = "query ip by domain failed and try again:" + domain + ", " + port;
 			// try again
-			m_resolver = CarpNetResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
+			m_resolver = CarpHttpResolverPtr(new asio::ip::tcp::resolver(*m_io_service));
 			asio::ip::tcp::resolver::query ip_query(domain, port);
 
 			std::function<void(const asio::error_code& ec
 				, asio::ip::tcp::resolver::iterator endpoint_iterator)> query_func;
-			query_func = std::bind(&CarpNetHttpClientPost::HandleQueryIPByDemainAgain, this->shared_from_this()
+			query_func = std::bind(&CarpHttpClientPost::HandleQueryIPByDemainAgain, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2);
 
 			m_resolver->async_resolve(ip_query, query_func);
@@ -1385,7 +1395,7 @@ private:
 		// start connect
 		asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 		CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-			, std::bind(&CarpNetHttpClientPost::HandleSocketConnect, this->shared_from_this()
+			, std::bind(&CarpHttpClientPost::HandleSocketConnect, this->shared_from_this()
 				, std::placeholders::_1, ++endpoint_iterator));
 	}
 
@@ -1409,7 +1419,7 @@ private:
 		// start connect
 		asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 		CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-			, std::bind(&CarpNetHttpClientPost::HandleSocketConnect, this->shared_from_this()
+			, std::bind(&CarpHttpClientPost::HandleSocketConnect, this->shared_from_this()
 				, std::placeholders::_1, ++endpoint_iterator));
 	}
 
@@ -1431,7 +1441,7 @@ private:
 		{
 			asio::ip::tcp::resolver::iterator endpoint = endpoint_iterator;
 			CARPSOCKETHELPER_AsyncConnect(m_socket, endpoint
-				, std::bind(&CarpNetHttpClientPost::HandleSocketConnect, this->shared_from_this()
+				, std::bind(&CarpHttpClientPost::HandleSocketConnect, this->shared_from_this()
 					, std::placeholders::_1, ++endpoint_iterator));
 		}
 		else
@@ -1459,7 +1469,7 @@ private:
 
 		// connect succeed and send request
 		CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_head.c_str(), m_request_head.size()
-			, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpHttpClientPost::HandleSocketSendRequestHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
 	bool GeneratePostRequest(const std::string& domain, const std::string& add_header = "")
@@ -1517,8 +1527,10 @@ private:
 			fseek(m_file, 0, SEEK_END);
 			m_cur_size = 0;
 			m_total_size = (int)ftell(m_file);
+			if (m_start_size > m_total_size) m_start_size = m_total_size;
+			m_total_size -= m_start_size;
 			total_size += m_total_size;
-			fseek(m_file, 0, SEEK_SET);
+			fseek(m_file, m_start_size, SEEK_SET);
 
 			// generate file begin param
 			m_request_file_begin.append("--").append(CARP_CONTENT_TYPE_BOUNDARY).append("\r\n");
@@ -1593,7 +1605,7 @@ private:
 		{
 			// send param
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_param.c_str(), m_request_param.size()
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestParam, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestParam, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 			return;
 		}
 
@@ -1601,7 +1613,7 @@ private:
 		{
 			// send file begin param
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_file_begin.c_str(), m_request_file_begin.size()
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFileBegin, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFileBegin, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 			return;
 		}
 	}
@@ -1627,13 +1639,13 @@ private:
 		{
 			// send file begin param
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_file_begin.c_str(), m_request_file_begin.size()
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFileBegin, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFileBegin, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 			return;
 		}
 
 		// send end param
 		CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_file_end.c_str(), m_request_file_end.size()
-			, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
 	void HandleSocketSendRequestFileBegin(const asio::error_code& ec
@@ -1665,7 +1677,7 @@ private:
 		{
 			// send file content
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_http_buffer, read_size
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFile, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFile, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 		else
 		{
@@ -1673,7 +1685,7 @@ private:
 
 			// send end param
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_file_end.c_str(), m_request_file_end.size()
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 	}
 
@@ -1710,7 +1722,7 @@ private:
 		{
 			// send file content
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_http_buffer, read_size
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFile, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFile, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 		else
 		{
@@ -1718,7 +1730,7 @@ private:
 
 			// send end param
 			CARPSOCKETHELPER_AsyncWrite(m_socket, m_request_file_end.c_str(), m_request_file_end.size()
-				, std::bind(&CarpNetHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleSocketSendRequestFileEnd, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 	}
 
@@ -1741,7 +1753,7 @@ private:
 
 		// start receive http response
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientPost::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpHttpClientPost::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
 	void HandleResponseHead(const asio::error_code& ec, std::size_t actual_size)
@@ -1822,7 +1834,7 @@ private:
 		{
 			// read next bytes
 			CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-				, std::bind(&CarpNetHttpClientPost::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+				, std::bind(&CarpHttpClientPost::HandleResponseHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 		}
 	}
 
@@ -1856,7 +1868,7 @@ private:
 
 		// read next bytes
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientPost::HandleResponseByContentLength, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+			, std::bind(&CarpHttpClientPost::HandleResponseByContentLength, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 	}
 	void HandleResponseByChunk(const asio::error_code& ec, std::size_t actual_size, int buffer_offset)
 	{
@@ -1895,7 +1907,7 @@ private:
 				}
 
 				CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-					, std::bind(&CarpNetHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+					, std::bind(&CarpHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 				return;
 			}
 			else if (chunk_pos == 0)
@@ -1906,7 +1918,7 @@ private:
 					HandleResponseByChunk(ec, actual_size - add_chunk_size, buffer_offset + add_chunk_size);
 				else
 					CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-						, std::bind(&CarpNetHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+						, std::bind(&CarpHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 				return;
 			}
 
@@ -1939,7 +1951,7 @@ private:
 				HandleResponseByChunk(ec, actual_size - add_chunk_size, buffer_offset + add_chunk_size);
 			else
 				CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-					, std::bind(&CarpNetHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+					, std::bind(&CarpHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 			return;
 		}
 
@@ -1949,7 +1961,7 @@ private:
 
 			m_response_size -= static_cast<int>(actual_size);
 			CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-				, std::bind(&CarpNetHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+				, std::bind(&CarpHttpClientPost::HandleResponseByChunk, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 			return;
 		}
 
@@ -1982,7 +1994,7 @@ private:
 
 		// read next bytes
 		CARPSOCKETHELPER_AsyncReadSome(m_socket, m_http_buffer, sizeof(m_http_buffer)
-			, std::bind(&CarpNetHttpClientPost::HandleResponseByDataFollow, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
+			, std::bind(&CarpHttpClientPost::HandleResponseByDataFollow, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2, 0));
 	}
 
 private:
@@ -1999,13 +2011,14 @@ private:
 	int m_total_size;					// size of file
 	int m_cur_size;						// upload of file
 
-	CarpNetSocketPtr m_socket;			// Socket
-	CarpNetResolverPtr m_resolver;				// reslover
+	CarpHttpSocketPtr m_socket;			// Socket
+	CarpHttpResolverPtr m_resolver;				// reslover
 	asio::io_service* m_io_service;		// io_service
 
 	std::function<void(bool, const std::string&, const std::string&, const std::string&)> m_complete_callback; // callback
 	std::function<void(int, int)> m_progress_callback;
 	std::string m_file_path;			// the path of file to upload
+	int m_start_size;
 	std::string m_file_name;			// rename the file to upload
 	FILE* m_file;						// file object
 

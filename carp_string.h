@@ -1,6 +1,6 @@
 
-#ifndef _carp_STRING_INCLUDED
-#define _carp_STRING_INCLUDED
+#ifndef _CARP_STRING_INCLUDED
+#define _CARP_STRING_INCLUDED
 
 #include <stdlib.h>
 #include <string.h>

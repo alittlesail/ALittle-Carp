@@ -10,14 +10,18 @@ class CarpConnectClient;
 typedef std::shared_ptr<CarpConnectClient> CarpConnectClientPtr;
 typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;
 
+typedef unsigned int CARP_MESSAGE_SIZE;
+typedef int CARP_MESSAGE_ID;
+typedef int CARP_MESSAGE_RPCID;
+
+const static int CARP_PROTOCOL_HEAD_SIZE = sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID);
+
 class CarpConnectClient : public std::enable_shared_from_this<CarpConnectClient>
 {
 public:
 	CarpConnectClient(int head_of_size, int offset_of_size, int size_of_size)
-		: m_port(0), m_memory(0), m_excuting(false), m_is_connecting(false)
-		, m_offset_of_size(offset_of_size), m_size_of_size(size_of_size)
+		: m_port(0), m_memory(0), m_excuting(false), m_is_connecting(false), m_message_head()
 	{
-		m_message_head.resize(head_of_size);
 	}
 	~CarpConnectClient()
 	{
@@ -192,15 +196,15 @@ public:
 		}
 
 		// 读取协议大小
-		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head.data();
+		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head;
 
 		// 申请内存
 		if (m_memory) { free(m_memory); m_memory = 0; }
-		m_memory = malloc(message_size + m_message_head.size());
+		m_memory = malloc(message_size + CARP_PROTOCOL_HEAD_SIZE);
 		char* body_memory = (char*)m_memory;
 
 		// 协议头复制到内存
-		memcpy(body_memory, m_message_head.data(), m_message_head.size());
+		memcpy(body_memory, m_message_head, sizeof(m_message_head));
 
 		// 如果没有协议体表示读取完成
 		if (message_size == 0)
@@ -211,7 +215,7 @@ public:
 		}
 
 		// 开始读取协议体
-		asio::async_read(*m_socket, asio::buffer((char*)m_memory + m_message_head.size(), message_size)
+		asio::async_read(*m_socket, asio::buffer((char*)m_memory + CARP_PROTOCOL_HEAD_SIZE, message_size)
 			, std::bind(&CarpConnectClient::HandleReadBody, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 	void HandleReadBody(const asio::error_code& ec, std::size_t actual_size)
@@ -237,7 +241,7 @@ private:
 	{
 
 		// 获取协议大小
-		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head.data();
+		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head;
 		// 发送给调度系统
 		if (m_message_func)
 			m_message_func(m_memory, message_size + CARP_PROTOCOL_HEAD_SIZE);
@@ -253,9 +257,7 @@ public:
 
 private:
 	// 保存协议头
-	std::vector<char> m_message_head;
-	int m_offset_of_size;
-	int m_size_of_size;
+	char m_message_head[CARP_PROTOCOL_HEAD_SIZE];
 	// 保存协议体
 	void* m_memory;
 

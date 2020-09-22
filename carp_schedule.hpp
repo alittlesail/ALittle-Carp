@@ -14,12 +14,16 @@ public:
 	~CarpSchedule() { Exit(); }
 
 public:
-	void Start(std::function<void(time_t)> update_func)
+	void Start(bool async, std::function<void(time_t)> timer_func)
 	{
 		if (!m_is_exit) return;
 		m_is_exit = false;
-		m_update_func = update_func;
-		m_thread = new std::thread(&CarpSchedule::Run, this);
+		m_timer_func = timer_func;
+
+		if (async)
+			m_thread = new std::thread(&CarpSchedule::Run, this);
+		else
+			Run();
 	}
 
 	void Timer(int delay_ms)
@@ -38,7 +42,7 @@ public:
 
 		m_loop_timer = CarpAsioTimerPtr();
 		m_timer = CarpAsioTimerPtr();
-		m_update_func = std::function<void(time_t)>();
+		m_timer_func = std::function<void(time_t)>();
 	}
 
 	void Exit()
@@ -48,16 +52,19 @@ public:
 		m_is_exit = true;
 		m_io_service.stop();
 
-		m_thread->join();
-		delete m_thread;
-
+		if (m_thread)
+		{
+			m_thread->join();
+			delete m_thread;
+			m_thread = 0;
+		}
 	}
 
 private:
 	void LoopUpdate(const asio::error_code& ec)
 	{
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		if (m_update_func) m_update_func(time);
+		if (m_timer_func) m_timer_func(time);
 
 		if (!m_loop_timer || m_is_exit) return;
 		m_loop_timer->expires_at(std::chrono::system_clock::now() + std::chrono::seconds(0xEFFFFFFF));
@@ -77,7 +84,7 @@ private:
 	void TimerUpdate(const asio::error_code& ec)
 	{
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		if (m_update_func) m_update_func(time);
+		if (m_timer_func) m_timer_func(time);
 	}
 
 public:
@@ -92,7 +99,7 @@ private:
 	asio::io_service m_io_service;
 	CarpAsioTimerPtr m_loop_timer;
 	CarpAsioTimerPtr m_timer;
-	std::function<void(time_t)> m_update_func;
+	std::function<void(time_t)> m_timer_func;
 
 private:
 	std::thread* m_thread;

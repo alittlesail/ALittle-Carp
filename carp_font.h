@@ -29,7 +29,7 @@ extern carp_font_t* carp_font_load(const char* buffer, size_t len, int font_size
 extern void carp_font_free(carp_font_t* font);
 extern int carp_font_height(carp_font_t* font);
 extern int carp_font_linegap(carp_font_t* font);
-extern int carp_font_italic_extra_wdith(carp_font_t* font);
+extern int carp_font_italic_extra_width(carp_font_t* font);
 extern int carp_font_calc_wchar_width(carp_font_t* font, unsigned int unicode_char, unsigned int pre_char);
 extern unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* unicode_char, size_t len, int* width, int* height);
 extern void carp_font_release_bitmap(unsigned char* bitmap);
@@ -119,7 +119,7 @@ static int carp_font_linegap(carp_font_t* font)
 	return font->line_gap;
 }
 
-static int carp_font_italic_extra_wdith(carp_font_t* font)
+static int carp_font_italic_extra_width(carp_font_t* font)
 {
 	if (font == 0) return 0;
 	return font->font_italic_extra_width;
@@ -232,7 +232,7 @@ static unsigned char* carp_font_create_bitmap(carp_font_t* font, unsigned int* u
 	int acc_height = carp_font_height(font);
 	if (acc_width == 0 || acc_height == 0) return 0;
 
-	acc_width += carp_font_italic_extra_wdith(font);
+	acc_width += carp_font_italic_extra_width(font);
 	if (width) *width = acc_width;
 	if (height) *height = acc_height;
 

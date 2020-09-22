@@ -128,7 +128,7 @@ public:
 		char buffer[1024];
 		while (true)
 		{
-			size_t read_size = fread(buffer, 1, sizeof(buffer), file);
+			const size_t read_size = fread(buffer, 1, sizeof(buffer), file);
 			if (read_size == 0) break;
 			for (size_t i = 0; i < read_size; ++i)
 				out.push_back(buffer[i]);

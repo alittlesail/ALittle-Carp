@@ -98,15 +98,4 @@ private:
 	std::thread* m_thread;
 };
 
-extern CarpSchedule& CarpScheduleInstance();
-
-#ifdef CARP_SCHEDULE_IMPL
-CarpSchedule& CarpScheduleInstance()
-{
-	static CarpSchedule instance;
-	return instance;
-}
-#endif
-
-
 #endif

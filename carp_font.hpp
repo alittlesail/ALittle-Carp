@@ -23,8 +23,10 @@
 class CarpFontBitmap
 {
 public:
-	CarpFontBitmap(int width, int height)
+	CarpFontBitmap(int w, int h)
 	{
+		width = w;
+		height = h;
 		if (width > 0 && height > 0)
 		{
 			bitmap = (unsigned char*)malloc(width * height);
@@ -46,6 +48,7 @@ public:
 class CarpFont
 {
 public:
+	// buffer reference by CarpFont, do not free before delete CarpFont
 	CarpFont(const char* buffer, size_t len, unsigned int font_size, unsigned int font_style)
 	{
 		memset(&m_font, 0, sizeof(m_font));

@@ -53,10 +53,12 @@ public:
 #ifdef _WIN32
 		// 获取控制台句柄
 		m_out = GetStdHandle(STD_OUTPUT_HANDLE);
-#endif // _WIN32
+#endif
 
+#ifndef __EMSCRIPTEN__
 		// 启动
 		Start();
+#endif
 	}
 
 private:
@@ -72,7 +74,11 @@ public:
 		// 如果还未启动直接返回
 		if (!IsStart())
 		{
+#ifdef _WIN32
+			wprintf(CarpStringHelper::UTF82Unicode(content).c_str());
+#else
 			printf("%s\n", content);
+#endif		
 			return;
 		}
 

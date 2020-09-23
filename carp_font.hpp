@@ -1,11 +1,13 @@
+
+#ifdef CARP_FONT_IMPL
+#define STB_TRUETYPE_IMPLEMENTATION
+#endif
+
 #ifndef CARP_FONT_INCLUDED
 #define CARP_FONT_INCLUDED (1)
 
 #include <unordered_map>
 
-#ifdef CARP_FONT_IMPL
-#define STB_TRUETYPE_IMPLEMENTATION
-#endif
 #include "stb/stb_truetype.h"
 
 #define CARP_FONT_STYLE_NORMAL 0

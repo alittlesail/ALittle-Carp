@@ -9,6 +9,8 @@
 #include <fstream>
 #include <unordered_map>
 
+#include "carp_string_helper.hpp"
+
 class CarpHttpHelper
 {
 public:
@@ -1513,7 +1515,7 @@ private:
 		{
 			// open file
 #ifdef _WIN32
-			fopen_s(&m_file, m_file_path.c_str(), "rb");
+			_wfopen_s(&m_file, CarpStringHelper::UTF82Unicode(m_file_path).c_str(), L"rb");
 #else
 			m_file = fopen(m_file_path.c_str(), "rb");
 #endif

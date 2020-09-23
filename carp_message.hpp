@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "carp_string_helper.hpp"
+
 #define CARP_MESSAGE_DATA_OFSSET(data, offset) static_cast<void*>(static_cast<char*>(data) + offset)
 #define CARP_MESSAGE_CONST_DATA_OFSSET(data, offset) static_cast<const void*>(static_cast<const char*>(data) + offset)
 
@@ -774,7 +776,7 @@ public:
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		fopen_s(&file, file_path.c_str(), "rb");
+		_wfopen_s(&file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		FILE* file = fopen(file_path.c_str(), "rb");
 #endif
@@ -932,7 +934,7 @@ public:
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		fopen_s(&file, file_path.c_str(), "wb");
+		_wfopen_s(&file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"wb");
 #else
 		FILE* file = fopen(file_path.c_str(), "wb");
 #endif

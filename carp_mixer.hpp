@@ -1,13 +1,14 @@
-#ifndef CARP_MIXER_INCLUDED
-#define CARP_MIXER_INCLUDED (1)
-
-#include <mutex>
 
 #ifdef CARP_MIXER_IMPL
 #define SOKOL_IMPL
 #else
 #define STB_VORBIS_HEADER_ONLY
 #endif
+
+#ifndef CARP_MIXER_INCLUDED
+#define CARP_MIXER_INCLUDED (1)
+
+#include <mutex>
 
 #include "sokol/sokol_audio.h"
 #include "stb/stb_vorbis.c"
@@ -250,4 +251,11 @@ private:
 	std::mutex m_mutex;
 };
 
+extern CarpMixer& CarpMixerInstance();
+#define s_carp_mixer CarpMixerInstance()
+
+#endif
+
+#ifdef CARP_MIXER_IMPL
+CarpMixer& CarpMixerInstance() { static CarpMixer instance; return instance; }
 #endif

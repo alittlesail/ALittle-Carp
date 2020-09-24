@@ -25,15 +25,16 @@ public:
         return nullptr;
     }
 	
-    bool ReadFromStdFile(const std::string& filePath, std::string* error = nullptr)
+    bool ReadFromStdFile(const std::string& file_path, std::string* error = nullptr)
     {
+        m_file_path = file_path;
         m_data.resize(0);
 
         FILE* file = nullptr;
 #ifdef _WIN32
-        _wfopen_s(&file, CarpString::UTF82Unicode(filePath).c_str(), L"rb");
+        _wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
 #else
-        file = fopen(filePath.c_str(), "rb");
+        file = fopen(file_path.c_str(), "rb");
 #endif
         if (file == nullptr)
         {
@@ -78,12 +79,15 @@ public:
     size_t GetColCount() const { return m_data.empty() ? 0 : m_data[0].size(); }
     size_t GetRowCount() const { return m_data.size(); }
     const std::vector<std::string>& GetRowData(size_t index) const { return m_data[index]; }
+
+	// 这个函数的下标从1开始
 	const char* GetCell(size_t row, size_t col) const
 	{
-        if (row >= m_data.size()) return nullptr;
-        if (col >= m_data[row].size()) return nullptr;
-        return m_data[row][col].c_str();
+        if (row > m_data.size()) return nullptr;
+        if (col > m_data[row - 1].size()) return nullptr;
+        return m_data[row - 1][col - 1].c_str();
 	}
+    const char* GetPath() const { return m_file_path.c_str(); }
     void Clear() { m_data.clear(); }
 
 private:
@@ -279,6 +283,7 @@ private:
 
 private:
     std::string m_temp_string;
+    std::string m_file_path;
     std::vector<std::vector<std::string>> m_data;
 };
 

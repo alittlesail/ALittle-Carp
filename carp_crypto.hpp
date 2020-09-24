@@ -5,7 +5,7 @@
 #include <cstring>
 #include <string>
 
-class CarpCrypt
+class CarpCrypto
 {
 public:
 	/**

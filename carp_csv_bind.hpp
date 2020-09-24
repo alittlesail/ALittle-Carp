@@ -24,6 +24,7 @@ public:
 			.addFunction("GetRowCount", &CarpCsv::GetRowCount)
 			.addFunction("Clear", &CarpCsv::Clear)
 			.addFunction("GetCell", &CarpCsv::GetCell)
+			.addFunction("GetPath", &CarpCsv::GetPath)
 			.endClass()
 			.endNamespace();
 	}

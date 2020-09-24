@@ -4,7 +4,7 @@
 #include <string>
 #include <set>
 
-#include "carp_crypt.hpp"
+#include "carp_crypto.hpp"
 #include "carp_file.hpp"
 
 extern "C" {
@@ -223,7 +223,7 @@ public:
 
 		std::string start_text = "-- ALittle Generate Lua";
 		if (content.size() < start_text.size() || start_text != std::string(content.data(), start_text.size()))
-			CarpCrypt::XXTeaDecodeMemory(content.data(), static_cast<int>(content.size()), 0);
+			CarpCrypto::XXTeaDecodeMemory(content.data(), static_cast<int>(content.size()), 0);
 		RunScript(content.data(), content.size(), lua_path.c_str());
 		return true;
 	}

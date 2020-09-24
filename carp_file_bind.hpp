@@ -20,7 +20,7 @@ public:
             .addFunction("DeleteFolder", DeleteFolder)
 			.addCFunction("GetPathAttribute", GetPathAttribute)
             .addCFunction("GetFileNameListInFolder", GetFileNameListInFolder)
-            .addCFunction("GetDirNameListInFolder", GetDirNameListInFolder)
+            .addCFunction("GetFolderNameListInFolder", GetFolderNameListInFolder)
 			.endNamespace();
 	}
 
@@ -73,7 +73,7 @@ private:
         return 1;
 	}
 
-    static int GetDirNameListInFolder(lua_State* l_state)
+    static int GetFolderNameListInFolder(lua_State* l_state)
     {
         const char* file_path = luaL_checkstring(l_state, 1);
         if (file_path == nullptr) return 0;

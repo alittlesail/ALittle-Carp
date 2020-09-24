@@ -93,8 +93,8 @@ public:
 		{
 			asio::error_code ec;
 			m_socket->close(ec);
+			m_socket = CarpSocketPtr();
 		}
-		m_socket = CarpSocketPtr();
 
 		// 这里不要急着释放m_memory，可能asio正在用
 		// 放到析构函数里面释放

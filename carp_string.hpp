@@ -187,6 +187,49 @@ public:
         return buffer;
 	}
 
+    static int UTF8GetByteCountOfOneWord(unsigned char first_char)
+    {
+        unsigned char temp = 0x80;
+        int num = 0;
+
+        unsigned char char_value = first_char;
+
+        if (char_value < 0x80) // ascii code.(0-127)
+            return 1;
+        while (temp & char_value)
+        {
+            ++num;
+            temp = temp >> 1;
+        }
+
+        return num;
+    }
+	
+    static int UTF8CalcWordCount(const char* str)
+    {
+        int count = 0;
+        size_t index = 0;
+        while (str[index] != 0)
+        {
+            index += UTF8GetByteCountOfOneWord(str[index]);
+            ++count;
+        }
+        return count;
+    }
+
+    static int UTF8CalcByteCountByWordCount(const char* str, int offset, int word_count)
+    {
+        int count = 0;
+        size_t index = offset;
+        while (str[index] != 0)
+        {
+            index += UTF8GetByteCountOfOneWord(str[index]);
+            ++count;
+            if (count >= word_count) break;
+        }
+        return (int)index - offset;
+    }
+
 #define UNKNOWN_UNICODE 0xFFFD
     static unsigned int GetOneUnicodeFromUTF8(const char* src, size_t srclen, int* increase)
     {

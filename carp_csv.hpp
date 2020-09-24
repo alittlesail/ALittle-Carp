@@ -15,7 +15,7 @@ public:
     CarpCsv() {}
     virtual ~CarpCsv() {}
 
-    typedef int(*read_file)(void*, int, int, void*);
+    typedef size_t(*read_file)(void*, size_t, size_t, void*);
 
 public:
 	const char* Load(const char* file_path)
@@ -58,8 +58,9 @@ public:
         return true;
     }
 
-	bool ReadFromCustomFile(read_file read_func, void* file, std::string* error = nullptr)
+	bool ReadFromCustomFile(const std::string& file_path, read_file read_func, void* file, std::string* error = nullptr)
     {
+        m_file_path = file_path;
         m_data.resize(0);
 
         try

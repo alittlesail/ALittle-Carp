@@ -2,8 +2,6 @@
 #ifndef CARP_MINIHEAP_INCLUDED
 #define CARP_MINIHEAP_INCLUDED (1)
 
-#include <functional>
-
 template<typename T>
 class CarpMiniHeap
 {
@@ -18,7 +16,7 @@ public:
 	
     bool Push(T* element)
     {
-        if (m_size == UINT32_MAX || !Reserve(m_size + 1))
+        if (m_size == 0xFFFFFFFF || !Reserve(m_size + 1))
             return false;
     	
         ShitUp(m_size++, element);
@@ -61,7 +59,7 @@ public:
         greater than one or both its children. Since the children are known
         to be less than the parent, it can't need to shift both up and
         down. */
-        if (element->GetHeapIndex() > 0 && *m_elements[parent] > last)
+        if (element->GetHeapIndex() > 0 && *m_elements[parent] > *last)
             ShiftUpUnconditional(element->GetHeapIndex(), last);
         else
             ShiftDown(element->GetHeapIndex(), last);

@@ -8,6 +8,10 @@
 
 #include "Carp/carp_log.hpp"
 
+#ifdef _WIN32
+#pragma comment(lib, "libmysql.lib")
+#endif
+
 class MysqlConnection
 {
 public:

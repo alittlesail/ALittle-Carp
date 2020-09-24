@@ -2,8 +2,8 @@
 #define CARP_LOG_INCLUDED (1)
 
 #include "carp_thread_consumer.hpp"
-#include "carp_time_helper.hpp"
-#include "carp_string_helper.hpp"
+#include "carp_time.hpp"
+#include "carp_string.hpp"
 
 #include <string>
 #include <sstream>
@@ -75,7 +75,7 @@ public:
 		if (!IsStart())
 		{
 #ifdef _WIN32
-			wprintf(CarpStringHelper::UTF82Unicode(content).c_str());
+			wprintf(CarpString::UTF82Unicode(content).c_str());
 #else
 			printf("%s\n", content);
 #endif		
@@ -87,7 +87,7 @@ public:
 		// 保存颜色
 		log.level = level;
 		// 设置当前时间
-		CarpTimeHelper::FormatTime(CarpTimeHelper::GetCurTime(), 0, '-', &(log.content), ':');
+		CarpTime::FormatTime(CarpTime::GetCurTime(), 0, '-', &(log.content), ':');
 		// 添加一个空格
 		log.content.push_back(' ');
 		// 添加日志内容
@@ -128,13 +128,13 @@ protected:
 			}
 
 			std::string YMD, HMS;
-			CarpTimeHelper::FormatTime(cur_time, &YMD, '-', &HMS, '-');
+			CarpTime::FormatTime(cur_time, &YMD, '-', &HMS, '-');
 
 			// 创建一个新的文件对象
 			std::string file_path;
 			file_path.append(m_file_path).append(m_file_name).append("_").append(YMD).append("_").append(HMS).append(".log");
 #ifdef _WIN32
-			_wfopen_s(&m_file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"a");
+			_wfopen_s(&m_file, CarpString::UTF82Unicode(file_path).c_str(), L"a");
 #else
 			m_file = fopen(file_path.c_str(), "a");
 #endif
@@ -143,7 +143,7 @@ protected:
 				printf("log file open failed:%s", file_path.c_str());
 
 			// 把最新时间的0点保存起来
-			m_cur_day = CarpTimeHelper::CalcTodayBeginTime(cur_time);
+			m_cur_day = CarpTime::CalcTodayBeginTime(cur_time);
 		}
 
 		if (m_file == nullptr)
@@ -165,7 +165,7 @@ protected:
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_EVENT);
 		else
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
-		wprintf(CarpStringHelper::UTF82Unicode(info.content).c_str());
+		wprintf(CarpString::UTF82Unicode(info.content).c_str());
 		SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif __ANDROID__
 		if (info.color == CARP_LOG_LEVEL_ERROR)

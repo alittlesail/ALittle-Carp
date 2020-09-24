@@ -7,8 +7,8 @@
 #include <vector>
 
 
-#include "carp_string_helper.hpp"
-#include "carp_time_helper.hpp"
+#include "carp_string.hpp"
+#include "carp_time.hpp"
 
 class CarpFileChunk
 {
@@ -380,7 +380,7 @@ private:
 		
 		// open native file
 #ifdef _WIN32
-		_wfopen_s(&native_file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"rb");
+		_wfopen_s(&native_file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		native_file = fopen(file_path.c_str(), "rb");
 #endif
@@ -416,7 +416,7 @@ private:
 				
 				it->second.chunk->SetStatus(CarpFileChunk::FILECACHESTATUS_LOADING);
 				file_cache = it->second.chunk;
-				it->second.update_time = CarpTimeHelper::GetCurTime();
+				it->second.update_time = CarpTime::GetCurTime();
 			}
 			else if (it->second.chunk->GetStatus() == CarpFileChunk::FILECACHESTATUS_LOADING)
 			{
@@ -426,7 +426,7 @@ private:
 			// 只有处于完全加载状态才可以被多个引用
 			else
 			{
-				it->second.update_time = CarpTimeHelper::GetCurTime();
+				it->second.update_time = CarpTime::GetCurTime();
 				file_cache = it->second.chunk;
 			}
 		}
@@ -434,7 +434,7 @@ private:
 		{
 			// create info and set status
 			FileCacheInfo info;
-			info.create_time = CarpTimeHelper::GetCurTime();
+			info.create_time = CarpTime::GetCurTime();
 			info.update_time = info.create_time;
 			info.chunk = CarpFileChunkPtr(new CarpFileChunk(-1)); // use default unit size
 			info.chunk->SetStatus(CarpFileChunk::FILECACHESTATUS_LOADING);

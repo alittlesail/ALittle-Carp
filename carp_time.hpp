@@ -1,5 +1,5 @@
-#ifndef CARP_TIMEHELPER_INCLUDED
-#define CARP_TIMEHELPER_INCLUDED (1)
+#ifndef CARP_TIME_INCLUDED
+#define CARP_TIME_INCLUDED (1)
 
 #include <chrono>
 #include <ctime>
@@ -11,7 +11,7 @@ const int CARP_TIME_ONE_DAY_SECONDS = 24 * CARP_TIME_ONE_HOUR_SECONDS;		// Ò»Ììµ
 const int CARP_TIME_ONE_WEEK_DAY = 7;								// Ò»ÖÜÐèÒªµÄÌìÊý
 const int CARP_TIME_ONE_WEEK_SECONDS = 7 * CARP_TIME_ONE_DAY_SECONDS;		// Ò»ÖÜÐèÒªµÄÃëÊý
 
-class CarpTimeHelper
+class CarpTime
 {
 public:
 	static tm GetTimeStruct(time_t cur_time)

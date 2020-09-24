@@ -9,7 +9,7 @@
 #include <thread>
 
 #include <Windows.h>
-#include "Carp/carp_string_helper.hpp"
+#include "Carp/carp_string.hpp"
 #include "Carp/carp_log.hpp"
 
 class CarpConsole
@@ -29,7 +29,7 @@ public:
 
         m_run = true;
         m_thread = new std::thread(&CarpConsole::Run, this);
-        m_title = CarpStringHelper::UTF82Unicode(title);
+        m_title = CarpString::UTF82Unicode(title);
         m_handle = func;
         m_exit = exit;
         m_list = list;
@@ -107,7 +107,7 @@ private:
                 {
                     if (cmd.empty()) continue;
 
-                    std::string cmd_utf8 = CarpStringHelper::Unicode2UTF8(cmd);
+                    std::string cmd_utf8 = CarpString::Unicode2UTF8(cmd);
                     HandleCmd(cmd_utf8);
                     cmd.clear();
                 }
@@ -127,12 +127,12 @@ private:
     }
     void HandleCmd(std::string& cmd)
     {
-        CarpStringHelper::TrimLeft(cmd);
-        CarpStringHelper::TrimRight(cmd);
+        CarpString::TrimLeft(cmd);
+        CarpString::TrimRight(cmd);
         if (cmd.empty()) return;
 
         std::string upper_cmd = cmd;
-        CarpStringHelper::UpperString(upper_cmd);
+        CarpString::UpperString(upper_cmd);
         if (m_exit && upper_cmd == "EXIT")
         {
             m_exit();
@@ -158,8 +158,8 @@ private:
         }
         std::string module_name = cmd.substr(0, module_pos);
         std::string cmd_content = cmd.substr(module_pos + 1);
-        CarpStringHelper::TrimLeft(cmd_content);
-        CarpStringHelper::TrimRight(cmd_content);
+        CarpString::TrimLeft(cmd_content);
+        CarpString::TrimRight(cmd_content);
 
         if (m_handle) m_handle(module_name, cmd_content);
     }

@@ -9,7 +9,7 @@
 #include <fstream>
 #include <unordered_map>
 
-#include "carp_string_helper.hpp"
+#include "carp_string.hpp"
 
 class CarpHttpHelper
 {
@@ -396,6 +396,12 @@ typedef std::shared_ptr<CarpHttpSocket> CarpHttpSocketPtr;
 
 #ifdef CARP_HAS_SSL
 #include <asio/ssl.hpp>
+
+#ifdef _WIN32
+#pragma comment(lib, "libcrypto.lib")
+#pragma comment(lib, "libssl.lib")
+#endif
+
 typedef std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>> CarpHttpSSLSocketPtr;
 class CarpHttpSocket
 {
@@ -1515,7 +1521,7 @@ private:
 		{
 			// open file
 #ifdef _WIN32
-			_wfopen_s(&m_file, CarpStringHelper::UTF82Unicode(m_file_path).c_str(), L"rb");
+			_wfopen_s(&m_file, CarpString::UTF82Unicode(m_file_path).c_str(), L"rb");
 #else
 			m_file = fopen(m_file_path.c_str(), "rb");
 #endif

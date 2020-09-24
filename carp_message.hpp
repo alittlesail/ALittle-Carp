@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-#include "carp_string_helper.hpp"
+#include "carp_string.hpp"
 
 #define CARP_MESSAGE_DATA_OFSSET(data, offset) static_cast<void*>(static_cast<char*>(data) + offset)
 #define CARP_MESSAGE_CONST_DATA_OFSSET(data, offset) static_cast<const void*>(static_cast<const char*>(data) + offset)
@@ -776,7 +776,7 @@ public:
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		_wfopen_s(&file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"rb");
+		_wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		FILE* file = fopen(file_path.c_str(), "rb");
 #endif
@@ -930,17 +930,17 @@ public:
 	 */
 	int Deserialize(const void* data, int len) override { return -1; }
 
-	static bool WriteToStdFile(const std::string& file_path, const std::vector<char>& out)
+	static bool WriteMemoryToStdFile(const std::string& file_path, const char* memory, size_t size)
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		_wfopen_s(&file, CarpStringHelper::UTF82Unicode(file_path).c_str(), L"wb");
+		_wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"wb");
 #else
 		FILE* file = fopen(file_path.c_str(), "wb");
 #endif
 		if (file == nullptr) return false;
 
-		if (out.size() > 0) fwrite(out.data(), 1, out.size(), file);
+		if (size > 0) fwrite(memory, 1, size, file);
 
 		fclose(file);
 		return true;
@@ -952,7 +952,7 @@ public:
 	 */
 	bool WriteToStdFile(const char* file_path) const
 	{
-		return WriteToStdFile(file_path, m_memory);
+		return WriteMemoryToStdFile(file_path, m_memory.data(), m_memory.size());
 	}
 
 	/**

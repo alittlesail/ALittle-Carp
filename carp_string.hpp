@@ -1,5 +1,5 @@
-#ifndef CARP_STRINGHELPER_INCLUDED
-#define CARP_STRINGHELPER_INCLUDED (1)
+#ifndef CARP_STRING_INCLUDED
+#define CARP_STRING_INCLUDED (1)
 
 #include <list>
 #include <string>
@@ -7,7 +7,7 @@
 
 // 数字和字符串互转，请使用std::to_string和std::atoi
 
-class CarpStringHelper
+class CarpString
 {
 public:
     // 删除左边的空格

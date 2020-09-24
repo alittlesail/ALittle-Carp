@@ -26,6 +26,14 @@
 #include <utime.h>
 #endif
 
+#ifdef _WIN32
+#define CARP_STAT_STRUCT struct _stati64
+#define CARP_STAT_FUNC _wstati64
+#else
+#define CARP_STAT_STRUCT struct stat
+#define CARP_STAT_FUNC stat
+#endif
+
 #include "carp_string.hpp"
 
 class CarpFile
@@ -71,39 +79,54 @@ public:
 	// 判断文件是否存在
 	static bool IsFileExist(const std::string& path)
 	{
+		CARP_STAT_STRUCT buffer;
 #ifdef _WIN32
 		std::wstring wpath = CarpString::UTF82Unicode(path);
-#define STAT_STRUCT struct _stati64
-#define STAT_FUNC _wstati64
-		STAT_STRUCT buffer;
-		if (STAT_FUNC(wpath.c_str(), &buffer)) return false;
-		return (buffer.st_mode & S_IFREG) != 0;
+		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
 #else
-#define STAT_STRUCT struct stat
-#define STAT_FUNC stat
-		STAT_STRUCT buffer;
-		if (STAT_FUNC(path.c_str(), &buffer)) return false;
-		return (buffer.st_mode & S_IFREG) != 0;
+		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
 #endif
+		return (buffer.st_mode & S_IFREG) != 0;
 	}
 
 	// 判断文件夹是否存在
 	static bool IsDirExist(const std::string& path)
 	{
+		CARP_STAT_STRUCT buffer;
 #ifdef _WIN32
 		std::wstring wpath = CarpString::UTF82Unicode(path);
-#define STAT_STRUCT struct _stati64
-#define STAT_FUNC _wstati64
-		STAT_STRUCT buffer;
-		if (STAT_FUNC(wpath.c_str(), &buffer)) return false;
-		return (buffer.st_mode & S_IFDIR) != 0;
+		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
 #else
-#define STAT_STRUCT struct stat
-#define STAT_FUNC stat
-		STAT_STRUCT buffer;
-		if (STAT_FUNC(path.c_str(), &buffer)) return false;
-		return (buffer.st_mode & S_IFDIR) != 0;
+		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
 #endif
+		return (buffer.st_mode & S_IFDIR) != 0;
+	}
+
+	struct PathAttribute
+	{
+		bool directory = false;	// 是否是路径
+		time_t modify_time = 0;	// 最后修改时间
+		time_t create_time = 0;	// 创建时间
+		size_t size = 0;		// 文件大小
+	};
+	
+	// 获取文件属性
+	static bool GetPathAttribute(const std::string& path, PathAttribute& attr)
+	{
+		CARP_STAT_STRUCT buffer;
+#ifdef _WIN32
+		std::wstring wpath = CarpString::UTF82Unicode(path);
+		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
+#else
+		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
+#endif
+
+		attr.directory = (buffer.st_mode & S_IFDIR) != 0;
+		attr.modify_time = buffer.st_mtime;
+		attr.create_time = buffer.st_ctime;
+		attr.size = buffer.st_size;
+
+		return true;
 	}
 
 	// 获取文件夹下的所有文件

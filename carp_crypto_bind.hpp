@@ -3,7 +3,6 @@
 #define CARP_CRYPT_BIND_INCLUDED (1)
 
 #include "carp_crypto.hpp"
-#include "carp_string.hpp"
 
 extern "C" {
 #include "lua/lua.h"
@@ -21,7 +20,6 @@ public:
 			.addCFunction("Base64Encode", Base64Encode)
             .addCFunction("Base64Decode", Base64Decode)
             .addCFunction("StringMd5", StringMd5)
-            .addCFunction("FileMd5", FileMd5)
 			.addFunction("JSHash", CarpCrypto::JSHash)
             .endNamespace();
 	}
@@ -59,43 +57,6 @@ private:
         lua_pushstring(l_state, CarpCrypto::Md4HashToString(&Digest).c_str());
         return 1;
 	}
-	
-    static int FileMd5(lua_State* l_state)
-    {
-        size_t l;
-        const char* file_path = luaL_checklstring(l_state, 1, &l);
-
-        CarpCrypto::MD5_HASH Digest;
-        CarpCrypto::Md5Context context;
-
-        CarpCrypto::Md5Initialise(&context);
-
-#ifdef _WIN32
-        std::wstring wfile_path = CarpString::UTF82Unicode(file_path);
-        FILE* file = 0;
-        _wfopen_s(&file, wfile_path.c_str(), L"rb");
-#else
-        FILE* file = fopen(file_path.c_str(), "rb");
-#endif
-        if (file == nullptr)
-        {
-            lua_pushstring(l_state, "");
-            return 1;
-        }
-
-        char buffer[1024];
-        while (true)
-        {
-            size_t read_size = fread(buffer, 1, sizeof(buffer), file);
-            if (read_size == 0) break;
-            CarpCrypto::Md5Update(&context, buffer, (int)read_size);
-        }
-        fclose(file);
-		
-        CarpCrypto::Md5Finalise(&context, &Digest);
-        lua_pushstring(l_state, CarpCrypto::Md4HashToString(&Digest).c_str());
-        return 1;
-    }
 };
 
 #endif

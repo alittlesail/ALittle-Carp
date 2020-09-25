@@ -102,11 +102,9 @@ typedef struct CARP_RWops
 extern const char* CARP_GetInternalDataPath();
 extern const char* CARP_GetExternalDataPath();
 
-extern CARP_RWops*  CARP_RWFromFile(const char* file, const char* mode);
-extern CARP_RWops*  CARP_RWFromFileByPlatform(const char* file, const char* mode);
-
-extern CARP_RWops*  CARP_RWFromFP(FILE* fp, bool autoclose);
-extern CARP_RWops*  CARP_RWFromMem(void* mem, int size);
+extern CARP_RWops* CARP_RWFromFile(const char* file, const char* mode, int only_assets);
+extern CARP_RWops* CARP_RWFromFP(FILE* fp, int autoclose);
+extern CARP_RWops* CARP_RWFromMem(void* mem, int size);
 
 extern CARP_RWops*  CARP_AllocRW(void);
 extern void  CARP_FreeRW(CARP_RWops* area);
@@ -189,7 +187,7 @@ static long long _carp_stdio_seek(CARP_RWops* context, long long offset, int whe
         return -1;
     }
 
-    if (fseek(context->hidden.stdio.fp, offset, stdiowhence) == 0) {
+    if (fseek(context->hidden.stdio.fp, (long)offset, stdiowhence) == 0) {
         long long pos = ftell(context->hidden.stdio.fp);
         if (pos < 0) {
             return -1;
@@ -440,14 +438,14 @@ const char* CARP_GetExternalDataPath()
     return CARP_GetInternalDataPath();
 }
 	
-CARP_RWops* CARP_RWFromFile(const char* file, const char* mode, int only_asset)
+CARP_RWops* CARP_RWFromFile(const char* file, const char* mode, int only_assets)
 {
     CARP_RWops* rwops = NULL;
     if (!file || !*file || !mode || !*mode) {
         return NULL;
     }
 #ifdef __ANDROID__
-    if (!only_asset)
+    if (!only_assets)
     {
         /* Try to open the file on the filesystem first */
         if (*file == '/') {
@@ -491,15 +489,15 @@ CARP_RWops* CARP_RWFromFile(const char* file, const char* mode, int only_asset)
 #elif __APPLE__
     FILE* fp = _carp_apple_OpenFPFromBundleOrFallback(file, mode);
 #elif _WIN32
-    size_t wfilelen = MultiByteToWideChar(CP_UTF8, 0, file, -1, NULL, 0);
-    wchar_t* wfile = (wchar_t*)malloc(sizeof(wchar_t) * (wfilelen + 1));
-    memset(wfile, 0, sizeof(wchar_t) * (wfilelen + 1));
-    MultiByteToWideChar(CP_UTF8, 0, file, -1, wfile, (int)wfilelen);
+    int wfile_len = MultiByteToWideChar(CP_UTF8, 0, file, -1, NULL, 0);
+    wchar_t* wfile = (wchar_t*)malloc(sizeof(wchar_t) * wfile_len);
+    memset(wfile, 0, sizeof(wchar_t) * wfile_len);
+    MultiByteToWideChar(CP_UTF8, 0, file, -1, wfile, wfile_len);
 
-    size_t wmodelen = MultiByteToWideChar(CP_UTF8, 0, mode, -1, NULL, 0);
-    wchar_t* wmode = (wchar_t*)malloc(sizeof(wchar_t) * (wmodelen + 1));
-    memset(wfile, 0, sizeof(wchar_t) * (wmodelen + 1));
-    MultiByteToWideChar(CP_UTF8, 0, mode, -1, wfile, (int)wmodelen);
+    int wmode_len = MultiByteToWideChar(CP_UTF8, 0, mode, -1, NULL, 0);
+    wchar_t* wmode = (wchar_t*)malloc(sizeof(wchar_t) * wmode_len);
+    memset(wmode, 0, sizeof(wchar_t) * wmode_len);
+    MultiByteToWideChar(CP_UTF8, 0, mode, -1, wmode, wmode_len);
     
     FILE* fp = NULL;
     _wfopen_s(&fp, wfile, wmode);

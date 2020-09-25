@@ -126,13 +126,13 @@ public:
 	static void GetNameListInFolder(const std::string& path, std::vector<std::string>& file_list, std::vector<std::string>& dir_list)
 	{
 #ifdef _WIN32
-		std::wstring wpath = UTF82Unicode(path);
 		//文件句柄
 		std::intptr_t   hFile = 0;
 		//文件信息
 		struct _wfinddata_t fileinfo;
-		std::wstring p;
-		if ((hFile = _wfindfirst(p.assign(wpath).append(L"\\*").c_str(), &fileinfo)) != -1)
+		std::wstring wpath = UTF82Unicode(path);
+		wpath += L"\\*";
+		if ((hFile = _wfindfirst(wpath.c_str(), &fileinfo)) != -1)
 		{
 			do
 			{
@@ -283,7 +283,7 @@ public:
 	{
 		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
 		std::wstring result;
-		result.resize(len);
+		if (len >= 1) result.resize(len - 1);
 		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
 		return result;
 	}
@@ -292,7 +292,7 @@ public:
 	{
 		int len = WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, NULL, 0, NULL, NULL);
 		std::string result;
-		result.resize(len);
+		if (len >= 1) result.resize(len -1);
 		WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, (char*)result.c_str(), len, NULL, NULL);
 		return result;
 	}

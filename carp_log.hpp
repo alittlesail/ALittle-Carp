@@ -70,7 +70,7 @@ private:
 	{
 		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
 		std::wstring result;
-		result.resize(len);
+		if (len >= 1) result.resize(len - 1);
 		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
 		return result;
 	}
@@ -86,6 +86,7 @@ public:
 		{
 #ifdef _WIN32
 			wprintf(UTF82Unicode(content).c_str());
+			wprintf(L"\n");
 #else
 			printf("%s\n", content);
 #endif		

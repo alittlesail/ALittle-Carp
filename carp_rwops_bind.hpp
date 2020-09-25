@@ -16,7 +16,7 @@ public:
 		luabridge::getGlobalNamespace(l_state)
 			.beginNamespace("carp")
 			.addCFunction("FileMd5", FileMd5)
-			.addFunction("CpFile", CarpRWops::CpFile)
+			.addFunction("CopyFile", CarpRWops::CpFile)
 			.addFunction("SaveFile", CarpRWops::SaveFile)
 			.addCFunction("BaseFilePath", BaseFilePath)
 			.addCFunction("ExternalFilePath", ExternalFilePath)

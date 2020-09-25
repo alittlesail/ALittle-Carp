@@ -74,8 +74,6 @@ public:
 	// 关闭连接
 	void Close()
 	{
-		auto hold = shared_from_this();
-		
 		// 释放带发送的消息包
 		auto end = m_pocket_list.end();
 		for (auto it = m_pocket_list.begin(); it != end; ++it)

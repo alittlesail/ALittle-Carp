@@ -9,8 +9,6 @@
 #include <fstream>
 #include <unordered_map>
 
-#include "carp_string.hpp"
-
 class CarpHttpHelper
 {
 public:
@@ -1480,6 +1478,17 @@ private:
 			, std::bind(&CarpHttpClientPost::HandleSocketSendRequestHead, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 
+#ifdef _WIN32
+	static std::wstring UTF82Unicode(const std::string& utf8)
+	{
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::wstring result;
+		result.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		return result;
+	}
+#endif
+	
 	bool GeneratePostRequest(const std::string& domain, const std::string& add_header = "")
 	{
 		// cut string after http://
@@ -1521,7 +1530,7 @@ private:
 		{
 			// open file
 #ifdef _WIN32
-			_wfopen_s(&m_file, CarpString::UTF82Unicode(m_file_path).c_str(), L"rb");
+			_wfopen_s(&m_file, UTF82Unicode(m_file_path).c_str(), L"rb");
 #else
 			m_file = fopen(m_file_path.c_str(), "rb");
 #endif

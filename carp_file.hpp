@@ -34,8 +34,6 @@
 #define CARP_STAT_FUNC stat
 #endif
 
-#include "carp_string.hpp"
-
 class CarpFile
 {
 public:
@@ -43,8 +41,7 @@ public:
 	static void CreateFolder(const std::string& path)
 	{
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
-		int result = _wmkdir(wpath.c_str());
+		int result = _wmkdir(UTF82Unicode(path).c_str());
 #else
 		mkdir(path.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP |
 			S_IWGRP | S_IXGRP | S_IROTH | S_IXOTH);
@@ -54,8 +51,7 @@ public:
 	static void DeleteFolder(const std::string& path)
 	{
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
-		_wrmdir(wpath.c_str());
+		_wrmdir(UTF82Unicode(path).c_str());
 #else
 		rmdir(path.c_str());
 #endif
@@ -81,8 +77,7 @@ public:
 	{
 		CARP_STAT_STRUCT buffer;
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
-		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
+		if (CARP_STAT_FUNC(UTF82Unicode(path).c_str(), &buffer)) return false;
 #else
 		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
 #endif
@@ -94,8 +89,7 @@ public:
 	{
 		CARP_STAT_STRUCT buffer;
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
-		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
+		if (CARP_STAT_FUNC(UTF82Unicode(path).c_str(), &buffer)) return false;
 #else
 		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
 #endif
@@ -115,8 +109,7 @@ public:
 	{
 		CARP_STAT_STRUCT buffer;
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
-		if (CARP_STAT_FUNC(wpath.c_str(), &buffer)) return false;
+		if (CARP_STAT_FUNC(UTF82Unicode(path).c_str(), &buffer)) return false;
 #else
 		if (CARP_STAT_FUNC(path.c_str(), &buffer)) return false;
 #endif
@@ -133,7 +126,7 @@ public:
 	static void GetNameListInFolder(const std::string& path, std::vector<std::string>& file_list, std::vector<std::string>& dir_list)
 	{
 #ifdef _WIN32
-		std::wstring wpath = CarpString::UTF82Unicode(path);
+		std::wstring wpath = UTF82Unicode(path);
 		//文件句柄
 		std::intptr_t   hFile = 0;
 		//文件信息
@@ -146,11 +139,11 @@ public:
 				if (fileinfo.attrib & _A_SUBDIR)
 				{
 					if (wcscmp(fileinfo.name, L".") != 0 && wcscmp(fileinfo.name, L"..") != 0)
-						dir_list.push_back(CarpString::Unicode2UTF8(fileinfo.name));
+						dir_list.push_back(Unicode2UTF8(fileinfo.name));
 				}
 				else
 				{
-					file_list.push_back(CarpString::Unicode2UTF8(fileinfo.name));
+					file_list.push_back(Unicode2UTF8(fileinfo.name));
 				}
 			} while (_wfindnext(hFile, &fileinfo) == 0);
 			_findclose(hFile);
@@ -249,9 +242,8 @@ public:
 	static bool LoadStdFile(const std::string& file_path, std::vector<char>& out)
 	{
 #ifdef _WIN32
-		std::wstring wfile_path = CarpString::UTF82Unicode(file_path);
 		FILE* file = 0;
-		_wfopen_s(&file, wfile_path.c_str(), L"rb");
+		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		FILE* file = fopen(file_path.c_str(), "rb");
 #endif
@@ -273,9 +265,8 @@ public:
 	static bool WriteToStdFile(const std::string& file_path, const std::vector<char>& out)
 	{
 #ifdef _WIN32
-		std::wstring wfile_path = CarpString::UTF82Unicode(file_path);
 		FILE* file = 0;
-		_wfopen_s(&file, wfile_path.c_str(), L"wb");
+		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"wb");
 #else
 		FILE* file = fopen(file_path.c_str(), "wb");
 #endif
@@ -286,6 +277,26 @@ public:
 		fclose(file);
 		return true;
 	}
+
+#ifdef WIN32
+	static std::wstring UTF82Unicode(const std::string& utf8)
+	{
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::wstring result;
+		result.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		return result;
+	}
+
+	static std::string Unicode2UTF8(const std::wstring& unicode)
+	{
+		int len = WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, NULL, 0, NULL, NULL);
+		std::string result;
+		result.resize(len);
+		WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, (char*)result.c_str(), len, NULL, NULL);
+		return result;
+	}
+#endif
 };
 
 #endif

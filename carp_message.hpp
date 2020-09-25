@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
-#include "carp_string.hpp"
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 #define CARP_MESSAGE_DATA_OFSSET(data, offset) static_cast<void*>(static_cast<char*>(data) + offset)
 #define CARP_MESSAGE_CONST_DATA_OFSSET(data, offset) static_cast<const void*>(static_cast<const char*>(data) + offset)
@@ -42,6 +44,17 @@ public:
 	inline CARP_MESSAGE_RPCID GetRpcID() const { return __rpc_id; }
 	inline void SetRpcID(CARP_MESSAGE_RPCID rpc_id) { __rpc_id = rpc_id; }
 
+#ifdef _WIN32
+	static std::wstring UTF82Unicode(const std::string& utf8)
+	{
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::wstring result;
+		result.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		return result;
+	}
+#endif
+	
 	// 传出的memory由外部接管释放，内部不做释放
 	void* CreateMemoryForSend(int* size) const
 	{
@@ -776,7 +789,7 @@ public:
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		_wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
+		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		FILE* file = fopen(file_path.c_str(), "rb");
 #endif
@@ -934,7 +947,7 @@ public:
 	{
 #ifdef _WIN32
 		FILE* file = 0;
-		_wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"wb");
+		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"wb");
 #else
 		FILE* file = fopen(file_path.c_str(), "wb");
 #endif

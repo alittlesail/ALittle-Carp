@@ -5,7 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "carp_string.hpp"
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define CARP_CSV_END_OF_FILE 0
 
@@ -24,6 +26,17 @@ public:
         if (!ReadFromStdFile(file_path, &m_temp_string)) return m_temp_string.c_str();
         return nullptr;
     }
+
+#ifdef _WIN32
+    static std::wstring UTF82Unicode(const std::string& utf8)
+    {
+        int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+        std::wstring result;
+        result.resize(len);
+        MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+        return result;
+    }
+#endif
 	
     bool ReadFromStdFile(const std::string& file_path, std::string* error = nullptr)
     {
@@ -32,7 +45,7 @@ public:
 
         FILE* file = nullptr;
 #ifdef _WIN32
-        _wfopen_s(&file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
+        _wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"rb");
 #else
         file = fopen(file_path.c_str(), "rb");
 #endif

@@ -3,7 +3,6 @@
 
 #include "carp_thread_consumer.hpp"
 #include "carp_time.hpp"
-#include "carp_string.hpp"
 
 #include <string>
 #include <sstream>
@@ -66,6 +65,17 @@ private:
 	std::string m_file_name;
 	std::string m_file_path;
 
+#ifdef WIN32
+	static std::wstring UTF82Unicode(const std::string& utf8)
+	{
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::wstring result;
+		result.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		return result;
+	}
+#endif
+	
 public:
 	// 日志
 	// content 表示日志的内容
@@ -75,7 +85,7 @@ public:
 		if (!IsStart())
 		{
 #ifdef _WIN32
-			wprintf(CarpString::UTF82Unicode(content).c_str());
+			wprintf(UTF82Unicode(content).c_str());
 #else
 			printf("%s\n", content);
 #endif		
@@ -134,7 +144,7 @@ protected:
 			std::string file_path;
 			file_path.append(m_file_path).append(m_file_name).append("_").append(YMD).append("_").append(HMS).append(".log");
 #ifdef _WIN32
-			_wfopen_s(&m_file, CarpString::UTF82Unicode(file_path).c_str(), L"a");
+			_wfopen_s(&m_file, UTF82Unicode(file_path).c_str(), L"a");
 #else
 			m_file = fopen(file_path.c_str(), "a");
 #endif
@@ -165,7 +175,7 @@ protected:
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_EVENT);
 		else
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
-		wprintf(CarpString::UTF82Unicode(info.content).c_str());
+		wprintf(UTF82Unicode(info.content).c_str());
 		SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif __ANDROID__
 		if (info.color == CARP_LOG_LEVEL_ERROR)

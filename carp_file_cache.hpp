@@ -6,9 +6,11 @@
 #include <unordered_map>
 #include <vector>
 
-
-#include "carp_string.hpp"
 #include "carp_time.hpp"
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
 class CarpFileChunk
 {
@@ -373,6 +375,17 @@ public:
 	}
 
 private:
+#ifdef _WIN32
+	static std::wstring UTF82Unicode(const std::string& utf8)
+	{
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::wstring result;
+		result.resize(len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		return result;
+	}
+#endif
+	
 	static bool OpenNativeFile(const std::string& file_path, FILE*& native_file, int& native_size)
 	{
 		native_file = nullptr;
@@ -380,7 +393,7 @@ private:
 		
 		// open native file
 #ifdef _WIN32
-		_wfopen_s(&native_file, CarpString::UTF82Unicode(file_path).c_str(), L"rb");
+		_wfopen_s(&native_file, UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		native_file = fopen(file_path.c_str(), "rb");
 #endif

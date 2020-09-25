@@ -20,6 +20,25 @@ public:
 			.addFunction("SaveFile", CarpRWops::SaveFile)
 			.addCFunction("BaseFilePath", BaseFilePath)
 			.addCFunction("ExternalFilePath", ExternalFilePath)
+
+			.beginClass<CarpLocalFile>("CarpLocalFile")
+			.addConstructor<void(*)()>()
+			.addFunction("SetPath", &CarpLocalFile::SetPath)
+			.addFunction("Load", &CarpLocalFile::Load)
+			.addFunction("Clear", &CarpLocalFile::Clear)
+			.addFunction("Decrypt", &CarpLocalFile::Decrypt)
+			.addFunction("Encrypt", &CarpLocalFile::Encrypt)
+			.addFunction("Save", &CarpLocalFile::Save)
+			.addFunction("GetContent", &CarpLocalFile::GetContent)
+			.addFunction("GetPath", &CarpLocalFile::GetPath)
+			.addFunction("GetSize", &CarpLocalFile::GetSize)
+			.addFunction("ReadChar", &CarpLocalFile::ReadChar)
+			.addFunction("ReadUInt", &CarpLocalFile::ReadUInt)
+			.addFunction("ReadInt", &CarpLocalFile::ReadInt)
+			.addFunction("ReadFloat", &CarpLocalFile::ReadFloat)
+			.addFunction("ReadDouble", &CarpLocalFile::ReadDouble)
+			.endClass()
+		
 			.endNamespace();
 	}
 

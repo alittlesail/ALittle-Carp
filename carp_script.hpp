@@ -23,6 +23,7 @@ extern "C" {
 
 #include "LuaBridge/Source/LuaBridge/LuaBridge.h"
 #include "Carp/carp_log.hpp"
+#include "Carp/carp_rwops.hpp"
 
 class CarpScript
 {
@@ -43,7 +44,22 @@ public:
 
 		// open all library
 		luaL_openlibs(m_L); lua_settop(m_L, 0);
+
+		// register script system
+		luabridge::getGlobalNamespace(m_L)
+			.beginNamespace("carp")
+			.beginClass<CarpScript>("CarpScript")
+			.addFunction("Require", &CarpScript::Require)
+			.addFunction("RunScript", &CarpScript::RunScriptForLua)
+			.endClass()
+			.endNamespace();
+
+		luabridge::setGlobal(m_L, this, "__CPPAPI_CarpScript");
+
+		std::string require = "core_require = function(path) return __CPPAPI_CarpScript:Require(path) end";
+		RunScript(require.c_str(), require.size(), "ALittleBuild");
 	}
+	
 	void Release()
 	{
 		// close lua state
@@ -215,7 +231,7 @@ public:
 		m_script_set.insert(lua_path);
 
 		std::vector<char> content;
-		if (!LoadFile(lua_path.c_str(), content))
+		if (!CarpRWops::LoadFile(lua_path.c_str(), false, content))
 		{
 			CARP_ERROR("can't find lua file:" << lua_path);
 			return false;
@@ -226,12 +242,6 @@ public:
 			CarpCrypto::XXTeaDecodeMemory(content.data(), static_cast<int>(content.size()), 0);
 		RunScript(content.data(), content.size(), lua_path.c_str());
 		return true;
-	}
-
-private:	
-	virtual bool LoadFile(const char* file_path, std::vector<char>& content)
-	{
-		return CarpFile::LoadStdFile(file_path, content);
 	}
 
 protected:

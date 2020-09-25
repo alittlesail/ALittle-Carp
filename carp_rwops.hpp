@@ -4,9 +4,8 @@
 #include <string>
 #include <vector>
 
-
-#include "carp_crypto.hpp"
 #include "carp_rwops.h"
+#include "carp_crypto.hpp"
 
 class CarpRWops
 {
@@ -125,6 +124,155 @@ public:
 
 		return true;
 	}
+};
+
+class CarpLocalFile
+{
+public:
+	CarpLocalFile() { }
+	virtual ~CarpLocalFile() { Clear(); }
+
+public:
+	/**
+	* set file path
+	*/
+	void SetPath(const char* path)
+	{
+		Clear();
+
+		m_path.resize(0);
+		if (path == nullptr) return;
+		m_path = path;
+	}
+	/**
+	* load from normal dir, if not exist then load from asset dir
+	* @return succeed or not
+	*/
+	bool Load(bool only_assets)
+	{
+		ClearMemory();
+
+		// open file from local directory first
+		CARP_RWops* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
+		// check exist or not
+		if (!src_file) return false;
+
+		// get file size
+		m_size = (unsigned int)CARP_RWsize(src_file);
+
+		// malloc memory
+		m_memory = (char*)malloc(m_size + 1);
+		// write to memory
+		CARP_RWread(src_file, (char*)m_memory, m_size, 1);
+		// adjust to string
+		m_memory[m_size] = 0;
+		// close file
+		CARP_RWclose(src_file);
+
+		return true;
+	}
+
+	/**
+	* Decrypt
+	*/
+	void Decrypt(const char* key)
+	{
+		if (!m_memory) return;
+		CarpCrypto::XXTeaDecodeMemory(m_memory, m_size, key);
+	}
+
+	/**
+	* Crypt
+	*/
+	void Encrypt(const char* key)
+	{
+		if (!m_memory) return;
+		CarpCrypto::XXTeaEncodeMemory(m_memory, m_size, key);
+	}
+
+	/**
+	* clear
+	*/
+	void Clear()
+	{
+		m_path = "";
+		m_size = 0;
+
+		ClearMemory();
+	}
+
+	/**
+	* save to
+	*/
+	void Save(const char* file_path)
+	{
+		if (!m_memory) return;
+		CarpRWops::SaveFile(file_path, m_memory, m_size);
+	}
+
+private:
+	/**
+	* clear
+	*/
+	void ClearMemory()
+	{
+		if (m_memory)
+		{
+			free(m_memory);
+			m_memory = 0;
+		}
+
+		if (m_read_rwops)
+		{
+			CARP_RWclose(m_read_rwops);
+			m_read_rwops = 0;
+		}
+
+		m_cur_offset = 0;
+	}
+
+public:
+	const char* GetContent() const { return m_memory; }
+	const char* GetPath() const { return m_path.c_str(); }
+	int GetSize() const { return m_size; }
+
+public:
+	char ReadChar(int offset) const
+	{
+		if (offset + (int)sizeof(char) > m_size) return 0;
+		return *(m_memory + offset);
+	}
+	unsigned int ReadUInt(int offset) const
+	{
+		if (offset + (int)sizeof(unsigned int) > m_size) return 0;
+		return *((unsigned int*)(m_memory + offset));
+	}
+	int ReadInt(int offset) const
+	{
+		if (offset + (int)sizeof(int) > m_size) return 0;
+		return *((int*)(m_memory + offset));
+	}
+	float ReadFloat(int offset) const
+	{
+		if (offset + (int)sizeof(float) > m_size) return 0;
+		return *((float*)(m_memory + offset));
+	}
+	double ReadDouble(int offset) const
+	{
+		if (offset + (int)sizeof(double) > m_size) return 0;
+		return *((double*)(m_memory + offset));
+	}
+
+private:
+	std::string m_path;		// file path
+
+private:
+	char* m_memory = 0;			// content
+	int m_size = 0;				// file_size
+
+private:
+	int m_cur_offset = 0;
+	CARP_RWops* m_read_rwops = nullptr;
 };
 
 #endif

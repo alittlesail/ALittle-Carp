@@ -1,3 +1,4 @@
+
 #ifndef CARP_RWOPS_INCLUDED
 #define CARP_RWOPS_INCLUDED (1)
 
@@ -6,12 +7,7 @@
 #endif
 
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
-
-#ifdef _WIN32
-#include <winnls.h>
-#endif
 
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
@@ -154,10 +150,18 @@ extern size_t  CARP_RWwrite(CARP_RWops* context, const void* ptr, size_t size, s
  */
 extern int CARP_RWclose(CARP_RWops* context);
 
-	
-#ifndef CARP_RWOPS_IMPL
-	
-static long long _carp_stdio_size(CARP_RWops* context)
+#ifdef __cplusplus
+}
+#endif
+#endif
+
+#ifdef CARP_RWOPS_IMPL
+
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
+long long _carp_stdio_size(CARP_RWops* context)
 {
     long long pos, size;
     pos = CARP_RWseek(context, 0, CARP_RW_SEEK_CUR);
@@ -169,7 +173,7 @@ static long long _carp_stdio_size(CARP_RWops* context)
     return size;
 }
 
-static long long _carp_stdio_seek(CARP_RWops* context, long long offset, int whence)
+long long _carp_stdio_seek(CARP_RWops* context, long long offset, int whence)
 {
     int stdiowhence;
 
@@ -197,17 +201,17 @@ static long long _carp_stdio_seek(CARP_RWops* context, long long offset, int whe
     return -1;
 }
 
-static size_t _carp_stdio_read(CARP_RWops* context, void* ptr, size_t size, size_t maxnum)
+size_t _carp_stdio_read(CARP_RWops* context, void* ptr, size_t size, size_t maxnum)
 {
     return fread(ptr, size, maxnum, context->hidden.stdio.fp);
 }
 
-static size_t _carp_stdio_write(CARP_RWops* context, const void* ptr, size_t size, size_t num)
+size_t _carp_stdio_write(CARP_RWops* context, const void* ptr, size_t size, size_t num)
 {
     return fwrite(ptr, size, num, context->hidden.stdio.fp);
 }
 
-static int _carp_stdio_close(CARP_RWops* context)
+int _carp_stdio_close(CARP_RWops* context)
 {
     int status = 0;
     if (context) {
@@ -222,12 +226,12 @@ static int _carp_stdio_close(CARP_RWops* context)
     return status;
 }
 
-static long long _carp_mem_size(CARP_RWops* context)
+long long _carp_mem_size(CARP_RWops* context)
 {
     return (long long)(context->hidden.mem.stop - context->hidden.mem.base);
 }
 
-static long long _carp_mem_seek(CARP_RWops* context, long long offset, int whence)
+long long _carp_mem_seek(CARP_RWops* context, long long offset, int whence)
 {
     unsigned char* newpos;
 
@@ -254,7 +258,7 @@ static long long _carp_mem_seek(CARP_RWops* context, long long offset, int whenc
     return (long long)(context->hidden.mem.here - context->hidden.mem.base);
 }
 
-static size_t _carp_mem_read(CARP_RWops* context, void* ptr, size_t size, size_t maxnum)
+size_t _carp_mem_read(CARP_RWops* context, void* ptr, size_t size, size_t maxnum)
 {
     size_t total_bytes;
     size_t mem_available;
@@ -276,7 +280,7 @@ static size_t _carp_mem_read(CARP_RWops* context, void* ptr, size_t size, size_t
     return (total_bytes / size);
 }
 
-static size_t _carp_mem_write(CARP_RWops* context, const void* ptr, size_t size, size_t num)
+size_t _carp_mem_write(CARP_RWops* context, const void* ptr, size_t size, size_t num)
 {
     if ((context->hidden.mem.here + (num * size)) > context->hidden.mem.stop) {
         num = (context->hidden.mem.stop - context->hidden.mem.here) / size;
@@ -286,9 +290,17 @@ static size_t _carp_mem_write(CARP_RWops* context, const void* ptr, size_t size,
     return num;
 }
 
+int _carp_mem_close(CARP_RWops* context)
+{
+    if (context) {
+        CARP_FreeRW(context);
+    }
+    return 0;
+}
+
 #ifdef __ANDROID__
 
-static int _carp_Android_JNI_FileOpen(CARP_RWops* ctx, const char* fileName, const char* mode)
+int _carp_Android_JNI_FileOpen(CARP_RWops* ctx, const char* fileName, const char* mode)
 {
     AAsset* asset = NULL;
     ctx->hidden.androidio.asset = NULL;
@@ -307,7 +319,7 @@ static int _carp_Android_JNI_FileOpen(CARP_RWops* ctx, const char* fileName, con
     return 0;
 }
 
-static size_t _carp_Android_JNI_FileRead(CARP_RWops* ctx, void* buffer, size_t size, size_t maxnum)
+size_t _carp_Android_JNI_FileRead(CARP_RWops* ctx, void* buffer, size_t size, size_t maxnum)
 {
     size_t result;
     AAsset* asset = (AAsset*)ctx->hidden.androidio.asset;
@@ -323,14 +335,13 @@ static size_t _carp_Android_JNI_FileRead(CARP_RWops* ctx, void* buffer, size_t s
     }
 }
 
-static size_t _carp_Android_JNI_FileWrite(CARP_RWops* ctx, const void* buffer,
-    size_t size, size_t num)
+size_t _carp_Android_JNI_FileWrite(CARP_RWops* ctx, const void* buffer, size_t size, size_t num)
 {
     // "Cannot write to Android package filesystem";
     return 0;
 }
 
-static long long _carp_Android_JNI_FileSize(CARP_RWops* ctx)
+long long _carp_Android_JNI_FileSize(CARP_RWops* ctx)
 {
     off64_t result;
     AAsset* asset = (AAsset*)ctx->hidden.androidio.asset;
@@ -338,7 +349,7 @@ static long long _carp_Android_JNI_FileSize(CARP_RWops* ctx)
     return result;
 }
 
-static long long _carp_Android_JNI_FileSeek(CARP_RWops* ctx, long long offset, int whence)
+long long _carp_Android_JNI_FileSeek(CARP_RWops* ctx, long long offset, int whence)
 {
     off64_t result;
     AAsset* asset = (AAsset*)ctx->hidden.androidio.asset;
@@ -346,7 +357,7 @@ static long long _carp_Android_JNI_FileSeek(CARP_RWops* ctx, long long offset, i
     return result;
 }
 
-static int _carp_Android_JNI_FileClose(CARP_RWops* ctx)
+int _carp_Android_JNI_FileClose(CARP_RWops* ctx)
 {
     AAsset* asset = (AAsset*)ctx->hidden.androidio.asset;
     AAsset_close(asset);
@@ -354,14 +365,6 @@ static int _carp_Android_JNI_FileClose(CARP_RWops* ctx)
 }
 
 #endif
-
-static int _carp_mem_close(CARP_RWops* context)
-{
-    if (context) {
-        CARP_FreeRW(context);
-    }
-    return 0;
-}
 
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
@@ -432,7 +435,7 @@ const char* CARP_GetExternalDataPath()
 #ifdef __ANDROID__
     ANativeActivity* activity = (ANativeActivity*)sapp_android_get_native_activity();
     if (activity == NULL) return path;
-    if (activity->assetManager == NUL) return path;
+    if (activity->assetManager == NULL) return path;
     return activity->externalDataPath;
 #endif
     return CARP_GetInternalDataPath();
@@ -509,7 +512,6 @@ CARP_RWops* CARP_RWFromFile(const char* file, const char* mode, int only_assets)
     if (fp != NULL) {
         rwops = CARP_RWFromFP(fp, 1);
     }
-#endif
     return rwops;
 }
 
@@ -600,10 +602,5 @@ int CARP_RWclose(CARP_RWops* context)
 {
     return context->close(context);
 }
-
-#ifdef __cplusplus
-}
 #endif
 
-#endif
-	

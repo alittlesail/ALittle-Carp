@@ -14,7 +14,7 @@ public:
 
     virtual ~CarpThreadConsumer() { Stop(); }
 
-protected:
+public:
     // 启动
     void Start()
     {
@@ -62,7 +62,7 @@ protected:
         // 开始执行
         while (!m_list.empty())
         {
-            Flush(m_list.front());
+            Abandon(m_list.front());
             m_list.pop_front();
         }
     }
@@ -86,7 +86,7 @@ private:
             // 开始执行
             while (!temp_list.empty())
             {
-                Flush(temp_list.front());
+                Execute(temp_list.front());
                 temp_list.pop_front();
             }
         }
@@ -96,7 +96,8 @@ private:
 
 protected:
     // 执行日志
-    virtual void Flush(T& info) = 0;
+    virtual void Execute(T& info) = 0;
+    virtual void Abandon(T& info) { Execute(info); }
 
 private:
     std::mutex m_mutex;                 // 互斥锁

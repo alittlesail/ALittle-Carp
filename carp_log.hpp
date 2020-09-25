@@ -125,7 +125,7 @@ public:
 
 protected:
 	// 执行日志
-	virtual void Flush(CarpLogInfo& info) override
+	virtual void Execute(CarpLogInfo& info) override
 	{
 		// 获取现在的时间
 		time_t cur_time = time(0);

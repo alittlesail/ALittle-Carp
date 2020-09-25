@@ -17,10 +17,7 @@ typedef int CARP_MESSAGE_RPCID;
 class CarpConnectClient : public std::enable_shared_from_this<CarpConnectClient>
 {
 public:
-	CarpConnectClient()
-		: m_port(0), m_memory(0), m_excuting(false), m_is_connecting(false), m_message_head()
-	{
-	}
+	CarpConnectClient() { }
 	~CarpConnectClient()
 	{
 		Close();
@@ -65,7 +62,7 @@ public:
 	// 判断是否已经连接
 	bool IsConnected() const
 	{
-		return m_is_connecting == false && m_socket != CarpSocketPtr();
+		return m_is_connected;
 	}
 
 	// 是否正在连接
@@ -77,6 +74,8 @@ public:
 	// 关闭连接
 	void Close()
 	{
+		auto hold = shared_from_this();
+		
 		// 释放带发送的消息包
 		auto end = m_pocket_list.end();
 		for (auto it = m_pocket_list.begin(); it != end; ++it)
@@ -87,13 +86,14 @@ public:
 		m_excuting = false;
 		// 标记为不是正在连接
 		m_is_connecting = false;
+		// 标记为未连接
+		m_is_connected = false;
 
 		// 释放socket
 		if (m_socket)
 		{
 			asio::error_code ec;
 			m_socket->close(ec);
-			m_socket = CarpSocketPtr();
 		}
 
 		// 这里不要急着释放m_memory，可能asio正在用
@@ -103,7 +103,7 @@ public:
 
 private:
 	std::string m_ip;			// 目标服务器的IP
-	unsigned int m_port;		// 目标服务器端口
+	unsigned int m_port = 0;		// 目标服务器端口
 
 public:
 	// 获取目标服务器IP和端口
@@ -130,6 +130,8 @@ private:
 		m_excuting = false;
 		// 标记为不是正在连接
 		m_is_connecting = false;
+		// 标记为已连接
+		m_is_connected = true;
 
 		// 开始接受消息包
 		NextReadHead();
@@ -137,8 +139,10 @@ private:
 		// 处理连接成功
 		HandleConnectSucceed();
 	}
-	bool m_is_connecting;
-
+	
+	bool m_is_connecting = false;
+	bool m_is_connected = false;
+	
 private:
 	// 处理断开连接
 	void ExecuteDisconnectCallback()
@@ -247,7 +251,7 @@ private:
 			free(m_memory);
 		// 内存已经移交出去，HandleMessage会负责释放
 		// 这里置0
-		m_memory = 0;
+		m_memory = nullptr;
 	}
 
 public:
@@ -255,9 +259,9 @@ public:
 
 private:
 	// 保存协议头
-	char m_message_head[CARP_PROTOCOL_HEAD_SIZE];
+	char m_message_head[CARP_PROTOCOL_HEAD_SIZE]{};
 	// 保存协议体
-	void* m_memory;
+	void* m_memory = nullptr;
 
 	//发送消息包部分/////////////////////////////////////////////////////////////////////////////////
 public:
@@ -318,7 +322,7 @@ private:
 	struct PocketInfo { int memory_size; void* memory; };
 	std::list<PocketInfo> m_pocket_list;  // 待发送的数据包列表
 
-	bool m_excuting;	// is in sending
+	bool m_excuting = false;	// is in sending
 
 private:
 	std::function<void()> m_failed_func;

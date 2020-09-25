@@ -60,16 +60,10 @@ public:
 	}
 
 	// 判断是否已经连接
-	bool IsConnected() const
-	{
-		return m_is_connected;
-	}
+	bool IsConnected() const { return m_is_connected; }
 
 	// 是否正在连接
-	bool IsConnecting() const
-	{
-		return m_is_connecting;
-	}
+	bool IsConnecting() const { return m_is_connecting; }
 
 	// 关闭连接
 	void Close()
@@ -112,6 +106,12 @@ private:
 	// 异步连接
 	void HandleAsyncConnect(const asio::error_code& ec)
 	{
+		// 标记为不是正在连接
+		m_is_connecting = false;
+		// 标记为不是正在发包
+		m_excuting = false;
+		// 标记为已连接
+		m_is_connected = false;
 		if (ec)
 		{
 			// 这个日志不打印，因为会出现太多，又不重要
@@ -124,10 +124,6 @@ private:
 		// 设置 no delay
 		m_socket->set_option(asio::ip::tcp::no_delay(true));
 
-		// 标记为不是正在发包
-		m_excuting = false;
-		// 标记为不是正在连接
-		m_is_connecting = false;
 		// 标记为已连接
 		m_is_connected = true;
 

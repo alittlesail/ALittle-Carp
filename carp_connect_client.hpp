@@ -141,9 +141,9 @@ private:
 	// 处理断开连接
 	void ExecuteDisconnectCallback()
 	{
-		// 如果socket是空指针，那么肯定是主动调用Close引起的
-	// 这个时候不属于断开连接，所以不要调用HandleDisconnected()
-		bool close_by_self = (m_socket == CarpSocketPtr());
+		// 如果不是正在连接，并且未连接成功，那么肯定是主动调用Close引起的
+		// 这个时候不属于断开连接，所以不要调用HandleDisconnected()
+		const bool close_by_self = m_is_connecting == false && m_is_connected == false;
 
 		// 关闭，内部会把m_socket设置为空指针
 		// 所以即使同时因为接收失败或者发送失败而触发的ExecuteDisconnectCallback也不会多次调用HandleDisconnected
@@ -153,17 +153,17 @@ private:
 		if (close_by_self == false) HandleDisconnected();
 	}
 	// 处理连接失败
-	void HandleConnectFailed()
+	void HandleConnectFailed() const
 	{
 		if (m_failed_func) m_failed_func();
 	}
 	// 处理连接成功
-	void HandleConnectSucceed()
+	void HandleConnectSucceed() const
 	{
 		if (m_succeed_func) m_succeed_func();
 	}
 	// 处理断开连接
-	void HandleDisconnected()
+	void HandleDisconnected() const
 	{
 		if (m_disconnected_func) m_disconnected_func();
 	}

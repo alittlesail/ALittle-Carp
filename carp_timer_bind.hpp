@@ -4,10 +4,10 @@
 #include "carp_timer.hpp"
 
 extern "C" {
-#include "lua/lua.h"
-#include "lua/lauxlib.h"
+#include "lua.h"
+#include "lauxlib.h"
 }
-#include "LuaBridge/Source/LuaBridge/LuaBridge.h"
+#include "LuaBridge/LuaBridge.h"
 
 class CarpTimerBind
 {

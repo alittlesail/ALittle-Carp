@@ -21,7 +21,7 @@ extern "C" {
 #endif
 #endif
 
-#include "LuaBridge/Source/LuaBridge/LuaBridge.h"
+#include "LuaBridge/LuaBridge.h"
 #include "Carp/carp_log.hpp"
 #include "Carp/carp_rwops.hpp"
 

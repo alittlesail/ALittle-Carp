@@ -16,11 +16,10 @@ public:
 public:
 	// async为true表示异步执行，所有回调会在支线程被调用
 	// 如果为false，表示所有回调会在调用Run所在的线程被执行
-	void Run(bool async, std::function<void(time_t)> timer_func)
+	void Run(bool async)
 	{
 		if (!m_is_exit) return;
 		m_is_exit = false;
-		m_timer_func = timer_func;
 
 		if (async)
 			m_thread = new std::thread(&CarpSchedule::RunImpl, this);
@@ -50,10 +49,13 @@ public:
 		}
 	}
 
-	void Timer(int delay_ms)
+	void Timer(int delay_ms, const std::function<void(time_t)>& timer_func)
 	{
 		if (m_is_exit) return;
-		m_io_service.post(std::bind(&CarpSchedule::TimerImpl, this, delay_ms));
+		if (m_thread)
+			m_io_service.post(std::bind(&CarpSchedule::TimerImpl, this, delay_ms, timer_func));
+		else
+			TimerImpl(delay_ms, timer_func);
 	}
 
 	void Exit()
@@ -82,33 +84,31 @@ private:
 
 		m_loop_timer = CarpAsioTimerPtr();
 		m_timer = CarpAsioTimerPtr();
-		m_timer_func = std::function<void(time_t)>();
 	}
 	
 	void LoopUpdate(const asio::error_code& ec)
 	{
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		if (m_timer_func) m_timer_func(time);
-
+		
 		if (!m_loop_timer || m_is_exit) return;
 		m_loop_timer->expires_at(std::chrono::system_clock::now() + std::chrono::seconds(0xEFFFFFFF));
 		m_loop_timer->async_wait(std::bind(&CarpSchedule::LoopUpdate, this, std::placeholders::_1));
 	}
 
-	void TimerImpl(int delay_ms)
+	void TimerImpl(int delay_ms, const std::function<void(time_t)>& timer_func)
 	{
 		if (!m_timer)
 			m_timer = CarpAsioTimerPtr(new CarpAsioTimer(m_io_service, std::chrono::milliseconds(delay_ms)));
 		else
 			m_timer->expires_after(std::chrono::milliseconds(delay_ms));
 
-		m_timer->async_wait(std::bind(&CarpSchedule::TimerUpdate, this, std::placeholders::_1));
+		m_timer->async_wait(std::bind(&CarpSchedule::TimerUpdate, this, std::placeholders::_1, timer_func));
 	}
 
-	void TimerUpdate(const asio::error_code& ec) const
+	void TimerUpdate(const asio::error_code& ec, const std::function<void(time_t)>& timer_func) const
 	{
 		auto time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		if (m_timer_func) m_timer_func(time);
+		if (timer_func) timer_func(time);
 	}
 
 public:
@@ -123,7 +123,6 @@ private:
 	asio::io_service m_io_service;
 	CarpAsioTimerPtr m_loop_timer;
 	CarpAsioTimerPtr m_timer;
-	std::function<void(time_t)> m_timer_func;
 
 private:
 	std::thread* m_thread;

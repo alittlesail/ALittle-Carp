@@ -2,9 +2,9 @@
 #define CARP_BIT_BIND_INCLUDED (1)
 
 extern "C" {
-#include "lua/lua.h"
+#include "lua.h"
 }
-#include "LuaBridge/Source/LuaBridge/LuaBridge.h"
+#include "LuaBridge/LuaBridge.h"
 
 class CarpBitBind
 {

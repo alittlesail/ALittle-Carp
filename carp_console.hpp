@@ -9,8 +9,8 @@
 #include <thread>
 
 #include <Windows.h>
-#include "Carp/carp_string.hpp"
-#include "Carp/carp_log.hpp"
+#include "carp_string.hpp"
+#include "carp_log.hpp"
 
 class CarpConsole
 {

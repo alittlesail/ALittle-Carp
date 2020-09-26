@@ -771,8 +771,8 @@ public:
 
 	/**
 	 * deserialize
-	 * @param data
-	 * @param len
+	 * @param data message body
+	 * @param len size of message body
 	 */
 	int Deserialize(const void* data, int len) override
 	{
@@ -781,6 +781,27 @@ public:
 		m_read_size = 0;
 		m_total_size = len;
 		m_last_read_size = 0;
+		return 0;
+	}
+
+	// total message = message head + message body
+	int DeserializeFromTotalMessage(const void* data)
+	{
+		char* body = (char*)data;
+		// get message size
+		CARP_MESSAGE_SIZE len = 0;
+		memcpy(&len, body, sizeof(CARP_MESSAGE_SIZE));
+		body += sizeof(CARP_MESSAGE_SIZE);
+		CARP_MESSAGE_ID head_id = 0;
+		memcpy(&head_id, body, sizeof(CARP_MESSAGE_ID));
+		body += sizeof(CARP_MESSAGE_ID);
+		CARP_MESSAGE_RPCID head_rpc_id = 0;
+		memcpy(&head_rpc_id, body, sizeof(CARP_MESSAGE_RPCID));
+		body += sizeof(CARP_MESSAGE_RPCID);
+
+		SetID(head_id);
+		SetRpcID(head_rpc_id);
+		Deserialize(body, len);
 		return 0;
 	}
 

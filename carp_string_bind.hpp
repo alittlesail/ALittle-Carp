@@ -3,9 +3,9 @@
 
 #include "carp_string.hpp"
 extern "C" {
-#include "lua/lua.h"
+#include "lua.h"
 }
-#include "LuaBridge/Source/LuaBridge/LuaBridge.h"
+#include "LuaBridge/LuaBridge.h"
 
 class CarpStringBind
 {

@@ -2,6 +2,7 @@
 #define CARP_TASK_CONSUMER_INCLUDED (1)
 
 #include <vector>
+#include <functional>
 
 #include "carp_thread_consumer.hpp"
 
@@ -57,6 +58,25 @@ public:
 		m_threads[m_index]->Add(task);
 	}
 
+	void PushEvent(const std::function<void()>& event)
+	{
+		m_mutex.lock();
+		m_event_list.push_back(event);
+		m_mutex.unlock();
+	}
+
+	void HandleEvent()
+	{
+		static std::vector<std::function<void()>> event_list;
+		m_mutex.lock();
+		event_list.swap(m_event_list);
+		m_mutex.unlock();
+
+		for (auto& event : event_list)
+			event();
+	}
+
+public:
 	void Shutdown()
 	{
 		for (auto* thread : m_threads)
@@ -67,6 +87,10 @@ public:
 private:
 	size_t m_index = 0;
 	std::vector<CarpTaskThread*> m_threads;
+
+private:
+	std::mutex m_mutex;
+	std::vector<std::function<void()>> m_event_list;
 };
 
 extern CarpTaskConsumer& CarpTaskConsumerInstance();

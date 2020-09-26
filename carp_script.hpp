@@ -68,6 +68,8 @@ public:
 			lua_close(m_L);
 			m_L = nullptr;
 		}
+
+		m_script_set.clear();
 	}
 
 public:

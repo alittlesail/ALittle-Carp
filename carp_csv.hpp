@@ -95,10 +95,13 @@ public:
     const std::vector<std::string>& GetRowData(size_t index) const { return m_data[index]; }
 
 	// 这个函数的下标从1开始
-	const char* GetCell(size_t row, size_t col) const
+	const char* GetCell(size_t row, size_t col)
 	{
-        if (row > m_data.size()) return nullptr;
-        if (col > m_data[row - 1].size()) return nullptr;
+        if (row < 1 || col < 1 || row > m_data.size() || col > m_data[row - 1].size())
+        {
+            m_temp_string.clear();
+            return m_temp_string.c_str();
+        }
         return m_data[row - 1][col - 1].c_str();
 	}
     const char* GetPath() const { return m_file_path.c_str(); }

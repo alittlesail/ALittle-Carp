@@ -568,7 +568,10 @@ public:
 #endif
 
 #ifdef CARP_DUMP_IMPL
+#ifndef CARP_DUMP_IMPL_INCLUDE
+#define CARP_DUMP_IMPL_INCLUDE
 CarpDump s_carp_dump;
+#endif
 #endif
 
 #endif

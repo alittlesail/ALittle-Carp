@@ -221,6 +221,9 @@ extern CarpLog s_carp_log;
 #endif
 
 #ifdef CARP_LOG_IMPL
+#ifndef CARP_LOG_IMPL_INCLUDE
+#define CARP_LOG_IMPL_INCLUDE
 CarpLog s_carp_log;
+#endif
 #endif
 

@@ -156,6 +156,8 @@ extern int CARP_RWclose(CARP_RWops* context);
 #endif
 
 #ifdef CARP_RWOPS_IMPL
+#ifndef CARP_RWOPS_IMPL_INCLUDE
+#define CARP_RWOPS_IMPL_INCLUDE
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -603,4 +605,4 @@ int CARP_RWclose(CARP_RWops* context)
     return context->close(context);
 }
 #endif
-
+#endif

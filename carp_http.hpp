@@ -392,13 +392,12 @@ typedef std::shared_ptr<asio::ip::tcp::acceptor> CarpHttpAcceptorPtr;
 class CarpHttpSocket;
 typedef std::shared_ptr<CarpHttpSocket> CarpHttpSocketPtr;
 
+#ifdef _WIN32
+#define CARP_HAS_SSL
+#endif
+
 #ifdef CARP_HAS_SSL
 #include <asio/ssl.hpp>
-
-#ifdef _WIN32
-#pragma comment(lib, "libcrypto.lib")
-#pragma comment(lib, "libssl.lib")
-#endif
 
 typedef std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>> CarpHttpSSLSocketPtr;
 class CarpHttpSocket
@@ -662,7 +661,7 @@ public:
 	CarpHttpClientText() : m_get_or_post(false)
 		, m_response_type(CarpHttpHelper::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)
 		, m_response_size(0), m_total_size(0), m_http_buffer(), m_io_service(0)
-		, m_stoped(false), m_start_size(0) {}
+		, m_stopped(false), m_start_size(0) {}
 	~CarpHttpClientText() {}
 
 public:
@@ -733,7 +732,7 @@ public:
 
 	void Stop()
 	{
-		m_stoped = true;
+		m_stopped = true;
 	}
 
 private:
@@ -757,9 +756,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -780,9 +779,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -830,9 +829,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -900,9 +899,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -931,9 +930,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -952,9 +951,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1053,9 +1052,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1105,9 +1104,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1237,9 +1236,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1283,7 +1282,7 @@ private:
 private:
 	char m_http_buffer[CARP_NET_HTTP_HEAD_BUFFER_SIZE]; // receive buffer
 	std::string m_status;
-	bool m_stoped;
+	bool m_stopped;
 };
 
 class CarpHttpClientPost;
@@ -1297,7 +1296,7 @@ class CarpHttpClientPost : public std::enable_shared_from_this<CarpHttpClientPos
 public:
 	CarpHttpClientPost() : m_file(0), m_response_type(CarpHttpHelper::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)
 		, m_response_size(0), m_cur_size(0), m_total_size(0), m_http_buffer(), m_io_service(0)
-		, m_stoped(false), m_start_size(0) {}
+		, m_stopped(false), m_start_size(0) {}
 	~CarpHttpClientPost() { if (m_file) { fclose(m_file); m_file = 0; } }
 
 public:
@@ -1367,7 +1366,7 @@ public:
 
 	void Stop()
 	{
-		m_stoped = true;
+		m_stopped = true;
 	}
 
 private:
@@ -1391,9 +1390,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1415,9 +1414,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1466,9 +1465,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1611,9 +1610,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1645,9 +1644,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1675,9 +1674,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1716,9 +1715,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1761,9 +1760,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1782,9 +1781,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1865,9 +1864,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1896,9 +1895,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1999,9 +1998,9 @@ private:
 			return;
 		}
 
-		if (m_stoped)
+		if (m_stopped)
 		{
-			m_error = "stoped";
+			m_error = "stopped";
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -2044,7 +2043,7 @@ private:
 
 private:
 	char m_http_buffer[CARP_NET_HTTP_HEAD_BUFFER_SIZE]; // receive buffer
-	bool m_stoped;
+	bool m_stopped;
 };
 
 #endif

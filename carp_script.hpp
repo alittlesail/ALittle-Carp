@@ -4,26 +4,18 @@
 #include <string>
 #include <set>
 
+extern "C" {
+#include "lua.h"
+#include "lauxlib.h"
+#include "lualib.h"
+}
+
 #include "carp_crypto.hpp"
 #include "carp_file.hpp"
 
-extern "C" {
-#include "lua/lua.h"
-#include "lua/lauxlib.h"
-#include "lua/lualib.h"
-}
-
-#ifdef _WIN32
-#ifdef _DEBUG
-#pragma comment(lib, "luad.lib")
-#else
-#pragma comment(lib, "lua.lib")
-#endif
-#endif
-
 #include "LuaBridge/LuaBridge.h"
-#include "Carp/carp_log.hpp"
-#include "Carp/carp_rwops.hpp"
+#include "carp_log.hpp"
+#include "carp_rwops.hpp"
 
 class CarpScript
 {

@@ -98,5 +98,8 @@ extern CarpTaskConsumer s_carp_task_consumer;
 #endif
 
 #ifdef CARP_TASK_CONSUMER_IMPL
+#ifndef CARP_TASK_CONSUMER_IMPL_INCLUDE
+#define CARP_TASK_CONSUMER_IMPL_INCLUDE
 CarpTaskConsumer s_carp_task_consumer;
+#endif
 #endif

@@ -1,16 +1,10 @@
 
-#ifdef CARP_MIXER_IMPL
-#define SOKOL_IMPL
-#else
-#define STB_VORBIS_HEADER_ONLY
-#endif
-
 #ifndef CARP_MIXER_INCLUDED
 #define CARP_MIXER_INCLUDED (1)
 
 #include <mutex>
-
 #include "sokol/sokol_audio.h"
+#define STB_VORBIS_HEADER_ONLY
 #include "stb/stb_vorbis.c"
 
 #define CARP_MIXER_CHANNELS 32
@@ -157,7 +151,7 @@ private:
 
 		self->m_mutex.lock();
 		// define stopped
-		static CARP_MIXER_STOPPED_FUNC stoped_func[CARP_MIXER_CHANNELS] = { 0 };
+		static CARP_MIXER_STOPPED_FUNC stopped_func[CARP_MIXER_CHANNELS] = { 0 };
 		bool has_stopped = false;
 
 		// collect stopped
@@ -174,7 +168,7 @@ private:
 				{
 					if (channel->stopped_cb)
 					{
-						stoped_func[j] = channel->stopped_cb;
+						stopped_func[j] = channel->stopped_cb;
 						has_stopped = true;
 					}
 					memset(channel, 0, sizeof(CarpMixerChannel));
@@ -187,10 +181,10 @@ private:
 		{
 			for (int i = 0; i < CARP_MIXER_CHANNELS; ++i)
 			{
-				if (stoped_func[i] == 0) continue;
+				if (stopped_func[i] == nullptr) continue;
 
-				stoped_func[i](i);
-				stoped_func[i] = 0;
+				stopped_func[i](i);
+				stopped_func[i] = nullptr;
 			}
 		}
 
@@ -256,5 +250,12 @@ extern CarpMixer s_carp_mixer;
 #endif
 
 #ifdef CARP_MIXER_IMPL
+#ifndef CARP_MIXER_IMPL_INCLUDE
+#define CARP_MIXER_IMPL_INCLUDE
 CarpMixer s_carp_mixer;
+#define SOKOL_IMPL
+#include "sokol/sokol_audio.h"
+#undef STB_VORBIS_HEADER_ONLY
+#include "stb/stb_vorbis.c"
+#endif
 #endif

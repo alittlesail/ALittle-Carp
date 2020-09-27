@@ -179,7 +179,10 @@ extern CarpConsole s_carp_console;
 #endif
 
 #ifdef CARP_CONSOLE_IMPL
+#ifndef CARP_CONSOLE_IMPL_INCLUDE
+#define CARP_CONSOLE_IMPL_INCLUDE
 CarpConsole s_carp_console;
+#endif
 #endif
 
 #endif

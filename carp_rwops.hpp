@@ -276,4 +276,8 @@ private:
 };
 
 #endif
-	
+
+#ifdef CARP_RWOPS_HPP_IMPL
+#define CARP_RWOPS_IMPL
+#include "carp_rwops.h"
+#endif

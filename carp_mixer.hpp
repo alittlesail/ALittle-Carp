@@ -251,11 +251,10 @@ private:
 	std::mutex m_mutex;
 };
 
-extern CarpMixer& CarpMixerInstance();
-#define s_carp_mixer CarpMixerInstance()
+extern CarpMixer s_carp_mixer;
 
 #endif
 
 #ifdef CARP_MIXER_IMPL
-CarpMixer& CarpMixerInstance() { static CarpMixer instance; return instance; }
+CarpMixer s_carp_mixer;
 #endif

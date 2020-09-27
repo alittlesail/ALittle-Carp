@@ -93,11 +93,10 @@ private:
 	std::vector<std::function<void()>> m_event_list;
 };
 
-extern CarpTaskConsumer& CarpTaskConsumerInstance();
-#define s_carp_task_consumer CarpTaskConsumerInstance()
+extern CarpTaskConsumer s_carp_task_consumer;
 
 #endif
 
 #ifdef CARP_TASK_CONSUMER_IMPL
-CarpTaskConsumer& CarpTaskConsumerInstance() { static CarpTaskConsumer instance; return instance; };
+CarpTaskConsumer s_carp_task_consumer;
 #endif

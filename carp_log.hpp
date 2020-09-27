@@ -201,8 +201,7 @@ private:
 #endif // _WIN32
 };
 
-extern CarpLog& CarpLogInstance();
-#define s_carp_log CarpLogInstance()
+extern CarpLog s_carp_log;
 
 // 属于严重的代码错误，属于非常意外的，没想到会在这里出错的
 #define CARP_ERROR(text) do{ std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << ":" << text; s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); }while(0)
@@ -222,6 +221,6 @@ extern CarpLog& CarpLogInstance();
 #endif
 
 #ifdef CARP_LOG_IMPL
-CarpLog& CarpLogInstance() { static CarpLog instance; return instance; };
+CarpLog s_carp_log;
 #endif
 

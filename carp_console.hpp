@@ -175,13 +175,11 @@ private:
     std::function<void(const std::string&, const std::string&)> m_handle;
 };
 
-extern CarpConsole& CarpConsoleInstance();
-#define s_carp_console CarpConsoleInstance()
-
+extern CarpConsole s_carp_console;
 #endif
 
 #ifdef CARP_CONSOLE_IMPL
-CarpConsole& CarpConsoleInstance() { static CarpConsole instance; return instance; }
+CarpConsole s_carp_console;
 #endif
 
 #endif

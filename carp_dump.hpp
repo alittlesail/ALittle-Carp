@@ -44,8 +44,7 @@ void* _AddressOfReturnAddress(void);
 #define DUMP_BUFFER_SIZE (5 * 1024 * 1024)
 
 class CarpDump;
-extern CarpDump& CarpDumpInstance();
-#define s_carp_dump CarpDumpInstance()
+extern CarpDump s_carp_dump;
 
 class CarpDump
 {
@@ -569,7 +568,7 @@ public:
 #endif
 
 #ifdef CARP_DUMP_IMPL
-CarpDump& CarpDumpInstance() { static CarpDump instance; return instance; }
+CarpDump s_carp_dump;
 #endif
 
 #endif

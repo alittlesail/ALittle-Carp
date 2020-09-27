@@ -128,4 +128,13 @@ private:
 	std::thread* m_thread;
 };
 
+extern CarpSchedule s_carp_schedule;
+
+#endif
+
+#ifdef CARP_SCHEDULE_IMPL
+#ifndef CARP_SCHEDULE_IMPL_INCLUDE
+#define CARP_SCHEDULE_IMPL_INCLUDE
+CarpSchedule s_carp_schedule;
+#endif
 #endif

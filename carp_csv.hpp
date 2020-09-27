@@ -95,7 +95,7 @@ public:
     const std::vector<std::string>& GetRowData(size_t index) const { return m_data[index]; }
 
 	// 这个函数的下标从1开始
-	const char* GetCell(size_t row, size_t col)
+	const char* ReadCell(size_t row, size_t col)
 	{
         if (row < 1 || col < 1 || row > m_data.size() || col > m_data[row - 1].size())
         {
@@ -105,7 +105,7 @@ public:
         return m_data[row - 1][col - 1].c_str();
 	}
     const char* GetPath() const { return m_file_path.c_str(); }
-    void Clear() { m_data.clear(); }
+    void Close() { m_data.clear(); }
 
 private:
     // 读取文件，并切割

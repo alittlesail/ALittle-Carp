@@ -22,8 +22,8 @@ public:
 			.addFunction("Load", &CarpCsv::Load)
 			.addFunction("GetColCount", &CarpCsv::GetColCount)
 			.addFunction("GetRowCount", &CarpCsv::GetRowCount)
-			.addFunction("Clear", &CarpCsv::Clear)
-			.addFunction("GetCell", &CarpCsv::GetCell)
+			.addFunction("Close", &CarpCsv::Close)
+			.addFunction("ReadCell", &CarpCsv::ReadCell)
 			.addFunction("GetPath", &CarpCsv::GetPath)
 			.endClass()
 			.endNamespace();

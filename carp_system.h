@@ -60,17 +60,17 @@ void CARP_GetPlatform(char* buffer, size_t len)
 #ifdef _WIN32
 	strcpy_s(buffer, len, "Windows");
 #elif __ANDROID__
-	strcpy(buffer, len, "Andoird");
+	strcpy(buffer, "Andoird");
 #elif __APPLE__
 #ifdef TARGET_OS_IPHONE
-	strcpy(buffer, len, "iOS");
+	strcpy(buffer, "iOS");
 #else
-	strcpy(buffer, len, "Mac");
+	strcpy(buffer, "Mac");
 #endif
 #elif __EMSCRIPTEN__
-	strcpy(buffer, len, "Emscripten");
+	strcpy(buffer, "Emscripten");
 #else
-	strcpy(buffer, len, "");
+	strcpy(buffer, "");
 #endif
 }
 
@@ -346,8 +346,8 @@ Keychain API expects as a validly constructed container class.
 
 void CARP_GetDeviceID(char* buffer, size_t len)
 {
-	strcpy_s(buffer, len, "");
 #ifdef _WIN32	
+	strcpy_s(buffer, len, "");
 	PIP_ADAPTER_INFO pAdapterInfo;
 	PIP_ADAPTER_INFO pAdapter = NULL;
 	DWORD dwRetVal = 0;
@@ -382,12 +382,14 @@ void CARP_GetDeviceID(char* buffer, size_t len)
 	if (pAdapterInfo)
 		HeapFree(GetProcessHeap(), 0, pAdapterInfo);
 #elif __ANDROID__
+	strcpy(buffer, "");
 	char info[256] = { 0 };
 	__system_property_get("ro.product.model", info);
 	strcat(buffer, text);
 	__system_property_get("ro.serialno", info);
 	strcat(buffer, text);
 #elif __APPLE_
+	strcpy(buffer, "");
 	KeychainItemWrapper* keyChainWrapper = [[KeychainItemWrapper alloc]initWithIdentifier:@"ALittle" accessGroup:nil];
 	NSString* UUID = [keyChainWrapper objectForKey : (id)kSecValueData];
 

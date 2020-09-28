@@ -409,7 +409,7 @@ void _carp_ios_GetResourcePath(const char* buffer, size_t len)
 	
     NSArray* paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString* path = [paths objectAtIndex : 0];
-    strcpy(buffer, [path UTF8String], len);
+    strcpy(buffer, [path UTF8String]);
 }
 #endif
 

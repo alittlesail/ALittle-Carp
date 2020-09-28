@@ -10,6 +10,14 @@ extern "C" {
 #include "lualib.h"
 }
 
+#ifdef _WIN32
+#ifdef _DEBUG
+#pragma comment(lib, "luad.lib")
+#else
+#pragma comment(lib, "lua.lib")
+#endif
+#endif
+
 #include "carp_crypto.hpp"
 #include "carp_file.hpp"
 

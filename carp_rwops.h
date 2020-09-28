@@ -306,7 +306,6 @@ int _carp_Android_JNI_FileOpen(CARP_RWops* ctx, const char* fileName, const char
 {
     AAsset* asset = NULL;
     ctx->hidden.androidio.asset = NULL;
-    ANativeActivity* activity = NULL;
 
     ANativeActivity* activity = (ANativeActivity*)sapp_android_get_native_activity();
     if (activity == NULL) return -1;

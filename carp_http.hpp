@@ -394,6 +394,8 @@ typedef std::shared_ptr<CarpHttpSocket> CarpHttpSocketPtr;
 
 #ifdef _WIN32
 #define CARP_HAS_SSL
+#pragma comment(lib, "libssl.lib")
+#pragma comment(lib, "libcrypto.lib")
 #endif
 
 #ifdef CARP_HAS_SSL

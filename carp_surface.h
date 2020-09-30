@@ -7,29 +7,29 @@ extern "C" {
 #endif
 
 // 图片像素大小固定为4个字节，格式为ARGB
-typedef struct CARP_Surface
+typedef struct Carp_Surface
 {
 	int w;					// 图片宽度
 	int h;					// 图片高度
 	unsigned int* pixels;	// 像素内容
-} CARP_Surface;
+} Carp_Surface;
 
-typedef struct CARP_SurfaceRect
+typedef struct Carp_SurfaceRect
 {
 	int x;
 	int y;
 	int w;
 	int h;
-} CARP_SurfaceRect;
+} Carp_SurfaceRect;
 
-extern CARP_Surface* Carp_CreateSurface(int width, int height);
-extern void Carp_FreeSurface(CARP_Surface* surface);
-extern void Carp_CopySurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_Surface* dst, int x, int y);
-extern void Carp_ScaleSurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_Surface* dst, const CARP_SurfaceRect* dst_rect);
-extern unsigned int Carp_GetSurfacePixel(CARP_Surface* src, int x, int y);
-extern void Carp_SetSurfacePixel(CARP_Surface* src, int x, int y, unsigned int pixel);
-extern int Carp_GetSurfaceWidth(CARP_Surface* src);
-extern int Carp_GetSurfaceHeight(CARP_Surface* src);
+extern Carp_Surface* Carp_CreateSurface(int width, int height);
+extern void Carp_FreeSurface(Carp_Surface* surface);
+extern void Carp_CopySurface(Carp_Surface* src, const Carp_SurfaceRect* src_rect, Carp_Surface* dst, int x, int y);
+extern void Carp_ScaleSurface(Carp_Surface* src, const Carp_SurfaceRect* src_rect, Carp_Surface* dst, const Carp_SurfaceRect* dst_rect);
+extern unsigned int Carp_GetSurfacePixel(Carp_Surface* src, int x, int y);
+extern void Carp_SetSurfacePixel(Carp_Surface* src, int x, int y, unsigned int pixel);
+extern int Carp_GetSurfaceWidth(Carp_Surface* src);
+extern int Carp_GetSurfaceHeight(Carp_Surface* src);
 
 #ifdef __cplusplus
 }
@@ -38,35 +38,36 @@ extern int Carp_GetSurfaceHeight(CARP_Surface* src);
 
 #ifdef CARP_SURFACE_IMPL
 
-CARP_Surface* Carp_CreateSurface(int width, int height)
+Carp_Surface* Carp_CreateSurface(int width, int height)
 {
 	if (width <= 0 || height <= 0) return nullptr;
 
-	auto* surface = static_cast<CARP_Surface*>(malloc(sizeof(CARP_Surface)));
+	auto* surface = static_cast<Carp_Surface*>(malloc(sizeof(Carp_Surface)));
 	if (surface == nullptr) return nullptr;
 	surface->w = width;
 	surface->h = height;
 	surface->pixels = static_cast<unsigned int*>(malloc(width * height * sizeof(unsigned int)));
+	if (surface->pixels) memset(surface->pixels, 0, width * height * sizeof(unsigned int));
 	return surface;
 }
 
-void Carp_FreeSurface(CARP_Surface* surface)
+void Carp_FreeSurface(Carp_Surface* surface)
 {
 	free(surface->pixels);
 	free(surface);
 }
 
-int Carp_GetSurfaceWidth(CARP_Surface* src)
+int Carp_GetSurfaceWidth(Carp_Surface* src)
 {
 	return src->w;
 }
 
-int Carp_GetSurfaceHeight(CARP_Surface* src)
+int Carp_GetSurfaceHeight(Carp_Surface* src)
 {
 	return src->h;
 }
 
-void Carp_CopySurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_Surface* dst, int dst_x, int dst_y)
+void Carp_CopySurface(Carp_Surface* src, const Carp_SurfaceRect* src_rect, Carp_Surface* dst, int dst_x, int dst_y)
 {
 	if (src == nullptr || dst == nullptr) return;
 	
@@ -107,7 +108,7 @@ void Carp_CopySurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_
 	}
 }
 
-void Carp_ScaleSurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_Surface* dst, const CARP_SurfaceRect* dst_rect)
+void Carp_ScaleSurface(Carp_Surface* src, const Carp_SurfaceRect* src_rect, Carp_Surface* dst, const Carp_SurfaceRect* dst_rect)
 {
 	if (src == 0 || dst == 0) return;
 
@@ -169,13 +170,13 @@ void Carp_ScaleSurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP
 	}
 }
 
-unsigned int Carp_GetSurfacePixel(CARP_Surface* src, int x, int y)
+unsigned int Carp_GetSurfacePixel(Carp_Surface* src, int x, int y)
 {
 	if (x < 0 || y < 0 || x >= src->w || y >= src->h) return 0;
 	return src->pixels[y * src->w + x];
 }
 
-void Carp_SetSurfacePixel(CARP_Surface* src, int x, int y, unsigned int pixel)
+void Carp_SetSurfacePixel(Carp_Surface* src, int x, int y, unsigned int pixel)
 {
 	if (x < 0 || y < 0 || x >= src->w || y >= src->h) return;
 	src->pixels[y * src->w + x] = pixel;

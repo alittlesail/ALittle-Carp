@@ -1,13 +1,8 @@
 #ifndef CARP_TIMER_BIND_INCLUDED
-#define CARP_TIMER_BIND_INCLUDED (1)
+#define CARP_TIMER_BIND_INCLUDED
 
 #include "carp_timer.hpp"
-
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpTimerBind
 {

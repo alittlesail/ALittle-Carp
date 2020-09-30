@@ -1,5 +1,5 @@
 #ifndef CARP_CONNECT_CLIENT_INCLUDED
-#define CARP_CONNECT_CLIENT_INCLUDED (1)
+#define CARP_CONNECT_CLIENT_INCLUDED
 
 #include <memory>
 #include <asio.hpp>
@@ -17,12 +17,11 @@ typedef int CARP_MESSAGE_RPCID;
 class CarpConnectClient : public std::enable_shared_from_this<CarpConnectClient>
 {
 public:
-	CarpConnectClient() { }
 	~CarpConnectClient()
 	{
 		Close();
 		// 释放内存
-		if (m_memory) { free(m_memory); m_memory = 0; }
+		if (m_memory) { free(m_memory); m_memory = nullptr; }
 	}
 
 	//连接部分/////////////////////////////////////////////////////////////////////////////////
@@ -47,9 +46,9 @@ public:
 		// 标记为正在连接
 		m_is_connecting = true;
 		// 创建一个socket对象
-		m_socket = CarpSocketPtr(new asio::ip::tcp::socket(*io_service));
+		m_socket = std::make_shared<asio::ip::tcp::socket>(*io_service);
 		// 创建一个目标服务器的连接点
-		asio::ip::tcp::endpoint ep(asio::ip::address_v4::from_string(ip), port);
+		const asio::ip::tcp::endpoint ep(asio::ip::address_v4::from_string(ip), port);
 
 		// 保存并初始化
 		m_ip = ip;
@@ -69,13 +68,11 @@ public:
 	void Close()
 	{
 		// 释放带发送的消息包
-		auto end = m_pocket_list.end();
-		for (auto it = m_pocket_list.begin(); it != end; ++it)
-			free(it->memory);
+		for (auto& info : m_pocket_list) free(info.memory);
 		m_pocket_list.clear();
 
 		// 标记为不是正在发包
-		m_excuting = false;
+		m_executing = false;
 		// 标记为不是正在连接
 		m_is_connecting = false;
 		// 标记为未连接
@@ -86,6 +83,7 @@ public:
 		{
 			asio::error_code ec;
 			m_socket->close(ec);
+			// 这里不要把m_socket的置为空指针，否则会宕机。
 		}
 
 		// 这里不要急着释放m_memory，可能asio正在用
@@ -95,7 +93,7 @@ public:
 
 private:
 	std::string m_ip;			// 目标服务器的IP
-	unsigned int m_port = 0;		// 目标服务器端口
+	unsigned int m_port = 0;	// 目标服务器端口
 
 public:
 	// 获取目标服务器IP和端口
@@ -109,14 +107,11 @@ private:
 		// 标记为不是正在连接
 		m_is_connecting = false;
 		// 标记为不是正在发包
-		m_excuting = false;
+		m_executing = false;
 		// 标记为已连接
 		m_is_connected = false;
 		if (ec)
 		{
-			// 这个日志不打印，因为会出现太多，又不重要
-			// ALITTLE_SYSTEM(u8"ConnectClient 连接失败: " << SUTF8(asio::system_error(ec).what()) << ", ip:" << m_ip << ", port:" << m_port);
-
 			// 处理连接失败
 			HandleConnectFailed();
 			return;
@@ -186,18 +181,18 @@ public:
 		if (ec)
 		{
 			// 释放内存
-			if (m_memory) { free(m_memory); m_memory = 0; }
+			if (m_memory) { free(m_memory); m_memory = nullptr; }
 			ExecuteDisconnectCallback();
 			return;
 		}
 
 		// 读取协议大小
-		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head;
+		const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(m_message_head);
 
 		// 申请内存
-		if (m_memory) { free(m_memory); m_memory = 0; }
+		if (m_memory) { free(m_memory); m_memory = nullptr; }
 		m_memory = malloc(message_size + CARP_PROTOCOL_HEAD_SIZE);
-		char* body_memory = (char*)m_memory;
+		auto* const body_memory = static_cast<char*>(m_memory);
 
 		// 协议头复制到内存
 		memcpy(body_memory, m_message_head, sizeof(m_message_head));
@@ -211,7 +206,7 @@ public:
 		}
 
 		// 开始读取协议体
-		asio::async_read(*m_socket, asio::buffer((char*)m_memory + CARP_PROTOCOL_HEAD_SIZE, message_size)
+		asio::async_read(*m_socket, asio::buffer(static_cast<char*>(m_memory) + CARP_PROTOCOL_HEAD_SIZE, message_size)
 			, std::bind(&CarpConnectClient::HandleReadBody, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 	void HandleReadBody(const asio::error_code& ec, std::size_t actual_size)
@@ -219,7 +214,7 @@ public:
 		if (ec)
 		{
 			// 释放内存
-			if (m_memory) { free(m_memory); m_memory = 0; }
+			if (m_memory) { free(m_memory); m_memory = nullptr; }
 			// 通知断开连接
 			ExecuteDisconnectCallback();
 			return;
@@ -237,7 +232,7 @@ private:
 	{
 
 		// 获取协议大小
-		CARP_MESSAGE_SIZE message_size = *(CARP_MESSAGE_SIZE*)m_message_head;
+		const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(m_message_head);
 		// 发送给调度系统
 		if (m_message_func)
 			m_message_func(m_memory, message_size + CARP_PROTOCOL_HEAD_SIZE);
@@ -253,26 +248,26 @@ public:
 
 private:
 	// 保存协议头
-	char m_message_head[CARP_PROTOCOL_HEAD_SIZE]{};
+	char m_message_head[CARP_PROTOCOL_HEAD_SIZE] = {};
 	// 保存协议体
 	void* m_memory = nullptr;
 
 	//发送消息包部分/////////////////////////////////////////////////////////////////////////////////
 public:
 	// 处理发送，传入的memory由CarpConnectClient接管释放，外部不要释放
-	void SendPocket(void* memory, int memory_size)
+	void SendPocket(void* memory, const int memory_size)
 	{
 		// 构建内存结构
-		PocketInfo info = {0};
+		PocketInfo info;
 		info.memory_size = memory_size;
 		info.memory = memory;
 
 		// 添加到待发送列表
 		m_pocket_list.push_back(info);
 		// 如果已经正在发送了，那么就直接返回
-		if (m_excuting) return;
+		if (m_executing) return;
 		// 标记正在发送
-		m_excuting = true;
+		m_executing = true;
 		// 发送一个消息包
 		NextSend();
 	}
@@ -282,12 +277,12 @@ public:
 		// 如果包列表是空的，或者socket已经关闭了，直接返回
 		if (m_pocket_list.empty() || !m_socket)
 		{
-			m_excuting = false;
+			m_executing = false;
 			return;
 		}
 
 		// 获取一个结构体
-		PocketInfo info = m_pocket_list.front();
+		auto info = m_pocket_list.front();
 		m_pocket_list.pop_front();
 
 		// 发送
@@ -313,10 +308,10 @@ public:
 	}
 
 private:
-	struct PocketInfo { int memory_size; void* memory; };
+	struct PocketInfo { int memory_size = 0; void* memory = nullptr; };
 	std::list<PocketInfo> m_pocket_list;  // 待发送的数据包列表
 
-	bool m_excuting = false;	// is in sending
+	bool m_executing = false;	// is in sending
 
 private:
 	std::function<void()> m_failed_func;

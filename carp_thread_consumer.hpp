@@ -1,5 +1,5 @@
 #ifndef CARP_THREAD_CONSUMER_INCLUDED
-#define CARP_THREAD_CONSUMER_INCLUDED (1)
+#define CARP_THREAD_CONSUMER_INCLUDED
 
 #include <thread>
 #include <mutex>

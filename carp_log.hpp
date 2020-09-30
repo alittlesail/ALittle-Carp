@@ -1,5 +1,5 @@
 #ifndef CARP_LOG_INCLUDED
-#define CARP_LOG_INCLUDED (1)
+#define CARP_LOG_INCLUDED
 
 #include "carp_thread_consumer.hpp"
 #include "carp_time.hpp"
@@ -24,12 +24,12 @@ enum CarpLogColor
 
 enum CarpLogLevel
 {
-	CARP_LOG_LEVEL_INFO = 0,
-	CARP_LOG_LEVEL_WARN = 1,
-	CARP_LOG_LEVEL_ERROR = 2,
-	CARP_LOG_LEVEL_SYSTEM = 3,
-	CARP_LOG_LEVEL_DATABASE = 4,
-	CARP_LOG_LEVEL_EVENT = 5,
+	CARP_LOG_LEVEL_INFO		= 0,
+	CARP_LOG_LEVEL_WARN		= 1,
+	CARP_LOG_LEVEL_ERROR	= 2,
+	CARP_LOG_LEVEL_SYSTEM	= 3,
+	CARP_LOG_LEVEL_DATABASE	= 4,
+	CARP_LOG_LEVEL_EVENT	= 5,
 };
 
 // 日志信息结构体
@@ -68,10 +68,10 @@ private:
 #ifdef WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)
 	{
-		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
 		std::wstring result;
 		if (len >= 1) result.resize(len - 1);
-		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
 		return result;
 	}
 #endif
@@ -98,7 +98,7 @@ public:
 		// 保存颜色
 		log.level = level;
 		// 设置当前时间
-		CarpTime::FormatTime(CarpTime::GetCurTime(), 0, '-', &(log.content), ':');
+		CarpTime::FormatTime(CarpTime::GetCurTime(), nullptr, '-', &(log.content), ':');
 		// 添加一个空格
 		log.content.push_back(' ');
 		// 添加日志内容
@@ -197,7 +197,7 @@ private:
 	time_t m_cur_day = 0;		// 当天0点的时间
 
 #ifdef _WIN32
-	HANDLE m_out = NULL;		// 控制台句柄
+	HANDLE m_out = nullptr;		// 控制台句柄
 #endif // _WIN32
 };
 

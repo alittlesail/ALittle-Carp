@@ -1,5 +1,5 @@
 #ifndef CARP_STRING_INCLUDED
-#define CARP_STRING_INCLUDED (1)
+#define CARP_STRING_INCLUDED
 
 #include <list>
 #include <string>
@@ -13,7 +13,7 @@ public:
     // É¾³ý×ó±ßµÄ¿Õ¸ñ
     static void TrimLeft(std::string& target)
     {
-        std::string::size_type pos = target.find_first_not_of(' ');
+        const auto pos = target.find_first_not_of(' ');
         if (pos == std::string::npos) return;
         if (pos == 0) return;
 
@@ -23,7 +23,7 @@ public:
     // É¾³ýÓÒ±ßµÄ¿Õ¸ñ
     static void TrimRight(std::string& target)
     {
-        std::string::size_type pos = target.find_last_not_of(' ');
+        const auto pos = target.find_last_not_of(' ');
         if (pos == std::string::npos) return;
         if (pos + 1 == target.size()) return;
 
@@ -192,7 +192,7 @@ public:
         unsigned char temp = 0x80;
         int num = 0;
 
-        unsigned char char_value = first_char;
+        const unsigned char char_value = first_char;
 
         if (char_value < 0x80) // ascii code.(0-127)
             return 1;
@@ -227,20 +227,20 @@ public:
             ++count;
             if (count >= word_count) break;
         }
-        return (int)index - offset;
+        return static_cast<int>(index) - offset;
     }
 
 #define UNKNOWN_UNICODE 0xFFFD
-    static unsigned int GetOneUnicodeFromUTF8(const char* src, size_t srclen, int* increase)
+    static unsigned int GetOneUnicodeFromUTF8(const char* src, size_t src_len, int* increase)
     {
-        const unsigned char* p = (const unsigned char*)src;
+        const auto* p = reinterpret_cast<const unsigned char*>(src);
         size_t left = 0;
-        size_t save_srclen = srclen;
+        const size_t save_src_len = src_len;
         int overlong = 0;
         int underflow = 0;
         unsigned int ch = UNKNOWN_UNICODE;
 
-        if (srclen == 0) {
+        if (src_len == 0) {
             return UNKNOWN_UNICODE;
         }
         if (p[0] >= 0xFC) {
@@ -248,7 +248,7 @@ public:
                 if (p[0] == 0xFC && (p[1] & 0xFC) == 0x80) {
                     overlong = 1;
                 }
-                ch = (unsigned int)(p[0] & 0x01);
+                ch = static_cast<unsigned int>(p[0] & 0x01);
                 left = 5;
             }
         }
@@ -257,7 +257,7 @@ public:
                 if (p[0] == 0xF8 && (p[1] & 0xF8) == 0x80) {
                     overlong = 1;
                 }
-                ch = (unsigned int)(p[0] & 0x03);
+                ch = static_cast<unsigned int>(p[0] & 0x03);
                 left = 4;
             }
         }
@@ -266,7 +266,7 @@ public:
                 if (p[0] == 0xF0 && (p[1] & 0xF0) == 0x80) {
                     overlong = 1;
                 }
-                ch = (unsigned int)(p[0] & 0x07);
+                ch = static_cast<unsigned int>(p[0] & 0x07);
                 left = 3;
             }
         }
@@ -275,7 +275,7 @@ public:
                 if (p[0] == 0xE0 && (p[1] & 0xE0) == 0x80) {
                     overlong = 1;
                 }
-                ch = (unsigned int)(p[0] & 0x0F);
+                ch = static_cast<unsigned int>(p[0] & 0x0F);
                 left = 2;
             }
         }
@@ -284,17 +284,17 @@ public:
                 if ((p[0] & 0xDE) == 0xC0) {
                     overlong = 1;
                 }
-                ch = (unsigned int)(p[0] & 0x1F);
+                ch = static_cast<unsigned int>(p[0] & 0x1F);
                 left = 1;
             }
         }
         else {
             if ((p[0] & 0x80) == 0x00) {
-                ch = (unsigned int)p[0];
+                ch = static_cast<unsigned int>(p[0]);
             }
         }
-        --srclen;
-        while (left > 0 && srclen > 0) {
+        --src_len;
+        while (left > 0 && src_len > 0) {
             ++p;
             if ((p[0] & 0xC0) != 0x80) {
                 ch = UNKNOWN_UNICODE;
@@ -302,7 +302,7 @@ public:
             }
             ch <<= 6;
             ch |= (p[0] & 0x3F);
-            --srclen;
+            --src_len;
             --left;
         }
         if (left > 0) {
@@ -312,7 +312,6 @@ public:
            However, it doesn't cause a security risk here and I don't see any harm in
            displaying them. The application is responsible for any other side effects
            of allowing overlong sequences (e.g. string compares failing, etc.)
-           See bug 1931 for sample input that triggers this.
         */
         /* if (overlong) return UNKNOWN_UNICODE; */
 
@@ -324,7 +323,7 @@ public:
             ch = UNKNOWN_UNICODE;
         }
 
-        if (increase) *increase = (int)(save_srclen - srclen);
+        if (increase) *increase = static_cast<int>(save_src_len - src_len);
 
         return ch;
     }
@@ -346,7 +345,7 @@ public:
         size_t start_index = 0;
         while (true)
         {
-            size_t pos = content.find(split, start_index);
+	        const size_t pos = content.find(split, start_index);
             if (pos != std::string::npos)
             {
                 AddElement(list, content.substr(start_index, pos - start_index));

@@ -1,10 +1,9 @@
 #ifndef CARP_FILE_INCLUDED
-#define CARP_FILE_INCLUDED (1)
+#define CARP_FILE_INCLUDED
 
 #include <string>
 #include <vector>
 
-#include <time.h>
 #include <sys/stat.h>
 
 #ifdef _WIN32
@@ -41,7 +40,7 @@ public:
 	static void CreateFolder(const std::string& path)
 	{
 #ifdef _WIN32
-		int result = _wmkdir(UTF82Unicode(path).c_str());
+		_wmkdir(UTF82Unicode(path).c_str());
 #else
 		mkdir(path.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP |
 			S_IWGRP | S_IXGRP | S_IROTH | S_IXOTH);
@@ -127,26 +126,26 @@ public:
 	{
 #ifdef _WIN32
 		//文件句柄
-		std::intptr_t   hFile = 0;
+		std::intptr_t h_file;
 		//文件信息
-		struct _wfinddata_t fileinfo;
-		std::wstring wpath = UTF82Unicode(path);
-		wpath += L"\\*";
-		if ((hFile = _wfindfirst(wpath.c_str(), &fileinfo)) != -1)
+		struct _wfinddata_t file_info{};
+		std::wstring w_path = UTF82Unicode(path);
+		w_path += L"\\*";
+		if ((h_file = _wfindfirst(w_path.c_str(), &file_info)) != -1)
 		{
 			do
 			{
-				if (fileinfo.attrib & _A_SUBDIR)
+				if (file_info.attrib & _A_SUBDIR)
 				{
-					if (wcscmp(fileinfo.name, L".") != 0 && wcscmp(fileinfo.name, L"..") != 0)
-						dir_list.push_back(Unicode2UTF8(fileinfo.name));
+					if (wcscmp(file_info.name, L".") != 0 && wcscmp(file_info.name, L"..") != 0)
+						dir_list.push_back(Unicode2UTF8(file_info.name));
 				}
 				else
 				{
-					file_list.push_back(Unicode2UTF8(fileinfo.name));
+					file_list.push_back(Unicode2UTF8(file_info.name));
 				}
-			} while (_wfindnext(hFile, &fileinfo) == 0);
-			_findclose(hFile);
+			} while (_wfindnext(h_file, &file_info) == 0);
+			_findclose(h_file);
 		}
 #else
 		DIR* dir;
@@ -174,7 +173,7 @@ public:
 	// 从路径中获取文件扩展名
 	static std::string GetFileExtByPath(const std::string& file_path)
 	{
-		std::string::size_type pos = file_path.find_last_of('.');
+		const auto pos = file_path.find_last_of('.');
 		if (pos == std::string::npos) return "";
 
 		return file_path.substr(pos + 1);
@@ -182,7 +181,7 @@ public:
 	// 改变扩展名
 	static std::string ChangeFileExtByPath(const std::string& file_path, const std::string& ext)
 	{
-		std::string::size_type pos = file_path.find_last_of('.');
+		const auto pos = file_path.find_last_of('.');
 		if (pos == std::string::npos) return file_path + "." + ext;
 
 		return file_path.substr(0, pos) + "." + ext;
@@ -192,7 +191,7 @@ public:
 	static std::string GetFileNameByPath(const std::string& file_path)
 	{
 		size_t index = 0;
-		for (size_t i = file_path.size(); i > 0; --i)
+		for (auto i = file_path.size(); i > 0; --i)
 		{
 			if (file_path[i - 1] == '/' || file_path[i - 1] == '\\')
 			{
@@ -207,7 +206,7 @@ public:
 	static std::string GetFilePathByPath(const std::string& file_path)
 	{
 		size_t index = 0;
-		for (size_t i = file_path.size(); i > 0; --i)
+		for (auto i = file_path.size(); i > 0; --i)
 		{
 			if (file_path[i - 1] == '/' || file_path[i - 1] == '\\')
 			{
@@ -223,7 +222,7 @@ public:
 	{
 		std::string result = GetFileNameByPath(file_path);
 
-		std::string::size_type pos = result.find_last_of('.');
+		const auto pos = result.find_last_of('.');
 		if (pos == std::string::npos) return result;
 
 		return result.substr(0, pos);
@@ -252,7 +251,7 @@ public:
 		char buffer[1024];
 		while (true)
 		{
-			size_t read_size = fread(buffer, 1, sizeof(buffer), file);
+			const auto read_size = fread(buffer, 1, sizeof(buffer), file);
 			if (read_size == 0) break;
 			for (size_t i = 0; i < read_size; ++i)
 				out.push_back(buffer[i]);
@@ -281,19 +280,19 @@ public:
 #ifdef WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)
 	{
-		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
 		std::wstring result;
 		if (len >= 1) result.resize(len - 1);
-		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
 		return result;
 	}
 
 	static std::string Unicode2UTF8(const std::wstring& unicode)
 	{
-		int len = WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, NULL, 0, NULL, NULL);
+		const int len = WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, nullptr, 0, nullptr, nullptr);
 		std::string result;
 		if (len >= 1) result.resize(len -1);
-		WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, (char*)result.c_str(), len, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, unicode.c_str(), -1, const_cast<char*>(result.c_str()), len, nullptr, nullptr);
 		return result;
 	}
 #endif

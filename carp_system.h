@@ -1,5 +1,5 @@
 #ifndef CARP_SYSTEM_INCLUDED
-#define CARP_SYSTEM_INCLUDED (1)
+#define CARP_SYSTEM_INCLUDED
 
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -15,18 +15,13 @@
 #include <sys/system_properties.h>
 #endif
 
-#include "sokol/sokol_app.h"
-
 /* Set up for C function definitions, even when using C++ */
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 extern void CARP_GetPlatform(char* buffer, size_t len);
-extern int CARP_GetScreenWidth();
-extern int CARP_GetScreenHeight();
-extern void CARP_Alert(const char* message);
-extern void CARP_InstallProgram(const char* file_path);
+extern void CARP_GetDeviceID(char* buffer, size_t len);
 
 #ifdef __cplusplus
 }
@@ -36,24 +31,6 @@ extern void CARP_InstallProgram(const char* file_path);
 #ifndef CARP_SYSTEM_IMPL
 #ifndef CARP_SYSTEM_IMPL_INCLUDE
 #define CARP_SYSTEM_IMPL_INCLUDE
-
-wchar_t* _carp_system_UTF82Unicode(const char* utf8)
-{
-	int len = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, NULL, 0);
-	wchar_t* result = 0;
-	if (len >= 1) result = (wchar_t*)malloc(len * sizeof(wchar_t));
-	MultiByteToWideChar(CP_UTF8, 0, utf8, -1, result, len);
-	return result;
-}
-
-char* _carp_system_Unicode2UTF8(const wchar_t* unicode)
-{
-	int len = WideCharToMultiByte(CP_UTF8, 0, unicode, -1, NULL, 0, NULL, NULL);
-	char* result = 0;
-	if (len >= 1) result = (char*)malloc(len);
-	WideCharToMultiByte(CP_UTF8, 0, unicode, -1, result, len, NULL, NULL);
-	return result;
-}
 
 void CARP_GetPlatform(char* buffer, size_t len)
 {
@@ -402,63 +379,6 @@ void CARP_GetDeviceID(char* buffer, size_t len)
 
 	info = [UUID UTF8String];
 	strcpy(buffer, [UUID UTF8String]);	
-#endif
-}
-
-void CARP_InstallProgram(const char* file_path)
-{
-#ifdef _WIN32
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi));
-	CreateProcess(NULL, (LPTSTR)file_path, NULL, NULL, false, 0, NULL, NULL, &si, &pi);
-#elif __ANDROID_
-	
-#endif
-}
-
-int CARP_GetScreenWidth()
-{
-#ifdef _WIN32
-	return GetSystemMetrics(SM_CXSCREEN);
-#elif __ANDROID__
-	return sapp_width();
-#elif __APPLE__
-#ifdef TARGET_OS_IPHONE
-	return sapp_width();
-#else
-	return [[UIScreen mainScreen]bounds].size.width * [UIScreen mainScreen].scale;
-#endif
-#else
-	return sapp_width();
-#endif
-}
-
-int CARP_GetScreenHeight()
-{
-#ifdef _WIN32
-	return GetSystemMetrics(SM_CYSCREEN);
-#elif __ANDROID__
-	return sapp_height();
-#elif __APPLE__
-#ifdef TARGET_OS_IPHONE
-	return sapp_height();
-#else
-	return [[UIScreen mainScreen]bounds].size.height * [UIScreen mainScreen].scale;
-#endif
-#else
-	return sapp_height();
-#endif
-}
-
-void CARP_Alert(const char* message)
-{
-#ifdef _WIN32
-	wchar_t* msg = _carp_system_UTF82Unicode(message);
-	MessageBoxW(NULL, msg, L"Alert", MB_OK);
-	free(msg);
 #endif
 }
 

@@ -1,6 +1,6 @@
 
 #ifndef CARP_MINIHEAP_INCLUDED
-#define CARP_MINIHEAP_INCLUDED (1)
+#define CARP_MINIHEAP_INCLUDED
 
 template<typename T>
 class CarpMiniHeap
@@ -76,7 +76,7 @@ private:
         unsigned int capacity = m_capacity * 2;
         if (capacity < size) capacity = size;
 
-        T** elements = (T**)std::realloc(m_elements, capacity * sizeof * elements);
+        T** elements = static_cast<T**>(std::realloc(m_elements, capacity * sizeof * elements));
         if (!elements) return false;
 
         m_elements = elements;

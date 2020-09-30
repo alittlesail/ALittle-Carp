@@ -1,6 +1,6 @@
 
 #ifndef CARP_CRYPT_INCLUDED
-#define CARP_CRYPT_INCLUDED (1)
+#define CARP_CRYPT_INCLUDED
 
 #include <cstring>
 #include <string>

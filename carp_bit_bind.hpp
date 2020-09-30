@@ -1,10 +1,7 @@
 #ifndef CARP_BIT_BIND_INCLUDED
-#define CARP_BIT_BIND_INCLUDED (1)
+#define CARP_BIT_BIND_INCLUDED
 
-extern "C" {
-#include "lua.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpBitBind
 {
@@ -18,6 +15,7 @@ public:
 			.endNamespace();
 	}
 
+private:
 	static int BitAnd(int a, int b) { return a & b; }
 	static int BitOr(int a, int b) { return a | b; }
 };

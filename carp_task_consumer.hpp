@@ -1,5 +1,5 @@
 #ifndef CARP_TASK_CONSUMER_INCLUDED
-#define CARP_TASK_CONSUMER_INCLUDED (1)
+#define CARP_TASK_CONSUMER_INCLUDED
 
 #include <vector>
 #include <functional>
@@ -35,7 +35,7 @@ class CarpTaskConsumer
 public:
 	void SetThreadCount(int count)
 	{
-		for (int i = (int)m_threads.size(); i < count; ++i)
+		for (int i = static_cast<int>(m_threads.size()); i < count; ++i)
 		{
 			CarpTaskThread* thread = new CarpTaskThread();
 			thread->Start();
@@ -43,7 +43,7 @@ public:
 		}
 	}
 
-	int GetThreadCount() const { return (int)m_threads.size(); }
+	int GetThreadCount() const { return static_cast<int>(m_threads.size()); }
 
 	void AddTask(CarpTask* task)
 	{
@@ -74,6 +74,7 @@ public:
 
 		for (auto& event : event_list)
 			event();
+		event_list.resize(0);
 	}
 
 public:

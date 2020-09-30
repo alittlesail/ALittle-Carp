@@ -3,7 +3,7 @@
 #define CARP_MIXER_INCLUDED
 
 #include <mutex>
-#include "SDL.h"
+#include "sokol/sokol_audio.h"
 #define STB_VORBIS_HEADER_ONLY
 #include "stb/stb_vorbis.c"
 
@@ -38,10 +38,10 @@ public:
 		int channels = 0;
 		int sample_rate = 0;
 		short* output = 0;
-		const int data_len = stb_vorbis_decode_memory((const unsigned char*)buffer, (int)len, &channels, &sample_rate, &output);
+		int data_len = stb_vorbis_decode_memory((const unsigned char*)buffer, (int)len, &channels, &sample_rate, &output);
 		if (data_len < 0) return nullptr;
 
-		auto* chunk = static_cast<CarpMixerChunk*>(malloc(sizeof(CarpMixerChunk)));
+		CarpMixerChunk* chunk = (CarpMixerChunk*)malloc(sizeof(CarpMixerChunk));
 		chunk->data = output;
 		chunk->channels = channels;
 		chunk->sample_rate = sample_rate;
@@ -51,7 +51,7 @@ public:
 
 	void FreeChunk(CarpMixerChunk* chunk)
 	{
-		if (chunk == nullptr) return;
+		if (chunk == 0) return;
 		StopChunk(chunk);
 		free(chunk->data);
 		free(chunk);
@@ -65,29 +65,23 @@ public:
 	// loop <= 0 is Infinity
 	int PlayChunk(CarpMixerChunk* chunk, float volume, int loop, CARP_MIXER_STOPPED_FUNC stopped_func)
 	{
-		if (chunk == nullptr) return -1;
+		if (chunk == 0) return -1;
 
 		if (!m_setup)
 		{
-			SDL_AudioSpec desired = {0};
-
-			desired.freq = chunk->sample_rate;
-			desired.format = AUDIO_S16LSB;
-			desired.channels = chunk->channels;
-			desired.samples = 4096;
-			desired.callback = StreamCallback;
-			desired.userdata = this;
-			if (SDL_OpenAudio(&desired, nullptr) != 0) {
-				return -1;
-			}
-
-			m_sample_rate = chunk->sample_rate;
-			m_channel_num = chunk->channels;
 			m_setup = true;
-		}
 
-		if (chunk->sample_rate != m_sample_rate) return -1;
-		if (chunk->channels != m_channel_num) return -1;
+			saudio_desc desc = { 0 };
+			desc.num_channels = chunk->channels;
+			desc.sample_rate = chunk->sample_rate;
+			desc.user_data = this;
+			desc.stream_userdata_cb = StreamCallback;
+			saudio_setup(&desc);
+		}
+		if (!saudio_isvalid()) return -1;
+
+		if (chunk->sample_rate != saudio_sample_rate()) return -1;
+		if (chunk->channels != saudio_channels()) return -1;
 
 		m_mutex.lock();
 		for (int i = 0; i < CARP_MIXER_CHANNELS; ++i)
@@ -147,24 +141,24 @@ public:
 	{
 		if (!m_setup) return;
 		m_setup = false;
-		SDL_CloseAudio();
+		saudio_shutdown();
 	}
 
 private:
-	static void StreamCallback(void* user_data, Uint8* stream, int len)
+	static void StreamCallback(float* buffer, int num_frames, int num_channels, void* user_data)
 	{
-		auto* self = static_cast<CarpMixer*>(user_data);
+		CarpMixer* self = (CarpMixer*)user_data;
 
 		self->m_mutex.lock();
 		// define stopped
-		static CARP_MIXER_STOPPED_FUNC stopped_func[CARP_MIXER_CHANNELS] = { nullptr };
+		static CARP_MIXER_STOPPED_FUNC stopped_func[CARP_MIXER_CHANNELS] = { 0 };
 		bool has_stopped = false;
 
 		// collect stopped
 		for (int j = 0; j < CARP_MIXER_CHANNELS; ++j)
 		{
 			CarpMixerChannel* channel = self->m_channel + j;
-			if (channel->chunk == nullptr) continue;
+			if (channel->chunk == 0) continue;
 			if (channel->cursor >= channel->chunk->data_len)
 			{
 				channel->cursor = 0;
@@ -194,64 +188,53 @@ private:
 			}
 		}
 
-		if (self->m_channel_num == 1)
+		if (num_channels == 1)
 		{
-			int num_frames = len / sizeof(short);
-			short* buffer = (short*)stream;
 			for (int i = 0; i < num_frames; ++i)
 			{
-				buffer[i] = 0;
+				buffer[i] = 0.0f;
 				for (int j = 0; j < CARP_MIXER_CHANNELS; ++j)
 				{
 					CarpMixerChannel* channel = self->m_channel + j;
 					if (channel->chunk == 0) continue;
 					if (channel->cursor >= channel->chunk->data_len) continue;
-					int sample = channel->chunk->data[channel->cursor];
+					float sample = channel->chunk->data[channel->cursor] / 32767.0f;
 					channel->cursor += channel->chunk->channels;
 
-					sample = static_cast<int>(floor(sample * channel->volume * channel->volume)) + buffer[i];
-					if (sample > 32767) buffer[i] = 32767;
-					else if (buffer[i] < -32768) buffer[i] = -32768;
-					else buffer[i] = static_cast<short>(sample);
+					buffer[i] = sample * (channel->volume * channel->volume) + buffer[i];
+					if (buffer[i] > 1.0f) buffer[i] = 1.0f;
+					else if (buffer[i] < -1.0f) buffer[i] = -1.0f;
 				}
 			}
 		}
-		else if (self->m_channel_num == 2)
+		else if (num_channels == 2)
 		{
-			const int num_frames = len / sizeof(short) / 2;
-			short* buffer = reinterpret_cast<short*>(stream);
 			for (int i = 0; i < num_frames; ++i)
 			{
-				const int left = i * 2;
-				const int right = left + 1;
-				int left_sample = 0;
-				int right_sample = 0;
-				buffer[left] = 0;
-				buffer[right] = 0;
+				int left = i * 2;
+				int right = left + 1;
+				float left_sample = 0.0f;
+				float right_sample = 0.0f;
+				buffer[left] = 0.0f;
+				buffer[right] = 0.0f;
 				for (int j = 0; j < CARP_MIXER_CHANNELS; ++j)
 				{
 					CarpMixerChannel* channel = self->m_channel + j;
 					if (channel->chunk == 0) continue;
 					if (channel->cursor + 1 >= channel->chunk->data_len)
-						left_sample = channel->chunk->data[channel->cursor];
-					right_sample = channel->chunk->data[channel->cursor + 1];
+						left_sample = channel->chunk->data[channel->cursor] / 32767.0f;
+					right_sample = channel->chunk->data[channel->cursor + 1] / 32767.0f;
 					channel->cursor += channel->chunk->channels;
 
-					left_sample = static_cast<int>(floor(left_sample * channel->volume * channel->volume)) + buffer[left];
-					if (left_sample > 32767) buffer[left] = 32767;
-					else if (buffer[left] < -32768) buffer[left] = -32768;
-					else buffer[left] = (short)left_sample;
+					buffer[left] = left_sample * (channel->volume * channel->volume) + buffer[left];
+					if (buffer[left] > 1.0f) buffer[left] = 1.0f;
+					else if (buffer[left] < -1.0f) buffer[left] = -1.0f;
 
-					right_sample = static_cast<int>(floor(right_sample * channel->volume * channel->volume)) + buffer[right];
-					if (right_sample > 32767) buffer[right] = 32767;
-					else if (buffer[right] < -32768) buffer[right] = -32768;
-					else buffer[right] = static_cast<short>(right_sample);
+					buffer[right] = right_sample * (channel->volume * channel->volume) + buffer[right];
+					if (buffer[right] > 1.0f) buffer[right] = 1.0f;
+					else if (buffer[right] < -1.0f) buffer[right] = -1.0f;
 				}
 			}
-		}
-		else
-		{
-			memset(stream, 0, len);
 		}
 		self->m_mutex.unlock();
 	}
@@ -260,9 +243,6 @@ private:
 	bool m_setup = false;
 	CarpMixerChannel m_channel[CARP_MIXER_CHANNELS];
 	std::mutex m_mutex;
-
-	int m_sample_rate = 0;
-	int m_channel_num = 0;
 };
 
 extern CarpMixer s_carp_mixer;
@@ -273,6 +253,8 @@ extern CarpMixer s_carp_mixer;
 #ifndef CARP_MIXER_IMPL_INCLUDE
 #define CARP_MIXER_IMPL_INCLUDE
 CarpMixer s_carp_mixer;
+#define SOKOL_IMPL
+#include "sokol/sokol_audio.h"
 #undef STB_VORBIS_HEADER_ONLY
 #include "stb/stb_vorbis.c"
 #endif

@@ -1,5 +1,5 @@
 #ifndef CARP_SCHEDULE_INCLUDED
-#define CARP_SCHEDULE_INCLUDED (1)
+#define CARP_SCHEDULE_INCLUDED
 
 #include <asio.hpp>
 #include <thread>
@@ -76,7 +76,7 @@ public:
 private:
 	void RunImpl()
 	{
-		m_loop_timer = CarpAsioTimerPtr(new CarpAsioTimer(m_io_service, std::chrono::seconds(0xEFFFFFFF)));
+		m_loop_timer = std::make_shared<CarpAsioTimer>(m_io_service, std::chrono::seconds(0xEFFFFFFF));
 		m_loop_timer->async_wait(std::bind(&CarpSchedule::LoopUpdate, this, std::placeholders::_1));
 
 		asio::error_code ec;
@@ -98,7 +98,7 @@ private:
 	void TimerImpl(int delay_ms, const std::function<void(time_t)>& timer_func)
 	{
 		if (!m_timer)
-			m_timer = CarpAsioTimerPtr(new CarpAsioTimer(m_io_service, std::chrono::milliseconds(delay_ms)));
+			m_timer = std::make_shared<CarpAsioTimer>(m_io_service, std::chrono::milliseconds(delay_ms));
 		else
 			m_timer->expires_after(std::chrono::milliseconds(delay_ms));
 

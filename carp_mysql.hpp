@@ -1,5 +1,5 @@
 #ifndef CARP_MYSQL_INCLUDED
-#define CARP_MYSQL_INCLUDED (1)
+#define CARP_MYSQL_INCLUDED
 
 #include <map>
 
@@ -24,7 +24,7 @@ public:
 	 */
 	static void Setup()
 	{
-		if (mysql_library_init(0, NULL, NULL))
+		if (mysql_library_init(0, nullptr, nullptr))
 		{
 			CARP_ERROR("could not initialize MySQL library");
 		}
@@ -62,7 +62,7 @@ public:
 		if (m_mysql) return true;
 
 		// create mysql object
-		m_mysql = mysql_init(0);
+		m_mysql = mysql_init(nullptr);
 
 		// check create succeed or not
 		if (!m_mysql)
@@ -75,14 +75,14 @@ public:
 		bool bool_option = true;
 		if (mysql_options(m_mysql, MYSQL_REPORT_DATA_TRUNCATION, &bool_option))
 		{
-			mysql_close(m_mysql); m_mysql = 0;
+			mysql_close(m_mysql); m_mysql = nullptr;
 			CARP_ERROR("mysql_options failed: MYSQL_REPORT_DATA_TRUNCATION is unknow option");
 			return false;
 		}
 		// use utf8
 		if (mysql_options(m_mysql, MYSQL_SET_CHARSET_NAME, "utf8mb4"))
 		{
-			mysql_close(m_mysql); m_mysql = 0;
+			mysql_close(m_mysql); m_mysql = nullptr;
 			CARP_ERROR("mysql_options failed: MYSQL_SET_CHARSET_NAME is unknow option");
 			return false;
 		}
@@ -90,13 +90,13 @@ public:
 		bool_option = false;
 		if (mysql_options(m_mysql, MYSQL_OPT_RECONNECT, &bool_option))
 		{
-			mysql_close(m_mysql); m_mysql = 0;
+			mysql_close(m_mysql); m_mysql = nullptr;
 			CARP_ERROR("mysql_options failed: MYSQL_OPT_RECONNECT is unknow option");
 			return false;
 		}
 
 		// mysql temp
-		MYSQL* mysql = 0;
+		MYSQL* mysql = nullptr;
 
 		// start connect
 		mysql = mysql_real_connect(m_mysql
@@ -105,7 +105,7 @@ public:
 			, password
 			, db_name
 			, port
-			, 0
+			, nullptr
 			, CLIENT_MULTI_STATEMENTS | CLIENT_INTERACTIVE);
 
 		// if connect succeed
@@ -122,7 +122,7 @@ public:
 
 		CARP_ERROR("mysql_real_connect failed:" << mysql_error(m_mysql));
 		// connect failed
-		mysql_close(m_mysql); m_mysql = 0;
+		mysql_close(m_mysql); m_mysql = nullptr;
 
 		return false;
 	}
@@ -137,7 +137,7 @@ public:
 	 * @param error_message: error message
 	 * @return succeed or not
 	 */
-	bool Ping()
+	bool Ping() const
 	{
 		if (!m_mysql)
 		{
@@ -161,39 +161,38 @@ public:
 		if (!m_mysql) return;
 
 		// release all stmt
-		StmtMap::iterator it, end = m_stmt_map.end();
-		for (it = m_stmt_map.begin(); it != end; ++it)
+		for (auto& pair : m_stmt_map)
 		{
-			for (size_t i = 0; i < it->second->bind_output.size(); ++i)
+			for (size_t i = 0; i < pair.second->bind_output.size(); ++i)
 			{
-				if (it->second->bind_output[i].buffer != nullptr)
-					free(it->second->bind_output[i].buffer);
+				if (pair.second->bind_output[i].buffer != nullptr)
+					free(pair.second->bind_output[i].buffer);
 			}
 			// free stmt
-			mysql_stmt_close(it->second->stmt);
+			mysql_stmt_close(pair.second->stmt);
 			// flag stmt to 0
-			it->second->stmt = 0;
+			pair.second->stmt = nullptr;
 		}
 		m_stmt_map.clear();
 
 		// release mysql object
 		mysql_close(m_mysql);
-		m_mysql = 0;
+		m_mysql = nullptr;
 	}
 
 	/* current is open
 	 * @return open or not
 	 */
-	bool IsOpen() const { return m_mysql != 0; }
+	bool IsOpen() const { return m_mysql != nullptr; }
 
 public:
 	// mysql stmt info
 	struct MysqlStmtInfo
 	{
-		MYSQL_STMT* stmt;									// stmt object
+		MYSQL_STMT* stmt = nullptr;									// stmt object
 		std::vector<MYSQL_BIND> bind_output;				// output bind for read
 		std::vector<unsigned long> value_length;		// output max length for read
-		MysqlConnection* conn;								// come from
+		MysqlConnection* conn = nullptr;								// come from
 	};
 	typedef std::shared_ptr<MysqlStmtInfo> MysqlStmtInfoPtr;
 
@@ -227,7 +226,7 @@ public:
 		}
 
 		// check succeed or not
-		if (mysql_stmt_prepare(info->stmt, sql.c_str(), (unsigned long)sql.size()))
+		if (mysql_stmt_prepare(info->stmt, sql.c_str(), static_cast<unsigned long>(sql.size())))
 		{
 			auto error = mysql_stmt_errno(info->stmt);
 			need_reconnect = error == CR_SERVER_GONE_ERROR || error == CR_SERVER_LOST;
@@ -298,14 +297,14 @@ public:
 		// free stmt
 		mysql_stmt_close(it->second->stmt);
 		// flag stmt to 0
-		it->second->stmt = 0;
+		it->second->stmt = nullptr;
 
 		m_stmt_map.erase(it);
 		return true;
 	}
 
 	// execute simple sql
-	bool ExecuteQuery(const char* sql, std::string& reason)
+	bool ExecuteQuery(const char* sql, std::string& reason) const
 	{
 		if (sql == nullptr)
 		{
@@ -347,7 +346,7 @@ private:
 	std::string m_ip;
 	std::string m_username;
 	std::string m_password;
-	int m_port = 0;
+	unsigned int m_port = 0;
 };
 
 class MysqlStatementQuery
@@ -362,7 +361,7 @@ public:
 	 * @param sql: set sql string
 	 * notice:!!!!  if you use SUM, then please used like this CAST(IFNULL(SUM(XXXX),0) AS UNSIGNED)
 	 *				and use longlong to receive the value
-	 * notice:!!!!  if you use COUNT, then please use longlong to receive the value
+	 * notice:!!!!  if you use COUNT, then please use long long to receive the value
 	 */
 	void SetSQL(const char* sql)
 	{
@@ -419,7 +418,7 @@ public:
 
 		bind.buffer = malloc(size + 1);
 		memcpy(bind.buffer, ptr, size);
-		bind.buffer_length = (unsigned long)size;
+		bind.buffer_length = static_cast<unsigned long>(size);
 		bind.is_unsigned = is_unsigned;
 		bind.buffer_type = buffer_type;
 
@@ -427,19 +426,19 @@ public:
 	}
 
 public:
-	void PushBool(bool param) { CommonBindForInput((void*)&param, sizeof(bool), false, MYSQL_TYPE_TINY); }
-	void PushChar(char param) { CommonBindForInput((void*)&param, sizeof(char), false, MYSQL_TYPE_TINY); }
-	void PushUChar(unsigned char param) { CommonBindForInput((void*)&param, sizeof(unsigned char), true, MYSQL_TYPE_TINY); }
-	void PushShort(short param) { CommonBindForInput((void*)&param, sizeof(short), false, MYSQL_TYPE_SHORT); }
-	void PushUShort(unsigned short param) { CommonBindForInput((void*)&param, sizeof(unsigned short), true, MYSQL_TYPE_SHORT); }
-	void PushInt(int param) { CommonBindForInput((void*)&param, sizeof(int), false, MYSQL_TYPE_LONG); }
-	void PushUInt(unsigned int param) { CommonBindForInput((void*)&param, sizeof(unsigned int), true, MYSQL_TYPE_LONG); }
-	void PushLong(long param) { CommonBindForInput((void*)&param, sizeof(long), false, MYSQL_TYPE_LONG); }
-	void PushULong(unsigned long param) { CommonBindForInput((void*)&param, sizeof(unsigned long), true, MYSQL_TYPE_LONG); }
-	void PushLongLong(long long param) { CommonBindForInput((void*)&param, sizeof(long long), false, MYSQL_TYPE_LONGLONG); }
-	void PushULongLong(unsigned long long param) { CommonBindForInput((void*)&param, sizeof(unsigned long long), true, MYSQL_TYPE_LONGLONG); }
-	void PushFloat(float param) { CommonBindForInput((void*)&param, sizeof(float), false, MYSQL_TYPE_FLOAT); }
-	void PushDouble(double param) { CommonBindForInput((void*)&param, sizeof(double), false, MYSQL_TYPE_DOUBLE); }
+	void PushBool(bool param) { CommonBindForInput(static_cast<void*>(&param), sizeof(bool), false, MYSQL_TYPE_TINY); }
+	void PushChar(char param) { CommonBindForInput(static_cast<void*>(&param), sizeof(char), false, MYSQL_TYPE_TINY); }
+	void PushUChar(unsigned char param) { CommonBindForInput(static_cast<void*>(&param), sizeof(unsigned char), true, MYSQL_TYPE_TINY); }
+	void PushShort(short param) { CommonBindForInput(static_cast<void*>(&param), sizeof(short), false, MYSQL_TYPE_SHORT); }
+	void PushUShort(unsigned short param) { CommonBindForInput(static_cast<void*>(&param), sizeof(unsigned short), true, MYSQL_TYPE_SHORT); }
+	void PushInt(int param) { CommonBindForInput(static_cast<void*>(&param), sizeof(int), false, MYSQL_TYPE_LONG); }
+	void PushUInt(unsigned int param) { CommonBindForInput(static_cast<void*>(&param), sizeof(unsigned int), true, MYSQL_TYPE_LONG); }
+	void PushLong(long param) { CommonBindForInput(static_cast<void*>(&param), sizeof(long), false, MYSQL_TYPE_LONG); }
+	void PushULong(unsigned long param) { CommonBindForInput(static_cast<void*>(&param), sizeof(unsigned long), true, MYSQL_TYPE_LONG); }
+	void PushLongLong(long long param) { CommonBindForInput(static_cast<void*>(&param), sizeof(long long), false, MYSQL_TYPE_LONGLONG); }
+	void PushULongLong(unsigned long long param) { CommonBindForInput(static_cast<void*>(&param), sizeof(unsigned long long), true, MYSQL_TYPE_LONGLONG); }
+	void PushFloat(float param) { CommonBindForInput(static_cast<void*>(&param), sizeof(float), false, MYSQL_TYPE_FLOAT); }
+	void PushDouble(double param) { CommonBindForInput(static_cast<void*>(&param), sizeof(double), false, MYSQL_TYPE_DOUBLE); }
 	void PushString(const char* param) { CommonBindForInput((void*)param, strlen(param), false, MYSQL_TYPE_STRING); }
 
 	//===================================================================
@@ -684,7 +683,7 @@ public:
 		memcpy(&result, data.buffer.data(), sizeof(result));
 		++m_col_index;
 		if (m_col_index >= m_col_count) Next();
-		return (int)result;
+		return static_cast<int>(result);
 	}
 
 	float ReadFloat()
@@ -934,9 +933,9 @@ private:
 		// get result info
 		m_row_index = 0;
 		m_col_index = 0;
-		m_row_count = (unsigned int)mysql_stmt_num_rows(stmt_info->stmt);
-		m_col_count = (unsigned int)stmt_info->bind_output.size();
-		m_affect_count = (unsigned int)mysql_stmt_affected_rows(stmt_info->stmt);
+		m_row_count = static_cast<unsigned int>(mysql_stmt_num_rows(stmt_info->stmt));
+		m_col_count = static_cast<unsigned int>(stmt_info->bind_output.size());
+		m_affect_count = static_cast<unsigned int>(mysql_stmt_affected_rows(stmt_info->stmt));
 
 		// fetch data
 		m_bind_outputs.resize(m_row_count);
@@ -993,7 +992,7 @@ private:
 				for (size_t i = 0; i < stmt_info->bind_output.size(); ++i)
 				{
 					MysqlBind& data = m_bind_outputs[row][i];
-					data.buffer_type = (enum_field_types)(stmt_info->bind_output[i].buffer_type);
+					data.buffer_type = static_cast<enum_field_types>(stmt_info->bind_output[i].buffer_type);
 					data.buffer.resize(stmt_info->value_length[i] + 1, 0);
 					data.value_length = stmt_info->value_length[i];
 					if (stmt_info->value_length[i] > 0)

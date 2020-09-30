@@ -1,5 +1,5 @@
 #ifndef CARP_SURFACE_INCLUDED
-#define CARP_SURFACE_INCLUDED (1)
+#define CARP_SURFACE_INCLUDED
 
 #include <stdlib.h>
 #ifdef __cplusplus
@@ -36,16 +36,17 @@ extern int Carp_GetSurfaceHeight(CARP_Surface* src);
 #endif
 #endif
 
-#ifndef CARP_SURFACE_IMPL
+#ifdef CARP_SURFACE_IMPL
 
 CARP_Surface* Carp_CreateSurface(int width, int height)
 {
-	if (width <= 0 || height <= 0) return 0;
+	if (width <= 0 || height <= 0) return nullptr;
 
-	CARP_Surface* surface = (CARP_Surface*)malloc(sizeof(CARP_Surface));
+	auto* surface = static_cast<CARP_Surface*>(malloc(sizeof(CARP_Surface)));
+	if (surface == nullptr) return nullptr;
 	surface->w = width;
 	surface->h = height;
-	surface->pixels = (unsigned int*)malloc(width * height * sizeof(unsigned int));
+	surface->pixels = static_cast<unsigned int*>(malloc(width * height * sizeof(unsigned int)));
 	return surface;
 }
 
@@ -67,7 +68,7 @@ int Carp_GetSurfaceHeight(CARP_Surface* src)
 
 void Carp_CopySurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP_Surface* dst, int dst_x, int dst_y)
 {
-	if (src == 0 || dst == 0) return;
+	if (src == nullptr || dst == nullptr) return;
 	
 	int src_x = 0;
 	int src_y = 0;
@@ -141,11 +142,11 @@ void Carp_ScaleSurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP
 		return;
 	}
 
-	const float ratio_width = (float)src_width / (float)dst_width;
-	const float ratio_height = (float)src_height / (float)dst_height;
+	const float ratio_width = static_cast<float>(src_width) / static_cast<float>(dst_width);
+	const float ratio_height = static_cast<float>(src_height) / static_cast<float>(dst_height);
 	for (int row = 0; row < dst_height; ++row)
 	{
-		const int src_row = (int)(row * ratio_height) + src_y;
+		const int src_row = static_cast<int>(row * ratio_height) + src_y;
 		if (src_row < 0) continue;
 		if (src_row >= src->h) break;
 		
@@ -155,7 +156,7 @@ void Carp_ScaleSurface(CARP_Surface* src, const CARP_SurfaceRect* src_rect, CARP
 		
 		for (int col = 0; col < dst_width; ++col)
 		{
-			const int src_col = (int)(col * ratio_width) + src_x;
+			const int src_col = static_cast<int>(col * ratio_width) + src_x;
 			if (src_col < 0) continue;
 			if (src_col >= src->w) break;
 			

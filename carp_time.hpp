@@ -1,5 +1,5 @@
 #ifndef CARP_TIME_INCLUDED
-#define CARP_TIME_INCLUDED (1)
+#define CARP_TIME_INCLUDED
 
 #include <chrono>
 #include <ctime>
@@ -35,7 +35,7 @@ public:
 	// 获取当前时间，单位秒
 	static time_t GetCurTime()
 	{
-		return time(0);
+		return time(nullptr);
 	}
 	// 获取今天0点的时间，单位秒
 	static time_t GetTodayBeginTime()
@@ -44,7 +44,7 @@ public:
 	}
 	static time_t CalcTodayBeginTime(time_t cur_time)
 	{
-		tm stime = GetTimeStruct(cur_time);
+		const tm stime = GetTimeStruct(cur_time);
 
 		tm st_time_tmp;
 		st_time_tmp.tm_year = stime.tm_year;
@@ -69,7 +69,7 @@ public:
 	}
 	static time_t CalcMonthBeginTime(time_t cur_time)
 	{
-		tm stime = GetTimeStruct(cur_time);
+		const tm stime = GetTimeStruct(cur_time);
 
 		tm st_time_tmp;
 		st_time_tmp.tm_year = stime.tm_year;
@@ -88,7 +88,7 @@ public:
 	}
 	static time_t CalcNextMonthBeginTime(time_t cur_time)
 	{
-		tm stime = GetTimeStruct(cur_time);
+		const tm stime = GetTimeStruct(cur_time);
 
 		tm st_time_tmp;
 		st_time_tmp.tm_year = stime.tm_year;
@@ -115,7 +115,7 @@ public:
 	 */
 	static void FormatTime(time_t cur_time, std::string* YMD, char ymd_split, std::string* HMS, char hms_split)
 	{
-		tm stime = GetTimeStruct(cur_time);
+		const tm stime = GetTimeStruct(cur_time);
 
 		if (HMS)
 		{

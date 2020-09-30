@@ -1,11 +1,8 @@
 #ifndef CARP_STRING_BIND_INCLUDED
-#define CARP_STRING_BIND_INCLUDED (1)
+#define CARP_STRING_BIND_INCLUDED
 
 #include "carp_string.hpp"
-extern "C" {
-#include "lua.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpStringBind
 {

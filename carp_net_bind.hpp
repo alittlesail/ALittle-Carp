@@ -1,12 +1,9 @@
 #ifndef CARP_NET_BIND_INCLUDED
-#define CARP_NET_BIND_INCLUDED (1)
+#define CARP_NET_BIND_INCLUDED
 
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include <unordered_map>
 
+#include "carp_lua.hpp"
 #include "carp_http.hpp"
 #include "carp_connect_client.hpp"
 #include "carp_schedule.hpp"
@@ -41,15 +38,15 @@ public:
 		int total_size = 0;
 		std::string content;
 		std::string error;
-		CarpMessageReadFactory* rfactory = nullptr;
+		CarpMessageReadFactory* factory = nullptr;
 		int time = 0;
 	};
 	
 public:
 	static int Run(lua_State* l_state)
 	{
-		CarpNet* c = (CarpNet*)lua_touserdata(l_state, 1);
-		luaL_argcheck(l_state, c != 0, 1, "net object is null");
+		auto* c = static_cast<CarpNet*>(lua_touserdata(l_state, 1));
+		luaL_argcheck(l_state, c != nullptr, 1, "net object is null");
 		if (c == nullptr) return 0;
 		c->m_schedule.RunOne();
 		return c->HandleEvent(l_state);
@@ -57,8 +54,8 @@ public:
 	
 	static int Poll(lua_State* l_state)
 	{
-		CarpNet* c = (CarpNet*)lua_touserdata(l_state, 1);
-		luaL_argcheck(l_state, c != 0, 1, "net object is null");
+		auto* c = static_cast<CarpNet*>(lua_touserdata(l_state, 1));
+		luaL_argcheck(l_state, c != nullptr, 1, "net object is null");
 		if (c == nullptr) return 0;
 		c->m_schedule.PollOne();
 		return c->HandleEvent(l_state);
@@ -100,11 +97,11 @@ public:
 		}
 		else if (event.type == MSG_MESSAGE)
 		{
-			lua_pushinteger(L, event.rfactory->GetID());
+			lua_pushinteger(L, event.factory->GetID());
 			lua_setfield(L, -2, "msg_id");
-			lua_pushinteger(L, event.rfactory->GetRpcID());
+			lua_pushinteger(L, event.factory->GetRpcID());
 			lua_setfield(L, -2, "rpc_id");
-			lua_pushlightuserdata(L, event.rfactory);
+			lua_pushlightuserdata(L, event.factory);
 			lua_setfield(L, -2, "factory");
 		}
 		m_event_list.pop_front();
@@ -252,11 +249,11 @@ public:
 	void Connect(int id, const char* ip, int port)
 	{
 		CarpConnectClientPtr client;
-		auto it = m_connect_map.find(id);
+		const auto it = m_connect_map.find(id);
 		if (it != m_connect_map.end())
 			client = it->second;
 		else
-			client = CarpConnectClientPtr(new CarpConnectClient());
+			client = std::make_shared<CarpConnectClient>();
 		client->Connect(ip, port, &m_schedule.GetIOService()
 			, [this, id]()
 			{
@@ -278,25 +275,25 @@ public:
 				m_event_list.push_back(event);
 			}, [this, id](void* memory, int memory_size)
 			{
-				CarpMessageReadFactory* rfactory = new CarpMessageReadFactory();
-				rfactory->DeserializeFromTotalMessage(memory);
+				auto* factory = new CarpMessageReadFactory();
+				factory->DeserializeFromTotalMessage(memory);
 				
 				EventInfo event;
 				event.type = MSG_MESSAGE;
 				event.id = id;
-				event.rfactory = rfactory;
+				event.factory = factory;
 				m_event_list.push_back(event);
 			});
 	}
 	bool IsConnected(int id)
 	{
-		auto it = m_connect_map.find(id);
+		const auto it = m_connect_map.find(id);
 		if (it == m_connect_map.end()) return false;
 		return it->second->IsConnected();
 	}
 	bool IsConnecting(int id)
 	{
-		auto it = m_connect_map.find(id);
+		const auto it = m_connect_map.find(id);
 		if (it == m_connect_map.end()) return false;
 		return it->second->IsConnecting();
 	}
@@ -322,7 +319,7 @@ public:
 		delete factory;
 	}
 	
-	size_t GetConnectCount() { return m_connect_map.size(); }
+	size_t GetConnectCount() const { return m_connect_map.size(); }
 
 	void Timer(int delay_ms)
 	{

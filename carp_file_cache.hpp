@@ -1,6 +1,6 @@
 #ifndef CARP_FILECACHE_INCLUDED
-#define CARP_FILECACHE_INCLUDED (1)
-#include <map>
+#define CARP_FILECACHE_INCLUDED
+
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -15,7 +15,7 @@
 class CarpFileChunk
 {
 public:
-	CarpFileChunk(int unit_size)
+	explicit CarpFileChunk(const int unit_size)
 	{
 		if (unit_size <= 0)
 			m_unit_size = 1024 - 4;
@@ -28,11 +28,11 @@ public:
 	}
 
 public:
-	enum Status
+	enum class Status
 	{
-		FILECACHESTATUS_IDLE,           // 空闲
-		FILECACHESTATUS_LOADING,        // 加载中
-		FILECACHESTATUS_LOADED,         // 加载完成
+		FILE_CACHE_STATUS_IDLE,           // 空闲
+		FILE_CACHE_STATUS_LOADING,        // 加载中
+		FILE_CACHE_STATUS_LOADED,         // 加载完成
 	};
 
 public:
@@ -47,7 +47,7 @@ public:
 	// 将数据写入缓存
 	void Write(void* memory, int size)
 	{
-		if (m_status == FILECACHESTATUS_LOADED) return;
+		if (m_status == Status::FILE_CACHE_STATUS_LOADED) return;
 
 		// 把当前数据大小添加到总大小
 		m_total_size += size;
@@ -152,18 +152,17 @@ public:
 	void Clear()
 	{
 		// 释放内存
-		for (size_t i = 0; i < m_memory_list.size(); ++i)
-			free(m_memory_list[i]);
+		for (auto& memory : m_memory_list) free(memory);
 		m_memory_list.clear();
 
 		// 数据重置
 		m_last_empty_size = 0;
 		m_total_size = 0;
-		m_status = FILECACHESTATUS_IDLE;
+		m_status = Status::FILE_CACHE_STATUS_IDLE;
 	}
 
 private:
-	Status m_status = FILECACHESTATUS_IDLE;					// 缓存状态
+	Status m_status = Status::FILE_CACHE_STATUS_IDLE;					// 缓存状态
 	int m_unit_size = 0;					// 内存块大小
 
 	int m_last_empty_size = 0;				// 最后一个块的内存大小
@@ -179,9 +178,6 @@ public:
 	friend class CarpFileCacheGroup;
 	~CarpFileCache() { Close(); }
 
-private:
-	CarpFileCache() {}
-
 public:
 	// 是否打开
 	bool IsOpen() const { return m_native_file || m_cache; }
@@ -189,7 +185,7 @@ public:
 	// 关闭文件
 	void Close()
 	{
-		if (m_cache && m_cache->GetStatus() != CarpFileChunk::FILECACHESTATUS_LOADED)
+		if (m_cache && m_cache->GetStatus() != CarpFileChunk::Status::FILE_CACHE_STATUS_LOADED)
 			m_cache->Clear();
 		m_cache = CarpFileChunkPtr();
 		m_offset = 0;
@@ -233,14 +229,14 @@ public:
 	}
 	
 	// 读取文件
-	int Read(void* buffer, int size)
+	int Read(void* buffer, const int size)
 	{
-		int read_size = 0;
+		auto read_size = 0;
 
 		// 如果有原始文件，那么就读原始文件
 		if (m_native_file)
 		{
-			read_size = (int)fread(buffer, 1, size, m_native_file);
+			read_size = static_cast<int>(fread(buffer, 1, size, m_native_file));
 			m_offset += read_size;
 
 			// 如果持有cache，说明当前是第一个打开这个文件的Cache，那么就写入cache
@@ -248,7 +244,7 @@ public:
 			{
 				m_cache->Write(buffer, read_size);
 				// 如果全部写入之后，那么把cache标记为已加载完成
-				if (m_offset >= m_native_size) m_cache->SetStatus(CarpFileChunk::FILECACHESTATUS_LOADED);
+				if (m_offset >= m_native_size) m_cache->SetStatus(CarpFileChunk::Status::FILE_CACHE_STATUS_LOADED);
 			}
 		}
 		// 如果有完全加载的cache，那么直接从cache里面读取数据
@@ -275,7 +271,6 @@ typedef std::shared_ptr<CarpFileCache> CarpFileCachePtr;
 class CarpFileCacheGroup
 {
 public:
-	CarpFileCacheGroup() {}
 	~CarpFileCacheGroup() { ClearAll(); }
 
 public:
@@ -340,7 +335,7 @@ public:
 	// 根据文件路径来清理
 	void ClearByPath(const char* file_path)
 	{
-		auto it = m_cache_map.find(file_path);
+		const auto it = m_cache_map.find(file_path);
 		if (it == m_cache_map.end()) return;
 
 		m_total_size -= it->second.native_size;
@@ -357,7 +352,7 @@ public:
 public:
 	CarpFileCachePtr Create(const std::string& file_path, bool use_cache)
 	{
-		CarpFileCachePtr cache = CarpFileCachePtr(new CarpFileCache());
+		auto cache = std::make_shared<CarpFileCache>();
 
 		// 如果使用缓存，那么从缓存中创建
 		if (use_cache)
@@ -378,10 +373,10 @@ private:
 #ifdef _WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)
 	{
-		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
 		std::wstring result;
 		if (len >= 1) result.resize(len - 1);
-		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
 		return result;
 	}
 #endif
@@ -400,7 +395,7 @@ private:
 		if (native_file == nullptr) return false;
 
 		fseek(native_file, 0, SEEK_END);
-		native_size = (int)ftell(native_file);
+		native_size = static_cast<int>(ftell(native_file));
 		fseek(native_file, 0, SEEK_SET);
 
 		return true;
@@ -410,14 +405,14 @@ private:
 	{
 		// init result
 		file_cache = CarpFileChunkPtr();
-		native_file = 0;
+		native_file = nullptr;
 		native_size = 0;
 
 		// find file cache
 		auto it = m_cache_map.find(file_path);
 		if (it != m_cache_map.end())
 		{
-			if (it->second.chunk->GetStatus() == CarpFileChunk::FILECACHESTATUS_IDLE)
+			if (it->second.chunk->GetStatus() == CarpFileChunk::Status::FILE_CACHE_STATUS_IDLE)
 			{
 				// open native file
 				if (!OpenNativeFile(file_path, native_file, native_size))
@@ -427,11 +422,11 @@ private:
 					return false;
 				}
 				
-				it->second.chunk->SetStatus(CarpFileChunk::FILECACHESTATUS_LOADING);
+				it->second.chunk->SetStatus(CarpFileChunk::Status::FILE_CACHE_STATUS_LOADING);
 				file_cache = it->second.chunk;
 				it->second.update_time = CarpTime::GetCurTime();
 			}
-			else if (it->second.chunk->GetStatus() == CarpFileChunk::FILECACHESTATUS_LOADING)
+			else if (it->second.chunk->GetStatus() == CarpFileChunk::Status::FILE_CACHE_STATUS_LOADING)
 			{
 				// open native file
 				if (!OpenNativeFile(file_path, native_file, native_size)) return false;
@@ -449,8 +444,8 @@ private:
 			FileCacheInfo info;
 			info.create_time = CarpTime::GetCurTime();
 			info.update_time = info.create_time;
-			info.chunk = CarpFileChunkPtr(new CarpFileChunk(-1)); // use default unit size
-			info.chunk->SetStatus(CarpFileChunk::FILECACHESTATUS_LOADING);
+			info.chunk = std::make_shared<CarpFileChunk>(-1); // use default unit size
+			info.chunk->SetStatus(CarpFileChunk::Status::FILE_CACHE_STATUS_LOADING);
 
 			// open native file
 			if (!OpenNativeFile(file_path, native_file, native_size)) return false;
@@ -481,4 +476,5 @@ private:
 	int m_total_size = 0;
 	int m_max_size = 1024 * 1024 * 100;
 };
+
 #endif

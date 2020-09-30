@@ -1,5 +1,5 @@
 #ifndef CARP_TIMER_INCLUDED
-#define CARP_TIMER_INCLUDED (1)
+#define CARP_TIMER_INCLUDED
 
 #include <ctime>
 #include <list>
@@ -85,7 +85,7 @@ public:
     // 移除定时器
     bool Remove(int id)
     {
-        auto it = m_map.find(id);
+        const auto it = m_map.find(id);
         if (it == m_map.end()) return false;
 
         m_heap.Erase(it->second);
@@ -106,7 +106,7 @@ public:
     int Poll()
     {
         CarpTimerNode* info = m_heap.GetTop();
-        if (info == 0) return 0;
+        if (info == nullptr) return 0;
 
         if (info->end_time > m_cur_time) return 0;
         m_heap.Pop();
@@ -129,8 +129,8 @@ public:
         }
         // 次数已经用完，那么就直接删除
         
-        int id = info->id;
-        auto it = m_map.find(id);
+        const int id = info->id;
+        const auto it = m_map.find(id);
     	if (it != m_map.end())
     	{
             ReleaseNode(it->second);
@@ -142,7 +142,7 @@ public:
 private:
 	CarpTimerNode* CreateNode()
 	{
-        CarpTimerNode* node = 0;
+        CarpTimerNode* node = nullptr;
         if (m_pool.empty())
         {
             node = new CarpTimerNode();

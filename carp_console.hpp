@@ -1,8 +1,8 @@
 
-#ifdef _WIN32
-
 #ifndef CARP_CONSOLE_INCLUDED
-#define CARP_CONSOLE_INCLUDED (1)
+#define CARP_CONSOLE_INCLUDED
+
+#ifdef _WIN32
 
 #include <functional>
 #include <string>
@@ -15,14 +15,11 @@
 class CarpConsole
 {
 public:
-    CarpConsole() {}
-    ~CarpConsole()
-    {
-        Shutdown();
-    }
+    ~CarpConsole() { Shutdown(); }
 
 public:
-    void Setup(const std::string& title, std::function<void(const std::string&, const std::string&)> func
+    void Setup(const std::string& title
+        , std::function<void(const std::string&, const std::string&)> func
         , std::function<void()> exit, std::function<void()> list)
     {
         if (m_thread != nullptr) return;
@@ -39,8 +36,9 @@ public:
         if (m_thread == nullptr) return;
 
         m_run = false;
-        HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
-        if (std_in != INVALID_HANDLE_VALUE && std_in != NULL) {
+        auto* const std_in = GetStdHandle(STD_INPUT_HANDLE);
+        if (std_in != INVALID_HANDLE_VALUE && std_in != nullptr)
+        {
             INPUT_RECORD record;
             record.EventType = KEY_EVENT;
             record.Event.KeyEvent.bKeyDown = true;
@@ -51,43 +49,43 @@ public:
 
         m_thread->join();
         delete m_thread;
-        m_thread = 0;
+        m_thread = nullptr;
     }
 
 private:
-    int Run()
+    int Run() const
     {
         // Get the standard input handle. 
-        HANDLE std_in = GetStdHandle(STD_INPUT_HANDLE);
+        auto* const std_in = GetStdHandle(STD_INPUT_HANDLE);
         if (std_in == INVALID_HANDLE_VALUE) return 0;
 
-        if (std_in == NULL)
+        if (std_in == nullptr)
         {
             CARP_ERROR("GetStdHandle(STD_INPUT_HANDLE) failed!");
             return 0;
         }
 
-        INPUT_RECORD irInBuf[128];
-        DWORD cNumRead;
+        INPUT_RECORD ir_in_buf[128];
+        DWORD num_read;
         std::wstring cmd;
 
         while (m_run)
         {
             if (!ReadConsoleInput(
                 std_in,      // input buffer handle 
-                irInBuf,     // buffer to read into 
+                ir_in_buf,     // buffer to read into 
                 128,         // size of read buffer 
-                &cNumRead)) // number of records read
+                &num_read)) // number of records read
             {
                 CARP_ERROR("ReadConsoleInput failed!");
                 return 0;
             }
 
-            for (DWORD i = 0; i < cNumRead; ++i)
+            for (DWORD i = 0; i < num_read; ++i)
             {
-                if (irInBuf[i].EventType != KEY_EVENT) continue;
+                if (ir_in_buf[i].EventType != KEY_EVENT) continue;
 
-                KEY_EVENT_RECORD& ker = irInBuf[i].Event.KeyEvent;
+                auto& ker = ir_in_buf[i].Event.KeyEvent;
                 if (!ker.bKeyDown) continue;
                 if (ker.uChar.AsciiChar == 0) continue;
 
@@ -107,7 +105,7 @@ private:
                 {
                     if (cmd.empty()) continue;
 
-                    std::string cmd_utf8 = CarpString::Unicode2UTF8(cmd);
+                    auto cmd_utf8 = CarpString::Unicode2UTF8(cmd);
                     HandleCmd(cmd_utf8);
                     cmd.clear();
                 }
@@ -125,7 +123,7 @@ private:
 
         return 0;
     }
-    void HandleCmd(std::string& cmd)
+    void HandleCmd(std::string& cmd) const
     {
         CarpString::TrimLeft(cmd);
         CarpString::TrimRight(cmd);
@@ -145,7 +143,7 @@ private:
             return;
         }
 
-        std::string::size_type module_pos = cmd.find(' ');
+        const auto module_pos = cmd.find(' ');
         if (module_pos == 0)
         {
             CARP_WARN(u8"没有输入模块名");
@@ -156,8 +154,8 @@ private:
             CARP_WARN(u8"没有输入任何指令，指令格式为: 模块名 指令名 指令参数");
             return;
         }
-        std::string module_name = cmd.substr(0, module_pos);
-        std::string cmd_content = cmd.substr(module_pos + 1);
+        const auto module_name = cmd.substr(0, module_pos);
+        auto cmd_content = cmd.substr(module_pos + 1);
         CarpString::TrimLeft(cmd_content);
         CarpString::TrimRight(cmd_content);
 
@@ -178,12 +176,11 @@ private:
 extern CarpConsole s_carp_console;
 #endif
 
+#endif
+
 #ifdef CARP_CONSOLE_IMPL
 #ifndef CARP_CONSOLE_IMPL_INCLUDE
 #define CARP_CONSOLE_IMPL_INCLUDE
 CarpConsole s_carp_console;
 #endif
 #endif
-
-#endif
-

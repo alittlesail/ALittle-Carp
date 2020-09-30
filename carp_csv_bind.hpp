@@ -1,14 +1,9 @@
 
 #ifndef CARP_CSV_BIND_INCLUDED
-#define CARP_CSV_BIND_INCLUDED (1)
+#define CARP_CSV_BIND_INCLUDED
 
+#include "carp_lua.hpp"
 #include "carp_csv.hpp"
-
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-}
-#include "LuaBridge/LuaBridge.h"
 
 class CarpCsvBind
 {

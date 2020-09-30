@@ -1,13 +1,8 @@
 #ifndef CARP_LOG_BIND_INCLUDED
-#define CARP_LOG_BIND_INCLUDED (1)
+#define CARP_LOG_BIND_INCLUDED
 
 #include "carp_log.hpp"
-
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpLogBind
 {

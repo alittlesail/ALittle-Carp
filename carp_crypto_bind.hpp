@@ -1,14 +1,9 @@
 
 #ifndef CARP_CRYPT_BIND_INCLUDED
-#define CARP_CRYPT_BIND_INCLUDED (1)
+#define CARP_CRYPT_BIND_INCLUDED
 
 #include "carp_crypto.hpp"
-
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpCryptoBind
 {
@@ -29,8 +24,8 @@ private:
     {
         size_t l;
         const char* message = luaL_checklstring(l_state, 1, &l);
-        char* out = (char*)malloc(CARP_BASE64_ENCODE_OUT_SIZE(l));
-        CarpCrypto::Base64EncodeImpl((const unsigned char*)message, (int)l, out);
+        char* out = static_cast<char*>(malloc(CARP_BASE64_ENCODE_OUT_SIZE(l)));
+        CarpCrypto::Base64EncodeImpl(reinterpret_cast<const unsigned char*>(message), static_cast<int>(l), out);
         lua_pushstring(l_state, out);
         free(out);
         return 1;
@@ -40,8 +35,8 @@ private:
     {
         size_t l;
         const char* message = luaL_checklstring(l_state, 1, &l);
-        char* out = (char*)malloc(CARP_BASE64_DECODE_OUT_SIZE(l));
-        CarpCrypto::Base64DecodeImpl(message, (int)l, (unsigned char*)out);
+        char* out = static_cast<char*>(malloc(CARP_BASE64_DECODE_OUT_SIZE(l)));
+        CarpCrypto::Base64DecodeImpl(message, static_cast<int>(l), reinterpret_cast<unsigned char*>(out));
         lua_pushstring(l_state, out);
         free(out);
         return 1;
@@ -52,9 +47,9 @@ private:
 	{
         size_t l;
         const char* message = luaL_checklstring(l_state, 1, &l);
-        CarpCrypto::MD5_HASH Digest;
-        CarpCrypto::Md5Calculate(message, (int)l, &Digest);
-        lua_pushstring(l_state, CarpCrypto::Md4HashToString(&Digest).c_str());
+        CarpCrypto::MD5_HASH digest;
+        CarpCrypto::Md5Calculate(message, static_cast<int>(l), &digest);
+        lua_pushstring(l_state, CarpCrypto::Md4HashToString(&digest).c_str());
         return 1;
 	}
 };

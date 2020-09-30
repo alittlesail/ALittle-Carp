@@ -1,6 +1,6 @@
 
 #ifndef CARP_CSV_INCLUDED
-#define CARP_CSV_INCLUDED (1)
+#define CARP_CSV_INCLUDED
 
 #include <string>
 #include <vector>
@@ -14,10 +14,9 @@
 class CarpCsv
 {
 public:
-    CarpCsv() {}
-    virtual ~CarpCsv() {}
+    virtual ~CarpCsv() = default;
 
-    typedef size_t(*read_file)(void*, size_t, size_t, void*);
+    typedef size_t(*READ_FILE)(void*, size_t, size_t, void*);
 
 public:
 	const char* Load(const char* file_path)
@@ -30,10 +29,10 @@ public:
 #ifdef _WIN32
     static std::wstring UTF82Unicode(const std::string& utf8)
     {
-        int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+	    const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
         std::wstring result;
         if (len >= 1) result.resize(len - 1);
-        MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+        MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
         return result;
     }
 #endif
@@ -57,7 +56,7 @@ public:
 
         try
         {
-            ReadFile((read_file)fread, file, -1);
+            ReadFile(reinterpret_cast<READ_FILE>(fread), file, -1);
             fclose(file);
         }
         catch (std::exception& e)
@@ -71,14 +70,14 @@ public:
         return true;
     }
 
-	bool ReadFromCustomFile(const std::string& file_path, read_file read_func, void* file, std::string* error = nullptr)
+	bool ReadFromCustomFile(const std::string& file_path, READ_FILE read_func, void* file, std::string* error = nullptr)
     {
         m_file_path = file_path;
         m_data.resize(0);
 
         try
         {
-            ReadFile((read_file)fread, file, -1);
+            ReadFile(reinterpret_cast<READ_FILE>(read_func), file, -1);
         }
         catch (std::exception& e)
         {
@@ -109,7 +108,7 @@ public:
 
 private:
     // 读取文件，并切割
-    void ReadFile(read_file read_func, void* file, int max_row)
+    void ReadFile(READ_FILE read_func, void* file, int max_row)
     {
         // 读取第一个字符
         char cur_char = CARP_CSV_END_OF_FILE;
@@ -263,7 +262,7 @@ private:
             if (next_char == CARP_CSV_END_OF_FILE) break;
 
             // 如果到达指定行数，那么就跳出
-            if (max_row >= 0 && GetRowCount() >= max_row) break;
+            if (max_row >= 0 && static_cast<int>(GetRowCount()) >= max_row) break;
 
             // 读取下一个字符
             cur_char = next_char;
@@ -287,7 +286,7 @@ private:
     }
 	
     // 读取文件的下一个字符
-    char ReadNextChar(read_file read_func, void* file) const
+    char ReadNextChar(READ_FILE read_func, void* file) const
     {
         char next_char = CARP_CSV_END_OF_FILE;
         const size_t size = read_func(&next_char, 1, 1, file);

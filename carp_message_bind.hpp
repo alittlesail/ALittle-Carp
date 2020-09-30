@@ -1,11 +1,8 @@
 #ifndef CARP_MESSAGE_BIND_INCLUDED
-#define CARP_MESSAGE_BIND_INCLUDED (1)
+#define CARP_MESSAGE_BIND_INCLUDED
 
 #include "carp_message.hpp"
-extern "C" {
-#include "lua.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpMessageBind
 {

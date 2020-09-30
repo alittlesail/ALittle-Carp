@@ -1,14 +1,10 @@
 #ifndef CARP_SCRIPT_INCLUDED
-#define CARP_SCRIPT_INCLUDED (1)
+#define CARP_SCRIPT_INCLUDED
 
 #include <string>
 #include <set>
 
-extern "C" {
-#include "lua.h"
-#include "lauxlib.h"
-#include "lualib.h"
-}
+#include "carp_lua.hpp"
 
 #ifdef _WIN32
 #ifdef _DEBUG
@@ -20,8 +16,6 @@ extern "C" {
 
 #include "carp_crypto.hpp"
 #include "carp_file.hpp"
-
-#include "LuaBridge/LuaBridge.h"
 #include "carp_log.hpp"
 #include "carp_rwops.hpp"
 
@@ -56,7 +50,7 @@ public:
 
 		luabridge::setGlobal(m_L, this, "__CPPAPI_CarpScript");
 
-		std::string require = "core_require = function(path) return __CPPAPI_CarpScript:Require(path) end";
+		const std::string require = "core_require = function(path) return __CPPAPI_CarpScript:Require(path) end";
 		RunScript(require.c_str(), require.size(), "ALittleBuild");
 	}
 	
@@ -74,24 +68,24 @@ public:
 
 public:
 	// 运行脚本文件
-	void RunScript(const char* script, size_t len, const char* file_path)
+	void RunScript(const char* script, size_t len, const char* file_path) const
 	{
 		lua_pushcclosure(m_L, OnError, 0);
-		int errfunc = lua_gettop(m_L);
+		const int err_func = lua_gettop(m_L);
 		std::string show_path;
 		if (file_path != nullptr) show_path = file_path;
 		if (show_path.size() > 48) show_path = show_path.substr(show_path.size() - 48);
 		if (luaL_loadbuffer(m_L, script, len, show_path.c_str()) == 0)
 		{
 			lua_pushstring(m_L, file_path);
-			lua_pcall(m_L, 1, 1, errfunc);
+			lua_pcall(m_L, 1, 1, err_func);
 		}
 		else
 			PrintError(m_L, file_path, lua_tostring(m_L, -1));
-		lua_remove(m_L, errfunc);
+		lua_remove(m_L, err_func);
 		lua_pop(m_L, 1);
 	}
-	void RunScriptForLua(const char* script, const char* file_path) { RunScript(script, strlen(script), file_path); }
+	void RunScriptForLua(const char* script, const char* file_path) const { RunScript(script, strlen(script), file_path); }
 
 private:
 	static void CallStack(lua_State* L, int n, std::string& stack_info)
@@ -161,13 +155,13 @@ public:
 		if (m_L == nullptr) return;
 
 		lua_pushcclosure(m_L, OnError, 0);
-		int errfunc = lua_gettop(m_L);
+		const int err_func = lua_gettop(m_L);
 
 		lua_getglobal(m_L, name);
 		if (lua_isfunction(m_L, -1))
 		{
-			int count = InvokePush(0, args...);
-			lua_pcall(m_L, count, 0, errfunc);
+			const int count = InvokePush(0, args...);
+			lua_pcall(m_L, count, 0, err_func);
 		}
 		else
 		{
@@ -178,24 +172,24 @@ public:
 			CARP_SCRIPT_ERROR(content);
 		}
 
-		lua_remove(m_L, errfunc);
+		lua_remove(m_L, err_func);
 	}
 
-	bool IsFunction(const char* name)
+	bool IsFunction(const char* name) const
 	{
 		if (m_L == nullptr) return false;
 		lua_getglobal(m_L, name);
-		bool result = lua_isfunction(m_L, -1) != 0;
+		const bool result = lua_isfunction(m_L, -1) != 0;
 		lua_remove(m_L, -1);
 		return result;
 	}
 
-	void InvokeMain(const char* name, const std::string& module_path, int argc, char* argv[])
+	void InvokeMain(const char* name, const std::string& module_path, int argc, char* argv[]) const
 	{
 		if (m_L == nullptr) return;
 
 		lua_pushcclosure(m_L, OnError, 0);
-		int errfunc = lua_gettop(m_L);
+		const int err_func = lua_gettop(m_L);
 
 		lua_getglobal(m_L, name);
 		if (lua_isfunction(m_L, -1))
@@ -203,7 +197,7 @@ public:
 			luabridge::push(m_L, module_path.c_str());
 			for (int i = 1; i < argc; ++i)
 				luabridge::push(m_L, static_cast<const char*>(argv[i]));
-			lua_pcall(m_L, argc, 0, errfunc);
+			lua_pcall(m_L, argc, 0, err_func);
 		}
 		else
 		{
@@ -214,11 +208,11 @@ public:
 			CARP_SCRIPT_ERROR(content);
 		}
 
-		lua_remove(m_L, errfunc);
+		lua_remove(m_L, err_func);
 	}
 
 public:
-	lua_State* GetLuaState() { return m_L; }
+	lua_State* GetLuaState() const { return m_L; }
 
 protected:
 	lua_State* m_L = nullptr;					// lua state
@@ -239,9 +233,9 @@ public:
 			return false;
 		}
 
-		std::string start_text = "-- ALittle Generate Lua";
+		const std::string start_text = "-- ALittle Generate Lua";
 		if (content.size() < start_text.size() || start_text != std::string(content.data(), start_text.size()))
-			CarpCrypto::XXTeaDecodeMemory(content.data(), static_cast<int>(content.size()), 0);
+			CarpCrypto::XXTeaDecodeMemory(content.data(), static_cast<int>(content.size()), nullptr);
 		RunScript(content.data(), content.size(), lua_path.c_str());
 		return true;
 	}

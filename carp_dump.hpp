@@ -1,8 +1,8 @@
 
-#ifdef _WIN32
+#ifndef CARP_DUMP_INCLUDED
+#define CARP_DUMP_INCLUDED
 
-#ifndef CARP_DUMPHELPER_INCLUDED
-#define CARP_DUMPHELPER_INCLUDED (1)
+#ifdef _WIN32
 
 #include <functional>
 #include <mutex>
@@ -52,10 +52,10 @@ private:
     std::string m_pre_name;
     // static global variable
     std::mutex m_callstack_locker;
-    char m_log_buffer[64 * 1024];
-    char m_symbol_buffer_1[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-    char m_symbol_buffer_2[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)];
-    void* m_dump_buffer = NULL;
+    char m_log_buffer[64 * 1024]={};
+    char m_symbol_buffer_1[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)]={};
+    char m_symbol_buffer_2[sizeof(SYMBOL_INFO) + MAX_SYM_NAME * sizeof(TCHAR)]={};
+    void* m_dump_buffer = nullptr;
     std::function<void()> m_dump_callback;
 	
 public:
@@ -69,10 +69,10 @@ public:
 
     void Shutdown()
     {
-        if (m_dump_buffer != NULL)
+        if (m_dump_buffer != nullptr)
         {
             free(m_dump_buffer);
-            m_dump_buffer = NULL;
+            m_dump_buffer = nullptr;
         }
     }
 
@@ -90,10 +90,9 @@ public:
         m_dump_buffer = malloc(DUMP_BUFFER_SIZE);
 
         _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
-        // https://msdn.microsoft.com/en-us/library/xdkz3x12(v=vs.100)
         signal(SIGABRT, my_signal_abrt_handle);
         typedef void (*SignalHandler)(int);
-        signal(SIGFPE, (SignalHandler)my_signal_fpe_handle);  
+        signal(SIGFPE, reinterpret_cast<SignalHandler>(my_signal_fpe_handle));  
     }
 
     void InitThreadExceptionHandler()
@@ -105,7 +104,7 @@ public:
     // *Note: 获取其他线程调用栈信息，需要先挂起该线程，执行完毕后再ResmueThread
     void GetCallStackString(void* thread, char* buffer, size_t size)
     {
-        if (NULL == buffer || 0 == size)
+        if (nullptr == buffer || 0 == size)
         {
             return;
         }
@@ -115,9 +114,9 @@ public:
         m_callstack_locker.unlock();
     }
 	
-    void log(const char* szFile, const char* szLog, size_t log_len)
+    void log(const char* szFile, const char* szLog, size_t log_len) const
     {
-        HANDLE hfile = NULL;
+        HANDLE hfile = nullptr;
         time_t tt;
         tm st{};
         char sztime[32] = { 0 };
@@ -567,12 +566,11 @@ public:
 
 #endif
 
+#endif
+
 #ifdef CARP_DUMP_IMPL
 #ifndef CARP_DUMP_IMPL_INCLUDE
 #define CARP_DUMP_IMPL_INCLUDE
 CarpDump s_carp_dump;
 #endif
 #endif
-
-#endif
-

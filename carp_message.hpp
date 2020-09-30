@@ -1,5 +1,5 @@
 #ifndef CARP_MESSAGE_INCLUDED
-#define CARP_MESSAGE_INCLUDED (1)
+#define CARP_MESSAGE_INCLUDED
 
 #include <list>
 #include <map>
@@ -11,8 +11,8 @@
 #include <Windows.h>
 #endif
 
-#define CARP_MESSAGE_DATA_OFSSET(data, offset) static_cast<void*>(static_cast<char*>(data) + offset)
-#define CARP_MESSAGE_CONST_DATA_OFSSET(data, offset) static_cast<const void*>(static_cast<const char*>(data) + offset)
+#define CARP_MESSAGE_DATA_OFFSET(data, offset) static_cast<void*>(static_cast<char*>(data) + offset)
+#define CARP_MESSAGE_CONST_DATA_OFFSET(data, offset) static_cast<const void*>(static_cast<const char*>(data) + offset)
 
 enum CarpMessage_DeserializeResult
 {
@@ -31,7 +31,7 @@ class CarpMessage
 {
 public:
 	CarpMessage() : __rpc_id(0) {}
-	virtual ~CarpMessage() { }
+	virtual ~CarpMessage() = default;
 	typedef CARP_MESSAGE_ID ID_TYPE;
 
 public:
@@ -47,10 +47,10 @@ public:
 #ifdef _WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)
 	{
-		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
 		std::wstring result;
 		if (len >= 1) result.resize(len - 1);
-		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, (wchar_t*)result.c_str(), len);
+		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
 		return result;
 	}
 #endif
@@ -66,11 +66,11 @@ public:
 		CARP_MESSAGE_RPCID message_rpcid = GetRpcID();
 
 		// 协议大小 = 协议体大小 + 协议头大小
-		unsigned int memory_size = message_size + CARP_PROTOCOL_HEAD_SIZE;
+		const int memory_size = message_size + CARP_PROTOCOL_HEAD_SIZE;
 
 		// 申请内存
 		void* memory = malloc(memory_size);
-		char* body_memory = (char*)memory;
+		char* body_memory = static_cast<char*>(memory);
 
 		// 设置协议头信息
 		memcpy(body_memory, &message_size, sizeof(CARP_MESSAGE_SIZE));
@@ -99,24 +99,24 @@ public:
 	CarpMessagePtrWapper(T* o) : ptr(o) {}
 
 public:
-	CARP_MESSAGE_ID GetID() const
+	CARP_MESSAGE_ID GetID() const override
 	{
-		if (ptr == 0) return 0;
+		if (ptr == nullptr) return 0;
 		return ptr->GetID();
 	}
-	int GetTotalSize() const
+	int GetTotalSize() const override
 	{
-		if (ptr == 0) return 0;
+		if (ptr == nullptr) return 0;
 		return ptr->GetTotalSize();
 	}
-	int Serialize(void* data) const
+	int Serialize(void* data) const override
 	{
-		if (ptr == 0) return 0;
+		if (ptr == nullptr) return 0;
 		return ptr->Serialize(data);
 	}
-	int Deserialize(const void* data, int len)
+	int Deserialize(const void* data, int len) override
 	{
-		if (ptr == 0) return 0;
+		if (ptr == nullptr) return 0;
 		return ptr->Deserialize(data, len);
 	}
 
@@ -203,7 +203,7 @@ public:
 	template <typename T>
 	static int Serialize(const T& object, void* data)
 	{
-		int result = object.Serialize(CARP_MESSAGE_DATA_OFSSET(data, sizeof(int)));
+		const int result = object.Serialize(CARP_MESSAGE_DATA_OFFSET(data, sizeof(int)));
 		*static_cast<int*>(data) = result;
 		return result + sizeof(int);
 	}
@@ -211,7 +211,7 @@ public:
 	static int Serialize(const std::set<T>& object, void* data)
 	{
 		// get size
-		int len = static_cast<int>(object.size());
+		const int len = static_cast<int>(object.size());
 		*static_cast<int*>(data) = len;
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
@@ -225,7 +225,7 @@ public:
 	static int Serialize(const std::list<T>& object, void* data)
 	{
 		// get size
-		int len = static_cast<int>(object.size());
+		const int len = static_cast<int>(object.size());
 		*static_cast<int*>(data) = len;
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
@@ -239,7 +239,7 @@ public:
 	static int Serialize(const std::vector<T>& object, void* data)
 	{
 		// get size
-		int len = static_cast<int>(object.size());
+		const int len = static_cast<int>(object.size());
 		*static_cast<int*>(data) = len;
 		// offset current data
 		char* current_data = static_cast<char*>(data) + sizeof(int);
@@ -252,7 +252,7 @@ public:
 	template <typename K, typename V>
 	static int Serialize(const std::map<K, V>& object, void* data)
 	{
-		int len = static_cast<int>(object.size());
+		const int len = static_cast<int>(object.size());
 		*static_cast<int*>(data) = len;
 
 		char* current_data = static_cast<char*>(data) + sizeof(int);
@@ -268,7 +268,7 @@ public:
 	template <> static int Serialize<std::string>(const std::string& object, void* data)
 	{
 		// get string length
-		int len = static_cast<int>(object.size());
+		const int len = static_cast<int>(object.size());
 		// add '\0' to length
 		*static_cast<int*>(data) = len + 1;
 		// offset to string position
@@ -328,7 +328,7 @@ public:
 		// if length > remain length, then analysis error
 		if (object_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
 
-		int result = object.Deserialize(CARP_MESSAGE_CONST_DATA_OFSSET(data, sizeof(int)), object_len);
+		const int result = object.Deserialize(CARP_MESSAGE_CONST_DATA_OFFSET(data, sizeof(int)), object_len);
 		if (result < CARP_MESSAGE_DR_NO_DATA) return result;
 
 		return object_len + static_cast<int>(sizeof(int));
@@ -349,7 +349,7 @@ public:
 		object.clear();
 
 		// get array length and check
-		int array_len = *static_cast<const int*>(data);
+		const int array_len = *static_cast<const int*>(data);
 		if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
 
 		// offset target data position
@@ -357,7 +357,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			T t;
-			int result = Deserialize(t, current_data, len);
+			const int result = Deserialize(t, current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 			object.insert(t);
 		}
@@ -381,7 +381,7 @@ public:
 		object.clear();
 
 		// get array length and check
-		int array_len = *static_cast<const int*>(data);
+		const int array_len = *static_cast<const int*>(data);
 		if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
 
 		// offset target data position
@@ -389,7 +389,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			object.push_back(T());
-			int result = Deserialize(object.back(), current_data, len);
+			const int result = Deserialize(object.back(), current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 		}
 
@@ -424,7 +424,7 @@ public:
 		for (int i = 0; i < array_len; ++i)
 		{
 			object.push_back(T());
-			int result = Deserialize(object.back(), current_data, len);
+			const int result = Deserialize(object.back(), current_data, len);
 			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 		}
 
@@ -448,7 +448,7 @@ public:
 		object.clear();
 
 		// get length
-		int map_len = *static_cast<const int*>(data);
+		const int map_len = *static_cast<const int*>(data);
 		if (map_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
 
 		// offset to data position
@@ -457,11 +457,11 @@ public:
 		{
 			// deserialize key
 			K key;
-			int key_result = Deserialize(key, current_data, len);
+			const int key_result = Deserialize(key, current_data, len);
 			if (key_result < CARP_MESSAGE_DR_NO_DATA) return key_result; current_data += key_result; len -= key_result;
 			// deserialize value
 			V& value = object[key] = V();
-			int value_result = Deserialize(value, current_data, len);
+			const int value_result = Deserialize(value, current_data, len);
 			if (value_result < CARP_MESSAGE_DR_NO_DATA) return value_result; current_data += value_result; len -= value_result;
 		}
 
@@ -481,14 +481,14 @@ public:
 		len -= sizeof(int); // desc size of head
 
 		// get string length(include '\0')
-		int str_len = *static_cast<const int*>(data);
+		const int str_len = *static_cast<const int*>(data);
 		if (str_len <= 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
 
 		// if length > remain length, then analysis error
 		if (str_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
 
 		// offset to string position
-		const char* str = (const char*)data;
+		const char* str = static_cast<const char*>(data);
 		str += sizeof(int);
 
 		// check real length
@@ -528,7 +528,7 @@ inline int Template_Message_GetTotalSize(int cur_size)
 template<typename T1, typename ...T2>
 inline int Template_Message_GetTotalSize(int cur_size, const T1& t0, const T2& ...args)
 {
-	int result = CarpMessageTemplate::GetTotalSize(t0);
+	const int result = CarpMessageTemplate::GetTotalSize(t0);
 	return Template_Message_GetTotalSize(cur_size + result, args...);
 }
 
@@ -542,8 +542,8 @@ inline int Template_Message_Serialize(int cur_size, void* data)
 template<typename T1, typename ...T2>
 inline int Template_Message_Serialize(int cur_size, void* data, const T1& t0, const T2& ...args)
 {
-	int result = CarpMessageTemplate::Serialize(t0, data);
-	return Template_Message_Serialize(cur_size + result, CARP_MESSAGE_DATA_OFSSET(data, result), args...);
+	const int result = CarpMessageTemplate::Serialize(t0, data);
+	return Template_Message_Serialize(cur_size + result, CARP_MESSAGE_DATA_OFFSET(data, result), args...);
 }
 
 // 边界条件
@@ -556,10 +556,10 @@ inline int Template_Message_Deserialize(int cur_size, const void* data, int len)
 template<typename T1, typename ...T2>
 inline int Template_Message_Deserialize(int cur_size, const void* data, int len, T1& t0, T2& ...args)
 {
-	int result = CarpMessageTemplate::Deserialize(t0, (const char*)data, len);
+	const int result = CarpMessageTemplate::Deserialize(t0, static_cast<const char*>(data), len);
 	if (result < CARP_MESSAGE_DR_NO_DATA) return result;
 
-	return Template_Message_Deserialize(cur_size + result, (const char*)data + result, len - result, args...);
+	return Template_Message_Deserialize(cur_size + result, static_cast<const char*>(data) + result, len - result, args...);
 }
 
 //===========================================================================================================
@@ -787,7 +787,7 @@ public:
 	// total message = message head + message body
 	int DeserializeFromTotalMessage(const void* data)
 	{
-		char* body = (char*)data;
+		const char* body = static_cast<const char*>(data);
 		// get message size
 		CARP_MESSAGE_SIZE len = 0;
 		memcpy(&len, body, sizeof(CARP_MESSAGE_SIZE));
@@ -809,7 +809,7 @@ public:
 	static bool LoadStdFile(const std::string& file_path, std::vector<char>& out)
 	{
 #ifdef _WIN32
-		FILE* file = 0;
+		FILE* file = nullptr;
 		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"rb");
 #else
 		FILE* file = fopen(file_path.c_str(), "rb");
@@ -845,9 +845,9 @@ public:
 		m_total_size = 0;
 		if (data.size() > 0)
 		{
-			m_total_size = (int)data.size();
+			m_total_size = static_cast<int>(data.size());
 			m_memory = malloc(data.size());
-			memcpy((void*)m_memory, data.data(), data.size());
+			memcpy(const_cast<void*>(m_memory), data.data(), data.size());
 		}
 
 		m_read_size = 0;
@@ -865,7 +865,7 @@ public:
 			return 0;
 		}
 		T value = 0;
-		memcpy(&value, CARP_MESSAGE_CONST_DATA_OFSSET(m_memory, m_read_size), sizeof(T));
+		memcpy(&value, CARP_MESSAGE_CONST_DATA_OFFSET(m_memory, m_read_size), sizeof(T));
 		m_read_size += static_cast<int>(sizeof(T));
 		m_last_read_size = static_cast<int>(sizeof(T));
 		return value;
@@ -893,7 +893,7 @@ public:
 			return "";
 		}
 		int len = 0; // include '\0'
-		memcpy(&len, CARP_MESSAGE_CONST_DATA_OFSSET(m_memory, m_read_size), sizeof(len));
+		memcpy(&len, CARP_MESSAGE_CONST_DATA_OFFSET(m_memory, m_read_size), sizeof(len));
 		if (len <= 0)
 		{
 			m_last_read_size = -1;
@@ -911,9 +911,9 @@ private:
 	void Clear()
 	{
 		if (m_memory && m_need_free)
-			free((void*)m_memory);
+			free(const_cast<void*>(m_memory));
 		m_need_free = false;
-		m_memory = 0;
+		m_memory = nullptr;
 	}
 
 public:
@@ -927,10 +927,6 @@ public:
 
 class CarpMessageWriteFactory : public CarpMessage
 {
-public:
-	CarpMessageWriteFactory() : m_id(0), m_size(0) {}
-	~CarpMessageWriteFactory() {}
-
 public:
 	/**
 	 * get message ID
@@ -967,7 +963,7 @@ public:
 	static bool WriteMemoryToStdFile(const std::string& file_path, const char* memory, size_t size)
 	{
 #ifdef _WIN32
-		FILE* file = 0;
+		FILE* file = nullptr;
 		_wfopen_s(&file, UTF82Unicode(file_path).c_str(), L"wb");
 #else
 		FILE* file = fopen(file_path.c_str(), "wb");
@@ -1021,8 +1017,8 @@ public:
 	void SetInt(int offset, int value) { CarpMessageTemplate::Serialize(value, m_memory.data() + offset); }
 	int WriteString(const char* value)
 	{
-		int len = static_cast<int>(strlen(value));
-		int total_size = len + sizeof(int) + 1;
+		const int len = static_cast<int>(strlen(value));
+		const int total_size = len + static_cast<int>(sizeof(int)) + 1;
 		ResizeMemory(total_size);
 
 		void* memory = m_memory.data() + m_size;
@@ -1053,8 +1049,8 @@ private:
 public:
 	std::vector<char> m_memory;
 
-	CARP_MESSAGE_ID m_id;		// id
-	CARP_MESSAGE_SIZE m_size;	// size
+	CARP_MESSAGE_ID m_id = 0;		// id
+	CARP_MESSAGE_SIZE m_size = 0;	// size
 };
 
 #endif

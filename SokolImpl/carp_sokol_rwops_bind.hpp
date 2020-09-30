@@ -2,7 +2,11 @@
 #define CARP_RWOPS_BIND_INCLUDED
 
 #include "carp_rwops.hpp"
-#include "carp_lua.hpp"
+extern "C" {
+#include "lua.h"
+#include "lauxlib.h"
+}
+#include "LuaBridge/LuaBridge.h"
 
 class CarpRWopsBind
 {
@@ -42,7 +46,7 @@ public:
 	{
 		size_t l;
 		const char* file_path = luaL_checklstring(l_state, 1, &l);
-		const auto result = CarpRWops::FileMd5(file_path);
+		auto result = CarpRWops::FileMd5(file_path);
 		lua_pushstring(l_state, result.c_str());
 		return 1;
 	}
@@ -50,7 +54,7 @@ public:
 	// 获取基本路径
 	static int BaseFilePath(lua_State* l_state)
 	{
-		const auto result = CarpRWops::BaseFilePath();
+		auto result = CarpRWops::BaseFilePath();
 		lua_pushstring(l_state, result.c_str());
 		return 1;
 	}
@@ -58,7 +62,7 @@ public:
 	// 获取外部路径
 	static int ExternalFilePath(lua_State* l_state)
 	{
-		const auto result = CarpRWops::ExternalFilePath();
+		auto result = CarpRWops::ExternalFilePath();
 		lua_pushstring(l_state, result.c_str());
 		return 1;
 	}

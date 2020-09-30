@@ -1,7 +1,5 @@
 #ifndef CARP_MATRIX_2D_INCLUDED
-#define CARP_MATRIX_2D_INCLUDED (1)
-
-#include <memory>
+#define CARP_MATRIX_2D_INCLUDED
 
 class CarpMatrix2D
 {
@@ -94,13 +92,12 @@ class CarpVector2D
 public:
 	CarpVector2D() : x(0.0f), y(0.0f) {}
 	CarpVector2D(float xx, float yy) : x(xx), y(yy) {}
-	~CarpVector2D() {}
 
 public:
 	CarpVector2D& Multiply(const CarpMatrix2D& right)
 	{
-		float xx = x * right.m[0][0] + y * right.m[1][0] + 1 * right.m[2][0];
-		float yy = x * right.m[0][1] + y * right.m[1][1] + 1 * right.m[2][1];
+		const float xx = x * right.m[0][0] + y * right.m[1][0] + 1 * right.m[2][0];
+		const float yy = x * right.m[0][1] + y * right.m[1][1] + 1 * right.m[2][1];
 
 		x = xx; y = yy;
 
@@ -116,12 +113,12 @@ class CarpColor4
 public:
 	CarpColor4() : r(255), g(255), b(255), a(255) {}
 
-	bool operator == (const CarpColor4& rr)
+	bool operator == (const CarpColor4& rr) const
 	{
 		return r == rr.r && g == rr.g && b == rr.b && a == rr.a;
 	}
 
-	bool operator != (const CarpColor4& rr)
+	bool operator != (const CarpColor4& rr) const
 	{
 		return r != rr.r || g != rr.g || b != rr.b || a != rr.a;
 	}

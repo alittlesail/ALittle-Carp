@@ -1,11 +1,8 @@
 #ifndef CARP_TASK_CONSUMER_BIND_INCLUDED
-#define CARP_TASK_CONSUMER_BIND_INCLUDED (1)
+#define CARP_TASK_CONSUMER_BIND_INCLUDED
 
 #include "carp_task_consumer.hpp"
-extern "C" {
-#include "lua.h"
-}
-#include "LuaBridge/LuaBridge.h"
+#include "carp_lua.hpp"
 
 class CarpTaskConsumerBind
 {

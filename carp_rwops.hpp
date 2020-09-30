@@ -74,23 +74,9 @@ public:
 	}
 
 	// 打开文件
-	static SDL_RWops* OpenFile(const std::string& path, const char* mode, bool only_asset=false)
+	static SDL_RWops* OpenFile(const std::string& path, const char* mode, bool only_assets=false)
 	{
-		// only from asset
-		if (only_asset)
-			return SDL_RWFromFileByPlatform(path.c_str(), mode);
-
-		// try outer path
-		std::string file_path = path;
-		if (!path.empty() && path.at(0) != '/')
-			file_path = std::string() + BaseFilePath() + path;
-		SDL_RWops* file = SDL_RWFromFile(file_path.c_str(), mode);
-
-		// try asset path
-		if (file == nullptr && file_path != path)
-			file = SDL_RWFromFileByPlatform(path.c_str(), mode);
-
-		return file;
+		return SDL_RWFromFile(path.c_str(), mode, only_assets ? SDL_TRUE : SDL_FALSE);
 	}
 
 	// 复制文件

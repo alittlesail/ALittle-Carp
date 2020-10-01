@@ -14,6 +14,16 @@
 class CarpCsv
 {
 public:
+    class CarpCsvException : public std::exception
+    {
+    public:
+        CarpCsvException(const std::string& msg) : m_msg(msg) {}
+        const std::string& What() const { return m_msg; }
+
+    private:
+        std::string m_msg;
+    };
+public:
     virtual ~CarpCsv() = default;
 
     typedef size_t(*READ_FILE)(void*, size_t, size_t, void*);
@@ -59,9 +69,9 @@ public:
             ReadFile(reinterpret_cast<READ_FILE>(fread), file, -1);
             fclose(file);
         }
-        catch (std::exception& e)
+        catch (CarpCsvException& e)
         {
-            if (error != nullptr) *error = e.what();
+            if (error != nullptr) *error = e.What();
             m_data.resize(0);
             if (file != nullptr) fclose(file);
             return false;
@@ -79,9 +89,9 @@ public:
         {
             ReadFile(reinterpret_cast<READ_FILE>(read_func), file, -1);
         }
-        catch (std::exception& e)
+        catch (CarpCsvException& e)
         {
-            if (error != nullptr) *error = e.what();
+            if (error != nullptr) *error = e.What();
             m_data.resize(0);
             return false;
         }
@@ -89,12 +99,12 @@ public:
         return true;
     }
 
-    size_t GetColCount() const { return m_data.empty() ? 0 : m_data[0].size(); }
-    size_t GetRowCount() const { return m_data.size(); }
+    virtual size_t GetColCount() const { return m_data.empty() ? 0 : m_data[0].size(); }
+    virtual size_t GetRowCount() const { return m_data.size(); }
     const std::vector<std::string>& GetRowData(size_t index) const { return m_data[index]; }
 
 	// 这个函数的下标从1开始
-	const char* ReadCell(size_t row, size_t col)
+    virtual const char* ReadCell(size_t row, size_t col)
 	{
         if (row < 1 || col < 1 || row > m_data.size() || col > m_data[row - 1].size())
         {
@@ -103,8 +113,8 @@ public:
         }
         return m_data[row - 1][col - 1].c_str();
 	}
-    const char* GetPath() const { return m_file_path.c_str(); }
-    void Close() { m_data.clear(); }
+    virtual const char* GetPath() const { return m_file_path.c_str(); }
+    virtual void Close() { m_data.clear(); }
 
 private:
     // 读取文件，并切割
@@ -295,7 +305,7 @@ private:
     }
 	
     // 抛异常
-    static void Throw(const std::string& error) { throw std::exception(error.c_str()); }
+    static void Throw(const std::string& error) { throw CarpCsvException(error); }
 
 private:
     std::string m_temp_string;

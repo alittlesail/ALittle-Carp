@@ -181,6 +181,8 @@ extern CarpConsole s_carp_console;
 #ifdef CARP_CONSOLE_IMPL
 #ifndef CARP_CONSOLE_IMPL_INCLUDE
 #define CARP_CONSOLE_IMPL_INCLUDE
+#ifdef _WIN32
 CarpConsole s_carp_console;
+#endif
 #endif
 #endif

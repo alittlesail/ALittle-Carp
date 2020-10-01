@@ -1,7 +1,7 @@
 #ifndef CARP_RWOPS_HPP_INCLUDED
 #define CARP_RWOPS_HPP_INCLUDED
 
-#include <SDL_rwops.h>
+#include <SDL.h>
 #include <string>
 #include <vector>
 

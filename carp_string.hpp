@@ -44,18 +44,6 @@ public:
         }
     }
 
-    // 把整形IP转为字符串
-    static std::string Ip2String(unsigned int ip)
-    {
-        char ip_dest[16] = { 0 };
-#ifdef _WIN32
-        sprintf_s(ip_dest, "%lu.%lu.%lu.%lu", ip >> 24, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
-#else
-        sprintf(ip_dest, "%lu.%lu.%lu.%lu", ip >> 24, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
-#endif
-        return std::string(ip_dest);
-    }
-
     // 判断是否是数字
     static bool IsNumber(char value) { return value >= '0' && value <= '9'; }
     // 判断是否是字母

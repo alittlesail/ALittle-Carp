@@ -42,7 +42,7 @@ public:
 
 public:
 	inline CARP_MESSAGE_RPCID GetRpcID() const { return __rpc_id; }
-	inline void SetRpcID(CARP_MESSAGE_RPCID rpc_id) { __rpc_id = rpc_id; }
+	inline virtual void SetRpcID(CARP_MESSAGE_RPCID rpc_id) { __rpc_id = rpc_id; }
 
 #ifdef _WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)
@@ -938,9 +938,7 @@ public:
 	 * @param id message ID
 	 */
 	void SetID(CARP_MESSAGE_ID id) { m_id = id; }
-#ifdef __EMSCRIPTEN__
-	void SetRpcID(CARP_MESSAGE_RPCID rpc_id) { CarpMessage::SetRpcID(rpc_id); }
-#endif
+	void SetRpcID(CARP_MESSAGE_RPCID rpc_id) override { CarpMessage::SetRpcID(rpc_id); }
 
 	/**
 	 * get total size

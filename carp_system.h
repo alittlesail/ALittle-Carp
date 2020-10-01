@@ -360,10 +360,10 @@ void CARP_GetDeviceID(char* buffer, size_t len)
 		HeapFree(GetProcessHeap(), 0, pAdapterInfo);
 #elif __ANDROID__
 	strcpy(buffer, "");
-	char info[256] = { 0 };
-	__system_property_get("ro.product.model", info);
+	char text[256] = { 0 };
+	__system_property_get("ro.product.model", text);
 	strcat(buffer, text);
-	__system_property_get("ro.serialno", info);
+	__system_property_get("ro.serialno", text);
 	strcat(buffer, text);
 #elif __APPLE_
 	strcpy(buffer, "");

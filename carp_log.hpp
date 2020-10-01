@@ -7,6 +7,10 @@
 #include <string>
 #include <sstream>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 
@@ -179,9 +183,9 @@ protected:
 		wprintf(UTF82Unicode(info.content).c_str());
 		SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif __ANDROID__
-		if (info.color == CARP_LOG_LEVEL_ERROR)
+		if (info.level == CARP_LOG_LEVEL_ERROR)
 			__android_log_write(ANDROID_LOG_ERROR, "SDL", info.content.c_str());
-		else if (info.color == CARP_LOG_LEVEL_WARN)
+		else if (info.level == CARP_LOG_LEVEL_WARN)
 			__android_log_write(ANDROID_LOG_WARN, "SDL", info.content.c_str());
 		else
 			__android_log_write(ANDROID_LOG_INFO, "SDL", info.content.c_str());

@@ -20,8 +20,8 @@
 extern "C" {
 #endif
 
-extern void CARP_GetPlatform(char* buffer, size_t len);
-extern void CARP_GetDeviceID(char* buffer, size_t len);
+extern void Carp_GetPlatform(char* buffer, size_t len);
+extern void Carp_GetDeviceID(char* buffer, size_t len);
 
 #ifdef __cplusplus
 }
@@ -32,7 +32,7 @@ extern void CARP_GetDeviceID(char* buffer, size_t len);
 #ifndef CARP_SYSTEM_IMPL_INCLUDE
 #define CARP_SYSTEM_IMPL_INCLUDE
 
-void CARP_GetPlatform(char* buffer, size_t len)
+void Carp_GetPlatform(char* buffer, size_t len)
 {
 #ifdef _WIN32
 	strcpy_s(buffer, len, "Windows");
@@ -321,7 +321,7 @@ Keychain API expects as a validly constructed container class.
 
 #endif
 
-void CARP_GetDeviceID(char* buffer, size_t len)
+void Carp_GetDeviceID(char* buffer, size_t len)
 {
 #ifdef _WIN32	
 	strcpy_s(buffer, len, "");

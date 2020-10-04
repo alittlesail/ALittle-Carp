@@ -1,5 +1,5 @@
-#ifndef CARP_SDL_RWOPS_BIND_INCLUDED
-#define CARP_SDL_RWOPS_BIND_INCLUDED
+#ifndef CARP_RWOPS_BIND_INCLUDED
+#define CARP_RWOPS_BIND_INCLUDED
 
 #ifdef ALITTLE_SDL_IMPL
 #include "carp_sdl_rwops.hpp"
@@ -70,3 +70,10 @@ public:
 
 #endif
 	
+#ifdef CARP_RWOPS_BIND_IMPL
+#ifndef CARP_RWOPS_BIND_IMPL_INCLUDE
+#define CARP_RWOPS_BIND_IMPL_INLUCDE
+#define CARP_SOKOL_RWOPS_IMPL
+#include "Carp/carp_sokol_rwops.h"
+#endif
+#endif

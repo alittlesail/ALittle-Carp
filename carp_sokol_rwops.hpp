@@ -1,10 +1,10 @@
-#ifndef CARP_RWOPS_HPP_INCLUDED
-#define CARP_RWOPS_HPP_INCLUDED
+#ifndef CARP_SOKOL_RWOPS_HPP_INCLUDED
+#define CARP_SOKOL_RWOPS_HPP_INCLUDED
 
 #include <string>
 #include <vector>
 
-#include "carp_rwops.h"
+#include "carp_sokol_rwops.h"
 #include "carp_crypto.hpp"
 
 class CarpRWops
@@ -13,7 +13,7 @@ public:
 	// 获取基本路径
 	static std::string BaseFilePath()
 	{
-		std::string path = CARP_GetInternalDataPath();
+		std::string path = Carp_GetInternalDataPath();
 		if (!path.empty()) path.push_back('/');
 		return path;
 	}
@@ -21,7 +21,7 @@ public:
 	// 获取外部路径
 	static std::string ExternalFilePath()
 	{
-		std::string path = CARP_GetExternalDataPath();
+		std::string path = Carp_GetExternalDataPath();
 		if (!path.empty()) path.push_back('/');
 		return path;
 	}
@@ -29,7 +29,7 @@ public:
 	// 计算文件的md5
 	static std::string FileMd5(const char* file_path)
 	{
-		CARP_RWops* file = OpenFile(file_path, "rb", false);
+		Carp_RWops* file = OpenFile(file_path, "rb", false);
 		if (file == 0) return "";
 
 		CarpCrypto::MD5_HASH Digest;
@@ -40,21 +40,21 @@ public:
 		unsigned char buffer[1024];
 		while (true)
 		{
-			size_t read_size = CARP_RWread(file, buffer, 1, sizeof(buffer));
+			size_t read_size = Carp_RWread(file, buffer, 1, sizeof(buffer));
 			if (read_size == 0) break;
 			CarpCrypto::Md5Update(&context, buffer, (int)read_size);
 		}
-		CARP_RWclose(file);
+		Carp_RWclose(file);
 
 		CarpCrypto::Md5Finalise(&context, &Digest);
 		return CarpCrypto::Md4HashToString(&Digest);
 	}
 
 	// 打开文件
-	static CARP_RWops* OpenFile(const std::string& path, const char* mode, bool only_asset=false)
+	static Carp_RWops* OpenFile(const std::string& path, const char* mode, bool only_asset=false)
 	{
 		// only from asset
-		return CARP_RWFromFile(path.c_str(), mode, only_asset ? 1 : 0);
+		return Carp_RWFromFile(path.c_str(), mode, only_asset ? 1 : 0);
 	}
 
 	// 复制文件
@@ -63,14 +63,14 @@ public:
 		if (src_path == 0 || dest_path == 0) return false;
 
 		// open src file
-		CARP_RWops* src_file = OpenFile(src_path, "rb", only_asset);
+		Carp_RWops* src_file = OpenFile(src_path, "rb", only_asset);
 		if (src_file == 0) return false;
 
 		// open dest file
-		CARP_RWops* dest_file = OpenFile(dest_path, "wb", false);
+		Carp_RWops* dest_file = OpenFile(dest_path, "wb", false);
 		if (dest_file == 0)
 		{
-			CARP_RWclose(src_file);
+			Carp_RWclose(src_file);
 			return false;
 		}
 
@@ -79,14 +79,14 @@ public:
 		size_t read_size = 0;
 		do
 		{
-			read_size = CARP_RWread(src_file, buff, 1, sizeof(buff));
+			read_size = Carp_RWread(src_file, buff, 1, sizeof(buff));
 			if (read_size == 0) break;
-			CARP_RWwrite(dest_file, buff, 1, read_size);
+			Carp_RWwrite(dest_file, buff, 1, read_size);
 		} while (true);
 
 		// close all file
-		CARP_RWclose(src_file);
-		CARP_RWclose(dest_file);
+		Carp_RWclose(src_file);
+		Carp_RWclose(dest_file);
 
 		return true;
 	}
@@ -95,17 +95,17 @@ public:
 	static bool LoadFile(const std::string& path, bool only_asset, std::vector<char>& memory)
 	{
 		// open src file
-		CARP_RWops* file = OpenFile(path, "rb", only_asset);
+		Carp_RWops* file = OpenFile(path, "rb", only_asset);
 		if (file == 0) return false;
 
 		// get file size
-		int size = (unsigned int)CARP_RWsize(file);
+		int size = (unsigned int)Carp_RWsize(file);
 		memory.resize(size, 0);
 
 		// read from memory
-		if (size > 0) CARP_RWread(file, &(memory[0]), size, 1);
+		if (size > 0) Carp_RWread(file, &(memory[0]), size, 1);
 		// close file
-		CARP_RWclose(file);
+		Carp_RWclose(file);
 
 		return true;
 	}
@@ -115,12 +115,12 @@ public:
 	{
 		if (content == 0) return false;
 
-		CARP_RWops* file = OpenFile(target_path, "wb", false);
+		Carp_RWops* file = OpenFile(target_path, "wb", false);
 		if (file == 0) return false;
 
 		if (size <= 0) size = static_cast<int>(strlen(content));
-		if (size > 0) CARP_RWwrite(file, content, 1, size);
-		CARP_RWclose(file);
+		if (size > 0) Carp_RWwrite(file, content, 1, size);
+		Carp_RWclose(file);
 
 		return true;
 	}
@@ -153,21 +153,21 @@ public:
 		ClearMemory();
 
 		// open file from local directory first
-		CARP_RWops* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
+		Carp_RWops* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
 		// check exist or not
 		if (!src_file) return false;
 
 		// get file size
-		m_size = (unsigned int)CARP_RWsize(src_file);
+		m_size = (unsigned int)Carp_RWsize(src_file);
 
 		// malloc memory
 		m_memory = (char*)malloc(m_size + 1);
 		// write to memory
-		CARP_RWread(src_file, (char*)m_memory, m_size, 1);
+		Carp_RWread(src_file, (char*)m_memory, m_size, 1);
 		// adjust to string
 		m_memory[m_size] = 0;
 		// close file
-		CARP_RWclose(src_file);
+		Carp_RWclose(src_file);
 
 		return true;
 	}
@@ -224,7 +224,7 @@ private:
 
 		if (m_read_rwops)
 		{
-			CARP_RWclose(m_read_rwops);
+			Carp_RWclose(m_read_rwops);
 			m_read_rwops = 0;
 		}
 
@@ -272,12 +272,15 @@ private:
 
 private:
 	int m_cur_offset = 0;
-	CARP_RWops* m_read_rwops = nullptr;
+	Carp_RWops* m_read_rwops = nullptr;
 };
 
 #endif
 
-#ifdef CARP_RWOPS_HPP_IMPL
-#define CARP_RWOPS_IMPL
-#include "carp_rwops.h"
+#ifdef CARP_SOKOL_RWOPS_HPP_IMPL
+#ifndef CARP_SOKOL_RWOPS_HPP_IMPL_INCLUDE
+#define CARP_SOKOL_RWOPS_HPP_IMPL_INCLUDE
+#define CARP_SOKOL_RWOPS_IMPL
+#include "Carp_RWops.h"
+#endif
 #endif

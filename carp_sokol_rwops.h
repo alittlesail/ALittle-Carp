@@ -1,6 +1,6 @@
 
-#ifndef CARP_RWOPS_INCLUDED
-#define CARP_RWOPS_INCLUDED
+#ifndef CARP_SOKOL_RWOPS_INCLUDED
+#define CARP_SOKOL_RWOPS_INCLUDED
 
 #ifdef __ANDROID__
 #include "sokol/sokol_app.h"
@@ -155,9 +155,9 @@ extern int Carp_RWclose(Carp_RWops* context);
 #endif
 #endif
 
-#ifdef CARP_RWOPS_IMPL
-#ifndef CARP_RWOPS_IMPL_INCLUDE
-#define CARP_RWOPS_IMPL_INCLUDE
+#ifdef CARP_SOKOL_RWOPS_IMPL
+#ifndef CARP_SOKOL_RWOPS_IMPL_INCLUDE
+#define CARP_SOKOL_RWOPS_IMPL_INCLUDE
 
 #ifdef _WIN32
 #include <Windows.h>

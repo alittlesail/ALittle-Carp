@@ -6,7 +6,7 @@
 
 #include "carp_surface.hpp"
 #include "carp_lua.hpp"
-#include "carp_rwops.hpp"
+#include "carp_rwops_bind.hpp"
 #include "carp_string.hpp"
 
 class CarpSurfaceBind

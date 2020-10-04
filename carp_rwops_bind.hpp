@@ -1,7 +1,11 @@
-#ifndef CARP_RWOPS_BIND_INCLUDED
-#define CARP_RWOPS_BIND_INCLUDED
+#ifndef CARP_SDL_RWOPS_BIND_INCLUDED
+#define CARP_SDL_RWOPS_BIND_INCLUDED
 
-#include "carp_rwops.hpp"
+#ifdef ALITTLE_SDL_IMPL
+#include "carp_sdl_rwops.hpp"
+#elif ALITTLE_SOKOL_IMPL
+#include "carp_sokol_rwops.hpp"
+#endif
 #include "carp_lua.hpp"
 
 class CarpRWopsBind

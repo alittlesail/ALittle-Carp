@@ -1,11 +1,10 @@
-#ifndef CARP_RWOPS_HPP_INCLUDED
-#define CARP_RWOPS_HPP_INCLUDED
+#ifndef CARP_SDL_RWOPS_HPP_INCLUDED
+#define CARP_SDL_RWOPS_HPP_INCLUDED
 
 #include <SDL.h>
 #include <string>
 #include <vector>
 
-#include "carp_rwops.h"
 #include "carp_crypto.hpp"
 
 class CarpRWops

@@ -17,7 +17,7 @@
 #include "carp_crypto.hpp"
 #include "carp_file.hpp"
 #include "carp_log.hpp"
-#include "carp_rwops.hpp"
+#include "carp_rwops_bind.hpp"
 
 class CarpScript
 {

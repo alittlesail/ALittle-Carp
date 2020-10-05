@@ -91,8 +91,8 @@ public:
 
 		int dst_x = 0;
 		int dst_y = 0;
-		int dst_width = src->m_width;
-		int dst_height = src->m_height;
+		int dst_width = m_width;
+		int dst_height = m_height;
 		if (dst_rect)
 		{
 			dst_x = dst_rect->x;

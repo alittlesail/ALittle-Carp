@@ -3,6 +3,7 @@
 #define CARP_FONT_INCLUDED
 
 #include <unordered_map>
+#include <vector>
 #include "stb/stb_truetype.h"
 
 #define CARP_FONT_STYLE_NORMAL 0
@@ -24,25 +25,24 @@ public:
 		width = w;
 		height = h;
 		if (width > 0 && height > 0)
-		{
-			bitmap = static_cast<unsigned char*>(malloc(width * height));
-			memset(bitmap, 0, width * height);
-		}
-	}
-
-	~CarpFontBitmap()
-	{
-		if (bitmap) free(bitmap);
+			bitmap.resize(width * height, 0);
 	}
 
 public:
 	int width = 0;
 	int height = 0;
-	unsigned char* bitmap = nullptr;
+	std::vector<unsigned char> bitmap;
 };
 
 class CarpFont
 {
+public:
+	struct BitmapBox
+	{
+		int x0, x1;
+		int y0, y1;
+	};
+	
 public:
 	// buffer reference by CarpFont, do not free before delete CarpFont
 	CarpFont(const char* buffer, size_t len, unsigned int font_size, unsigned int font_style)
@@ -50,7 +50,6 @@ public:
 		memset(&m_font, 0, sizeof(m_font));
 		
 		font_size += 5;
-
 		if (!stbtt_InitFont(&m_font, (unsigned char*)buffer, stbtt_GetFontOffsetForIndex((unsigned char*)buffer, 0)))
 			return;
 
@@ -59,8 +58,8 @@ public:
 		m_scale = stbtt_ScaleForPixelHeight(&m_font, static_cast<float>(font_size));
 		int ascent, descent;
 		stbtt_GetFontVMetrics(&m_font, &ascent, &descent, &m_line_gap);
-		m_base_line = static_cast<int>(ascent * m_scale);
-		m_font_height = static_cast<int>((ascent - descent) * m_scale);
+		m_base_line = static_cast<int>(std::ceil(ascent * m_scale));
+		m_font_height = static_cast<int>(std::ceil((ascent - descent) * m_scale));
 		m_line_gap = static_cast<int>(m_line_gap * m_scale);
 
 		if (m_font_style & CARP_FONT_STYLE_ITALIC) m_italic_extra_width = (CARP_FONT_GLYPH_ITALICS * m_font_height) >> 16;
@@ -167,42 +166,36 @@ public:
 		for (size_t i = 0; i < len; ++i)
 		{
 			const auto index = GetGlyphIndex(unicode_char[i]);
-			int advance, lsb;
-			stbtt_GetGlyphHMetrics(&m_font, index, &advance, &lsb);
-			acc_width += static_cast<int>(advance * m_scale);
+			const auto& box = GetBitmapBox(index);
+			acc_width += box.x1;
 			if (pre_index != 0)
-				acc_width += (int)(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
+				acc_width += static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
 			pre_index = index;
 		}
 
 		const auto acc_height = m_font_height;
-		if (acc_width == 0 || acc_height == 0) return 0;
+		if (acc_width == 0 || acc_height == 0) return nullptr;
 
 		acc_width += m_italic_extra_width;
 		auto* carp_bitmap = new CarpFontBitmap(acc_width, acc_height);
-		auto* const bitmap = carp_bitmap->bitmap;
+		auto* bitmap = carp_bitmap->bitmap.data();
 
 		pre_index = 0;
-		int tw = 0;
+		int cur_width = 0;
 		for (size_t i = 0; i < len; ++i)
 		{
 			const auto index = GetGlyphIndex(unicode_char[i]);
-			int advance, lsb;
-			stbtt_GetGlyphHMetrics(&m_font, index, &advance, &lsb);
-			int w = static_cast<int>(advance * m_scale);
-			int x0, y0, x1, y1;
-			stbtt_GetGlyphBitmapBox(&m_font, index, m_scale, m_scale, &x0, &y0, &x1, &y1);
+			auto box = GetBitmapBox(index);
 			if (pre_index != 0)
 			{
 				const auto kern = static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
-				x0 += kern;
-				x1 += kern;
-				w += kern;
+				box.x0 += kern;
+				box.x1 += kern;
 			}
-			const auto off_x = x0;
-			const auto off_y = m_base_line + y0;
-			stbtt_MakeGlyphBitmap(&m_font, bitmap + tw + off_x + off_y * acc_width, w - off_x, acc_height - off_y, acc_width, m_scale, m_scale, index);
-			tw += w;
+			auto off_x = box.x0;
+			auto off_y = m_base_line + box.y0; if (off_y < 0) off_y = 0;
+			stbtt_MakeGlyphBitmap(&m_font, bitmap + cur_width + off_x + off_y * acc_width, box.x1 - off_x, acc_height - off_y, acc_width, m_scale, m_scale, index);
+			cur_width += box.x1;
 			pre_index = index;
 		}
 
@@ -233,6 +226,16 @@ private:
 		return index;
 	}
 
+	const BitmapBox& GetBitmapBox(int glyph_index)
+	{
+		auto it = m_glyph_index_map_box.find(glyph_index);
+		if (it != m_glyph_index_map_box.end()) return it->second;
+
+		BitmapBox& box = m_glyph_index_map_box[glyph_index];
+		stbtt_GetGlyphBitmapBox(&m_font, glyph_index, m_scale, m_scale, &box.x0, &box.y0, &box.x1, &box.y1);
+		return box;
+	}
+
 	int CalcWCharWidth(unsigned int unicode_char, unsigned int pre_char)
 	{
 		const auto index = GetGlyphIndex(unicode_char);
@@ -241,10 +244,8 @@ private:
 		int pre_index = 0;
 		if (pre_char != 0) pre_index = GetGlyphIndex(pre_char);
 
-		int advance, lsb;
-		stbtt_GetGlyphHMetrics(&m_font, index, &advance, &lsb);
-
-		int width = static_cast<int>(advance * m_scale);
+		const auto& box = GetBitmapBox(index);
+		int width = box.x1;
 		if (pre_index != 0) width += static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
 
 		return width;
@@ -428,7 +429,8 @@ private:
 	stbtt_fontinfo m_font{};
 
 	std::unordered_map<int, int> m_unicode_map_glyph_index;
-
+	std::unordered_map<int, BitmapBox> m_glyph_index_map_box;
+	
 	float m_scale = 0.0f;
 	int m_line_gap = 0;
 	int m_base_line = 0;

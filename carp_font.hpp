@@ -41,6 +41,7 @@ public:
 	{
 		int x0, x1;
 		int y0, y1;
+		int advance;
 	};
 	
 public:
@@ -79,7 +80,7 @@ public:
 	* @param list result of width
 	* @return pos offset from content
 	*/
-	int CutTextByWidth(const char* content, int width, int max_width, std::vector<int>* list)
+	int CutTextByWidth(const char* content, int width, int max_width, bool need_kern, std::vector<int>* list)
 	{
 		if (content == nullptr || width <= 0) return 0;
 		auto len = static_cast<int>(strlen(content));
@@ -93,7 +94,7 @@ public:
 			int inc = 0;
 			const auto c = GetOneUnicodeFromUTF8(content, len, &inc);
 
-			acc_width += CalcWCharWidth(c, pre_char);
+			acc_width += CalcWCharWidth(c, pre_char, need_kern);
 			if (acc_width > width)
 			{
 				// 如果一个字符都没有切到，并且大于最大宽度，那么如果留到下一行依然无法切到
@@ -120,7 +121,7 @@ public:
 	* cut text width
 	* @param content: total text(utf8)
 	*/
-	int CutTextWidth(const char* content)
+	int CutTextWidth(const char* content, bool need_kern)
 	{
 		if (content == nullptr) return 0;
 		auto len = static_cast<int>(strlen(content));
@@ -133,7 +134,7 @@ public:
 			auto inc = 0;
 			const auto c = GetOneUnicodeFromUTF8(content, len, &inc);
 
-			acc_width += CalcWCharWidth(c, pre_char);
+			acc_width += CalcWCharWidth(c, pre_char, need_kern);
 			pre_char = c;
 			content += inc;
 			len -= inc;
@@ -142,7 +143,7 @@ public:
 		return acc_width;
 	}
 
-	CarpFontBitmap* CreateBitmapFromUTF8(const char* content)
+	CarpFontBitmap* CreateBitmapFromUTF8(const char* content, bool need_kern)
 	{
 		auto len = static_cast<int>(strlen(content));
 		if (len == 0) return nullptr;
@@ -156,10 +157,10 @@ public:
 			len -= inc;
 		}
 
-		return CreateBitmapFromUnicode(unicode_list.data(), unicode_list.size());
+		return CreateBitmapFromUnicode(unicode_list.data(), unicode_list.size(), need_kern);
 	}
 
-	CarpFontBitmap* CreateBitmapFromUnicode(unsigned int* unicode_char, size_t len)
+	CarpFontBitmap* CreateBitmapFromUnicode(unsigned int* unicode_char, size_t len, bool need_kern)
 	{
 		auto acc_width = 0;
 		auto pre_index = 0;
@@ -167,8 +168,8 @@ public:
 		{
 			const auto index = GetGlyphIndex(unicode_char[i]);
 			const auto& box = GetBitmapBox(index);
-			acc_width += box.x1;
-			if (pre_index != 0)
+			acc_width += box.advance;
+			if (need_kern && pre_index != 0)
 				acc_width += static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
 			pre_index = index;
 		}
@@ -186,16 +187,17 @@ public:
 		{
 			const auto index = GetGlyphIndex(unicode_char[i]);
 			auto box = GetBitmapBox(index);
-			if (pre_index != 0)
+			if (need_kern && pre_index != 0)
 			{
 				const auto kern = static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
 				box.x0 += kern;
 				box.x1 += kern;
+				box.advance += kern;
 			}
 			auto off_x = box.x0;
 			auto off_y = m_base_line + box.y0; if (off_y < 0) off_y = 0;
-			stbtt_MakeGlyphBitmap(&m_font, bitmap + cur_width + off_x + off_y * acc_width, box.x1 - off_x, acc_height - off_y, acc_width, m_scale, m_scale, index);
-			cur_width += box.x1;
+			stbtt_MakeGlyphBitmap(&m_font, bitmap + cur_width + off_x + off_y * acc_width, box.advance - off_x, acc_height - off_y, acc_width, m_scale, m_scale, index);
+			cur_width += box.advance;
 			pre_index = index;
 		}
 
@@ -228,15 +230,27 @@ private:
 
 	const BitmapBox& GetBitmapBox(int glyph_index)
 	{
-		auto it = m_glyph_index_map_box.find(glyph_index);
+		const auto it = m_glyph_index_map_box.find(glyph_index);
 		if (it != m_glyph_index_map_box.end()) return it->second;
 
 		BitmapBox& box = m_glyph_index_map_box[glyph_index];
 		stbtt_GetGlyphBitmapBox(&m_font, glyph_index, m_scale, m_scale, &box.x0, &box.y0, &box.x1, &box.y1);
+		if (box.x0 < 0)
+		{
+			box.x1 -= box.x0;
+			box.x0 = 0;
+		}
+
+		int advance, lsb;
+		stbtt_GetGlyphHMetrics(&m_font, glyph_index, &advance, &lsb);
+		advance = static_cast<int>(advance * m_scale);
+		if (advance < box.x1) advance = box.x1;
+		box.advance = advance;
+		
 		return box;
 	}
 
-	int CalcWCharWidth(unsigned int unicode_char, unsigned int pre_char)
+	int CalcWCharWidth(unsigned int unicode_char, unsigned int pre_char, bool need_kern)
 	{
 		const auto index = GetGlyphIndex(unicode_char);
 		if (index == 0) return 0;
@@ -245,8 +259,8 @@ private:
 		if (pre_char != 0) pre_index = GetGlyphIndex(pre_char);
 
 		const auto& box = GetBitmapBox(index);
-		int width = box.x1;
-		if (pre_index != 0) width += static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
+		int width = box.advance;
+		if (need_kern && pre_index != 0) width += static_cast<int>(m_scale * stbtt_GetGlyphKernAdvance(&m_font, pre_index, index));
 
 		return width;
 	}

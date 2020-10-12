@@ -48,10 +48,10 @@ public:
 			.endClass()
 			.endNamespace();
 
-		luabridge::setGlobal(m_L, this, "__CPPAPI_CarpScript");
+		luabridge::setGlobal(m_L, this, "carp_CarpScript");
 
-		const std::string require = "core_require = function(path) return __CPPAPI_CarpScript:Require(path) end";
-		RunScript(require.c_str(), require.size(), "ALittleBuild");
+		const std::string core = "core_require = function(path) return carp_CarpScript:Require(path) end\n core_run = function(script, path) return carp_CarpScript:RunScript(script, path) end";
+		RunScript(core.c_str(), core.size(), "CarpBuild");
 	}
 	
 	void Release()

@@ -97,7 +97,7 @@ public:
 		dest->CopyFrom(src, nullptr, x, y);
 	}
 
-	static bool	CutBlitCarpSurface(CarpSurface* dest, CarpSurface* src, const char* to, const char* from)
+	static bool	CutBlitCarpSurface(CarpSurface* src, CarpSurface* dest, const char* from, const char* to)
 	{
 		std::vector<std::string> to_list;
 		CarpString::Split(to, ",", to_list);

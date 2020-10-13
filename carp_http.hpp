@@ -1444,6 +1444,8 @@ private:
 		std::string new_url;
 		if (m_url.substr(0, 8) == "https://")
 			new_url = m_url.substr(8);
+		else if (m_url.substr(0, 7) == "http://")
+			new_url = m_url.substr(7);
 		else
 			new_url = m_url;
 

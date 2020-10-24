@@ -1492,10 +1492,9 @@ private:
 
 			// calc size of file
 			fseek(m_file, 0, SEEK_END);
-			m_cur_size = 0;
 			m_total_size = static_cast<int>(ftell(m_file));
 			if (m_start_size > m_total_size) m_start_size = m_total_size;
-			m_total_size -= m_start_size;
+			m_cur_size = m_start_size;
 			total_size += m_total_size;
 			fseek(m_file, m_start_size, SEEK_SET);
 
@@ -1546,7 +1545,6 @@ private:
 			m_request_head.append("Connection: Keep-Alive\r\n");
 		m_request_head.append(add_header);
 		m_request_head.append("\r\n");
-		m_total_size = static_cast<int>(total_size);
 
 		return true;
 	}
@@ -1566,7 +1564,7 @@ private:
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
-
+		
 		if (m_request_param.size())
 		{
 			// send param
@@ -1584,8 +1582,7 @@ private:
 		}
 	}
 
-	void HandleSocketSendRequestParam(const asio::error_code& ec
-		, std::size_t bytes_transferred)
+	void HandleSocketSendRequestParam(const asio::error_code& ec, std::size_t bytes_transferred)
 	{
 		if (ec)
 		{
@@ -1636,7 +1633,7 @@ private:
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
-
+		
 		const auto read_size = fread(m_http_buffer, 1, sizeof(m_http_buffer), m_file);
 		if (read_size > 0)
 		{
@@ -1678,8 +1675,7 @@ private:
 		}
 
 		m_cur_size += static_cast<int>(bytes_transferred);
-		if (m_progress_callback)
-			m_progress_callback(m_total_size, m_cur_size);
+		if (m_progress_callback) m_progress_callback(m_total_size, m_cur_size);
 
 		const auto read_size = fread(m_http_buffer, 1, sizeof(m_http_buffer), m_file);
 		if (read_size > 0)

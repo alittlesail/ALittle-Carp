@@ -69,14 +69,19 @@ private:
 	std::string m_file_name;
 	std::string m_file_path;
 
-#ifdef WIN32
-	static std::wstring UTF82Unicode(const std::string& utf8)
+#ifdef _WIN32
+	static std::string UTF82ANSI(const std::string& utf8)
 	{
-		const int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
-		std::wstring result;
-		if (len >= 1) result.resize(len - 1);
-		MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, const_cast<wchar_t*>(result.c_str()), len);
-		return result;
+		int len = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, NULL, 0);
+		std::vector<WCHAR> wszGBK;
+		wszGBK.resize(len + 1, 0);
+		MultiByteToWideChar(CP_UTF8, 0, (LPCSTR)utf8.c_str(), -1, wszGBK.data(), static_cast<int>(len));
+
+		len = WideCharToMultiByte(CP_ACP, 0, wszGBK.data(), -1, NULL, 0, NULL, NULL);
+		std::vector<char> szGBK;
+		szGBK.resize(len + 1, 0);
+		WideCharToMultiByte(CP_ACP, 0, (LPWSTR)wszGBK.data(), -1, szGBK.data(), static_cast<int>(len), NULL, NULL);
+		return szGBK.data();
 	}
 #endif
 	
@@ -89,8 +94,7 @@ public:
 		if (!IsStart())
 		{
 #ifdef _WIN32
-			wprintf(UTF82Unicode(content).c_str());
-			wprintf(L"\n");
+			printf("%s\n", UTF82ANSI(content).c_str());
 #else
 			printf("%s\n", content);
 #endif		
@@ -149,13 +153,13 @@ protected:
 			std::string file_path;
 			file_path.append(m_file_path).append(m_file_name).append("_").append(YMD).append("_").append(HMS).append(".log");
 #ifdef _WIN32
-			_wfopen_s(&m_file, UTF82Unicode(file_path).c_str(), L"a");
+			fopen_s(&m_file, UTF82ANSI(file_path).c_str(), "a");
 #else
 			m_file = fopen(file_path.c_str(), "a");
 #endif
 
 			if (m_file == nullptr)
-				printf("log file open failed:%s", file_path.c_str());
+				printf("log file open failed:%s\n", file_path.c_str());
 
 			// 把最新时间的0点保存起来
 			m_cur_day = CarpTime::CalcTodayBeginTime(cur_time);
@@ -180,7 +184,7 @@ protected:
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_EVENT);
 		else
 			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
-		wprintf(UTF82Unicode(info.content).c_str());
+		printf("%s", UTF82ANSI(info.content).c_str());
 		SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
 #elif __ANDROID__
 		if (info.level == CARP_LOG_LEVEL_ERROR)

@@ -26,6 +26,23 @@ public:
 		m_pixels.resize(width * height, 0);
 	}
 
+	void Reset(int width, int height)
+	{
+		if (width <= 0 || height <= 0) return;
+
+		m_width = width;
+		m_height = height;
+		m_pixels.resize(width * height, 0);
+		memset(m_pixels.data(), 0, sizeof(unsigned int) * width * height);
+	}
+
+	void Clear()
+	{
+		m_width = 0;
+		m_height = 0;
+		m_pixels.clear();
+	}
+
 	int GetWidth() const { return m_width; }
 	int GetHeight() const { return m_height; }
 
@@ -72,6 +89,18 @@ public:
 
 	unsigned int* GetPixels() { return m_pixels.data(); }
 	unsigned int GetPitch() const { return m_width * sizeof(unsigned int); }
+
+	unsigned int GetGray(size_t offset)
+	{
+		if (offset >= m_pixels.size()) return 0;
+
+		unsigned int color = m_pixels[offset];
+		unsigned int a = color >> 24;
+		unsigned int r = (color & 0x00FF0000) >> 16;
+		unsigned int g = (color & 0x0000FF00) >> 8;
+		unsigned int b = color & 0x000000FF;
+		return (unsigned int)std::floor((r + g + b) / 3.0 * (a / 255.0));
+	}
 
 	void ScaleFrom(CarpSurface* src, const CarpSurfaceRect* src_rect, const CarpSurfaceRect* dst_rect)
 	{

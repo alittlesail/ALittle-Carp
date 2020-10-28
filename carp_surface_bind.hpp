@@ -20,6 +20,7 @@ public:
 			.endClass()
 
 			.addFunction("CreateCarpSurface", CreateCarpSurface)
+			.addFunction("GetCarpSurfaceAddress", GetCarpSurfaceAddress)
 			.addFunction("FreeCarpSurface", FreeCarpSurface)
 			.addFunction("BlitCarpSurface", BlitCarpSurface)
 			.addFunction("LoadCarpSurface", LoadCarpSurfaceForLua)
@@ -47,6 +48,13 @@ public:
 	{
 		if (width <= 0 || height <= 0) return nullptr;
 		return new CarpSurface(width, height);
+	}
+
+	static size_t GetCarpSurfaceAddress(CarpSurface* surface)
+	{
+		size_t address = 0;
+		memcpy(&address, &surface, sizeof(size_t));
+		return address;
 	}
 
 	static void FreeCarpSurface(CarpSurface* surface)

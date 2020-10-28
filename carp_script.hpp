@@ -74,7 +74,7 @@ public:
 		const int err_func = lua_gettop(m_L);
 		std::string show_path;
 		if (file_path != nullptr) show_path = file_path;
-		if (show_path.size() > 48) show_path = show_path.substr(show_path.size() - 48);
+		if (show_path.size() > 45) show_path = show_path.substr(show_path.size() - 45);
 		if (luaL_loadbuffer(m_L, script, len, show_path.c_str()) == 0)
 		{
 			lua_pushstring(m_L, file_path);

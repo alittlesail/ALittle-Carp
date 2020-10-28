@@ -28,6 +28,7 @@ public:
 			.addFunction("GetCarpSurfaceWidth", GetCarpSurfaceWidth)
 			.addFunction("GetCarpSurfaceHeight", GetCarpSurfaceHeight)
 			.addFunction("CutBlitCarpSurface", CutBlitCarpSurface)
+			.addFunction("TransferCarpSurface", TransferCarpSurface)
 			.addFunction("GetCarpSurfaceGrid9", GetCarpSurfaceGrid9)
 			.addFunction("GetCarpSurfacePixel", GetCarpSurfacePixel)
 			.addFunction("SetCarpSurfacePixel", SetCarpSurfacePixel)
@@ -135,6 +136,12 @@ public:
 	{
 		if (surface == nullptr) return 0;
 		return surface->GetGrid9(type);
+	}
+
+	static void TransferCarpSurface(CarpSurface* surface, const char* type, int step)
+	{
+		if (surface == nullptr) return;
+		surface->TransferPixel(type, step);
 	}
 
 	static unsigned int GetPixelAlpha(unsigned int color) { return color >> 24; }

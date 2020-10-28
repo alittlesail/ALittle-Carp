@@ -176,6 +176,93 @@ public:
 		m_pixels[y * m_width + x] = pixel;
 	}
 
+	void TransferPixel(const char* type, int step)
+	{
+		if (type == 0 || m_width == 0 || m_height == 0 || step <= 0) return;
+		std::string new_type = type;
+
+		if (new_type == "left")
+		{
+			if (step > m_width) step = m_width;
+			
+			for (int col = step; col < m_width; ++col)
+			{
+				for (int row = 0; row < m_height; ++row)
+				{
+					m_pixels[row * m_width + col - step] = m_pixels[row * m_width + col];
+				}
+			}
+
+			for (int col = m_width - step; col < m_width; ++col)
+			{
+				for (int row = 0; row < m_height; ++row)
+				{
+					m_pixels[row * m_width + col] = 0;
+				}
+			}
+		}
+		else if (new_type == "right")
+		{
+			if (step > m_width) step = m_width;
+			
+			for (int col = m_width - 1; col >= step; ++col)
+			{
+				for (int row = 0; row < m_height; ++row)
+				{
+					m_pixels[row * m_width + col] = m_pixels[row * m_width + col - step];
+				}
+			}
+
+			for (int col = 0; col < step; ++col)
+			{
+				for (int row = 0; row < m_height; ++row)
+				{
+					m_pixels[row * m_width + col] = 0;
+				}
+			}
+		}
+		else if (new_type == "top")
+		{
+			if (step > m_height) step = m_height;
+
+			for (int row = step; row < m_height; ++row)
+			{
+				for (int col = 0; col < m_width; ++col)
+				{
+					m_pixels[(row - step) * m_width + col] = m_pixels[row * m_width + col];
+				}
+			}
+
+			for (int row = m_height - step; row < m_height; ++row)
+			{
+				for (int col = 0; col < m_width; ++col)
+				{
+					m_pixels[row * m_width + col] = 0;
+				}
+			}
+		}
+		else if (new_type == "bottom")
+		{
+			if (step > m_height) step = m_height;
+
+			for (int row = m_height - 1; row >= step; ++row)
+			{
+				for (int col = 0; col < m_width; ++col)
+				{
+					m_pixels[row * m_width + col] = m_pixels[(row - step) * m_width + col];
+				}
+			}
+
+			for (int row = 0; row < step; ++row)
+			{
+				for (int col = 0; col < m_width; ++col)
+				{
+					m_pixels[row * m_width + col] = 0;
+				}
+			}
+		}
+	}
+
 	unsigned int GetGrid9(const char* type)
 	{
 		if (type == 0 || m_width == 0 || m_height == 0) return 0;

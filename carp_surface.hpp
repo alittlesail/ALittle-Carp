@@ -26,14 +26,14 @@ public:
 		m_pixels.resize(width * height, 0);
 	}
 
-	void Reset(int width, int height)
+	void Reset(int width, int height, unsigned int color)
 	{
 		if (width <= 0 || height <= 0) return;
 
 		m_width = width;
 		m_height = height;
-		m_pixels.resize(width * height, 0);
-		memset(m_pixels.data(), 0, sizeof(unsigned int) * width * height);
+		m_pixels.resize(0);
+		m_pixels.resize(width * height, color);
 	}
 
 	void Clear()

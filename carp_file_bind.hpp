@@ -11,6 +11,8 @@ public:
 	{
 		luabridge::getGlobalNamespace(l_state)
 			.beginNamespace("carp")
+            .addFunction("GetCurrentPath", GetCurrentPath)
+            .addFunction("SetCurrentPath", SetCurrentPath)
             .addFunction("CreateFolder", CreateFolder)
             .addFunction("DeleteFolder", DeleteFolder)
 			.addCFunction("GetPathAttribute", GetPathAttribute)
@@ -20,6 +22,18 @@ public:
 	}
 
 private:
+    static int GetCurrentPath(lua_State* l_state)
+    {
+        std::string result = CarpFile::GetCurrentPath();
+        lua_pushstring(l_state, result.c_str());
+        return 1;
+    }
+
+    static bool SetCurrentPath(const char* path)
+    {
+        return CarpFile::SetCurrentPath(path);
+    }
+	
     static void CreateFolder(const char* path)
     {
         CarpFile::CreateFolder(path);

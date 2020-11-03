@@ -36,6 +36,31 @@
 class CarpFile
 {
 public:
+	// 获取当前路径
+	static std::string GetCurrentPath()
+	{
+		std::string result;
+#ifdef _WIN32
+		wchar_t buffer[1024];
+		wchar_t* w_path = _wgetcwd(buffer, 1024);
+		if (w_path != nullptr) result = Unicode2UTF8(w_path);
+#else
+		char buffer[1024];
+		char* path = getcwd(buffer, 1024);
+		if (path != nullptr) result = path;
+#endif
+		return result;
+	}
+	// 设置当前路径
+	static bool SetCurrentPath(const std::string& path)
+	{
+#ifdef _WIN32
+		return _wchdir(UTF82Unicode(path).c_str()) == 0;
+#else
+		return chdir(path.c_str()) == 0;
+#endif
+	}
+	
 	// 创建文件夹
 	static void CreateFolder(const std::string& path)
 	{

@@ -88,6 +88,7 @@ private:
 
 		asio::error_code ec;
 		m_io_service.run(ec);
+		m_io_service.restart();
 
 		m_keep_run = CarpAsioTimerPtr();
 		m_timer_once = CarpAsioTimerPtr();

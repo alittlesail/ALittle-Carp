@@ -72,9 +72,9 @@ public:
 	{
 		lua_pushcclosure(m_L, OnError, 0);
 		const int err_func = lua_gettop(m_L);
+		
 		std::string show_path;
 		if (file_path != nullptr) show_path = file_path;
-		if (show_path.size() > 45) show_path = show_path.substr(show_path.size() - 45);
 		if (luaL_loadbuffer(m_L, script, len, show_path.c_str()) == 0)
 		{
 			lua_pushstring(m_L, file_path);
@@ -82,6 +82,7 @@ public:
 		}
 		else
 			PrintError(m_L, file_path, lua_tostring(m_L, -1));
+		
 		lua_remove(m_L, err_func);
 		lua_pop(m_L, 1);
 	}
@@ -96,17 +97,10 @@ private:
 
 		lua_getinfo(L, "nSlu", &ar);
 
-		char text[32] = { 0 };
-#ifdef _WIN32
-		sprintf_s(text, "%d", ar.currentline);
-#else
-		sprintf(text, "%d", ar.currentline);
-#endif
-
 		if (ar.name)
-			stack_info.append(ar.name).append("() : line ").append(text).append(" [").append(ar.source).append("]\n");
+			stack_info.append(ar.name).append("() : line ").append(std::to_string(ar.currentline)).append(" [").append(ar.source).append("]\n");
 		else
-			stack_info.append("unknown : line ").append(text).append(" [").append(ar.source).append("]\n");
+			stack_info.append("unknown : line ").append(std::to_string(ar.currentline)).append(" [").append(ar.source).append("]\n");
 
 		CallStack(L, n + 1, stack_info);
 	}

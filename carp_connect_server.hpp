@@ -999,6 +999,8 @@ private:
 	{
 		if (ec)
 		{
+			if (m_acceptor == nullptr) return;
+			
 			CARP_ERROR("ClientServer accept failed: " << ec.value());
 			if (error_count > 100)
 				Close();

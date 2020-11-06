@@ -215,6 +215,8 @@ public:
 	int Start(lua_State* l_state)
 	{
 		m_L = l_state;
+		lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE | LUA_MASKCOUNT, 1);
+		m_break_points["Module/ALittleIDE/Other/GameLibrary/Core/Script/Core/Lua.lua"].insert(77);
 
 		const char* yun_ip = luaL_checkstring(l_state, 2);
 		const char* ip = luaL_checkstring(l_state, 3);
@@ -265,7 +267,8 @@ public:
 
 		{
 			std::unique_lock<std::mutex> lock(m_break_mutex);
-			lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
+			m_break_points.clear();
+			m_break_cv.notify_one();
 		}
 	}
 
@@ -273,13 +276,13 @@ public:
 	{
 		if (m_client != sender) return;
 
+		CARP_SYSTEM("debug client disconnected!");
 		m_client = nullptr;
 
 		{
 			std::unique_lock<std::mutex> lock(m_break_mutex);
 			m_break_points.clear();
 			m_break_cv.notify_one();
-			lua_sethook(m_L, nullptr, 0, 0);
 		}
 	}
 
@@ -340,6 +343,8 @@ public:
 
 	void DebugHookImpl(lua_State* L, lua_Debug* ar)
 	{
+		lua_getinfo(L, "nSlu", ar);
+		
 		std::unique_lock<std::mutex> lock(m_break_mutex);
 		auto it = m_break_points.find(ar->source);
 		if (it != m_break_points.end() && it->second.find(ar->currentline) != it->second.end())
@@ -370,10 +375,9 @@ public:
 
 	static void DebugHook(lua_State* L, lua_Debug* ar)
 	{
-		lua_getglobal(L, "carp_CarpLuaDebugServer");
-		CarpLuaDebugServer* server = (CarpLuaDebugServer*)lua_touserdata(L, -1);
-		lua_pop(L, 1);
-		server->DebugHookImpl(L, ar);
+		auto ref = luabridge::getGlobal(L, "carp_CarpLuaDebugServer");
+		auto* server = ref.cast<CarpLuaDebugServer*>();
+		if (server) server->DebugHookImpl(L, ar);
 	}
 
 private:

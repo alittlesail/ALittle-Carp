@@ -52,6 +52,7 @@ public:
 			.addFunction("Close", &CarpLuaDebugClient::Close)
 			.addCFunction("HandleEvent", &CarpLuaDebugClient::HandleEvent)
 			.addFunction("DoContinue", &CarpLuaDebugClient::DoContinue)
+			.addFunction("DoNextLine", &CarpLuaDebugClient::DoNextLine)
 			.addFunction("AddBreakPoint", &CarpLuaDebugClient::AddBreakPoint)
 			.addFunction("RemoveBreakPoint", &CarpLuaDebugClient::RemoveBreakPoint)
 			.addFunction("ClearBreakPoint", &CarpLuaDebugClient::ClearBreakPoint)
@@ -213,6 +214,14 @@ public:
 		Execute([this]()
 			{
 				Send(CarpLuaDebugContinue());
+			});
+	}
+
+	void DoNextLine()
+	{
+		Execute([this]()
+			{
+				Send(CarpLuaDebugNextLine());
 			});
 	}
 	

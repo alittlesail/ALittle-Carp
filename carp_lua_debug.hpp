@@ -17,6 +17,9 @@
 #define _CarpLuaDebugContinue 4	// 跳过当前断点
 #define _CarpLuaDebugNextLine 5	// 下一行
 
+#define _CarpLuaDebugBreakIn 6	// 断点
+#define _CarpLuaDebugBreakOut 7	// 继续
+
 CARP_MESSAGE_MACRO(CarpLuaDebugBreakPoint, std::string, file_path, int, file_line);
 
 CARP_MESSAGE_MACRO(CarpLuaDebugAddBreakPoint, std::vector<CarpLuaDebugBreakPoint>, list);
@@ -25,6 +28,15 @@ CARP_MESSAGE_MACRO(CarpLuaDebugClearBreakPoint);
 
 CARP_MESSAGE_MACRO(CarpLuaDebugContinue);
 CARP_MESSAGE_MACRO(CarpLuaDebugNextLine);
+
+CARP_MESSAGE_MACRO(CarpLuaDebugBreakIn, std::string, file_path, int, file_line);
+CARP_MESSAGE_MACRO(CarpLuaDebugBreakOut);
+
+enum CarpLuaDebugEvent
+{
+	CLDE_BREAK_IN = 1,
+	CLDE_BREAK_OUT = 2,
+};
 
 class CarpLuaDebugClient : public CarpSchedule
 {
@@ -37,6 +49,8 @@ public:
 			.addConstructor<void(*)()>()
 			.addFunction("Start", &CarpLuaDebugClient::Start)
 			.addFunction("Close", &CarpLuaDebugClient::Close)
+			.addCFunction("HandleEvent", &CarpLuaDebugClient::HandleEvent)
+			.addFunction("DoContinue", &CarpLuaDebugClient::DoContinue)
 			.addFunction("AddBreakPoint", &CarpLuaDebugClient::AddBreakPoint)
 			.addFunction("RemoveBreakPoint", &CarpLuaDebugClient::RemoveBreakPoint)
 			.addFunction("ClearBreakPoint", &CarpLuaDebugClient::ClearBreakPoint)
@@ -132,45 +146,120 @@ private:
 		CARP_MESSAGE_RPCID head_rpc_id = 0;
 		memcpy(&head_rpc_id, body, sizeof(CARP_MESSAGE_RPCID));
 		body += sizeof(CARP_MESSAGE_RPCID);
+
+		if (head_id == CarpLuaDebugBreakOut::GetStaticID())
+		{
+			CarpLuaDebugBreakOut msg;
+			msg.Deserialize(body, len);
+
+			PushEvent([this](lua_State* L)->int
+				{
+					lua_newtable(L);
+					lua_pushinteger(L, CLDE_BREAK_OUT);
+					lua_setfield(L, -2, "type");
+					return 1;
+				});
+		}
+		else if (head_id == CarpLuaDebugBreakIn::GetStaticID())
+		{
+			CarpLuaDebugBreakIn msg;
+			msg.Deserialize(body, len);
+
+			PushEvent([this, msg](lua_State* L)->int
+				{
+					lua_newtable(L);
+					lua_pushinteger(L, CLDE_BREAK_IN);
+					lua_setfield(L, -2, "type");
+
+					lua_pushstring(L, msg.file_path.c_str());
+					lua_setfield(L, -2, "file_path");
+
+					lua_pushinteger(L, msg.file_line);
+					lua_setfield(L, -2, "file_line");
+					return 1;
+				});
+		}
 	}
 	
 public:
+	void PushEvent(const std::function<int(lua_State*)>& event)
+	{
+		m_mutex.lock();
+		m_event_list.push_back(event);
+		m_mutex.unlock();
+	}
+	
+	int HandleEvent(lua_State* L)
+	{
+		std::function<int(lua_State*)> event;
+		m_mutex.lock();
+		if (m_event_list.empty())
+		{
+			m_mutex.unlock();
+			return 0;
+		}
+		event = m_event_list.front();
+		m_event_list.pop_front();
+		m_mutex.unlock();
+		
+		return event(L);
+	}
+
+	void DoContinue()
+	{
+		Execute([this]()
+			{
+				Send(CarpLuaDebugContinue());
+			});
+	}
+	
 	void AddBreakPoint(const char* file_path, int file_line)
 	{
 		if (file_path == nullptr) return;
-		m_break_points[file_path].insert(file_line);
 
-		CarpLuaDebugAddBreakPoint msg;
-		CarpLuaDebugBreakPoint info;
-		info.file_path = file_path;
-		info.file_line = file_line;
-		msg.list.push_back(info);
-		Send(msg);
+		std::string file_path_temp = file_path;
+		Execute([this, file_path_temp, file_line]()
+			{
+				m_break_points[file_path_temp].insert(file_line);
+
+				CarpLuaDebugAddBreakPoint msg;
+				CarpLuaDebugBreakPoint info;
+				info.file_path = file_path_temp;
+				info.file_line = file_line;
+				msg.list.push_back(info);
+				Send(msg);
+			});
 	}
 
 	void RemoveBreakPoint(const char* file_path, int file_line)
 	{
 		if (file_path == nullptr) return;
 
-		auto it = m_break_points.find(file_path);
-		if (it == m_break_points.end()) return;
+		std::string file_path_temp = file_path;
+		Execute([this, file_path_temp, file_line]()
+			{
+				auto it = m_break_points.find(file_path_temp);
+				if (it == m_break_points.end()) return;
 
-		it->second.erase(file_line);
-		if (it->second.empty()) m_break_points.erase(it);
+				it->second.erase(file_line);
+				if (it->second.empty()) m_break_points.erase(it);
 
-		CarpLuaDebugRemoveBreakPoint msg;
-		CarpLuaDebugBreakPoint info;
-		info.file_path = file_path;
-		info.file_line = file_line;
-		msg.list.push_back(info);
-		Send(msg);
+				CarpLuaDebugRemoveBreakPoint msg;
+				CarpLuaDebugBreakPoint info;
+				info.file_path = file_path_temp;
+				info.file_line = file_line;
+				msg.list.push_back(info);
+				Send(msg);
+			});
 	}
 
 	void ClearBreakPoint()
 	{
-		m_break_points.clear();
-
-		Send(CarpLuaDebugClearBreakPoint());
+		Execute([this]()
+			{
+				m_break_points.clear();
+				Send(CarpLuaDebugClearBreakPoint());
+			});
 	}
 
 	void Send(const CarpMessage& message) const
@@ -190,6 +279,10 @@ private:
 	std::string m_ip;
 	int m_port = 0;
 	bool m_start = false;
+
+private:
+	std::mutex m_mutex;
+	std::list<std::function<int(lua_State*)>> m_event_list;
 };
 
 class CarpLuaDebugServer : public CarpConnectSchedule
@@ -216,11 +309,10 @@ public:
 	{
 		m_L = l_state;
 		lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE | LUA_MASKCOUNT, 1);
-		m_break_points["Module/ALittleIDE/Other/GameLibrary/Core/Script/Core/Lua.lua"].insert(77);
 
 		const char* yun_ip = luaL_checkstring(l_state, 2);
 		const char* ip = luaL_checkstring(l_state, 3);
-		int port = (int)luaL_checkinteger(l_state, 4);
+		const int port = static_cast<int>(luaL_checkinteger(l_state, 4));
 
 		m_server = std::make_shared<CarpConnectServerImpl>();
 		m_server->Start(yun_ip, ip, port, 30, this);
@@ -341,17 +433,37 @@ public:
 		}
 	}
 
+	void InBreak(const std::string& file_path, int file_line)
+	{
+		if (!m_client) return;
+		CarpLuaDebugBreakIn msg;
+		msg.file_path = file_path;
+		msg.file_line = file_line;
+		m_client->Send(msg);
+	}
+
+	void OutBreak()
+	{
+		if (!m_client) return;
+		m_client->Send(CarpLuaDebugBreakOut());
+	}
+
 	void DebugHookImpl(lua_State* L, lua_Debug* ar)
 	{
-		lua_getinfo(L, "nSlu", ar);
-		
 		std::unique_lock<std::mutex> lock(m_break_mutex);
+		if (m_break_points.empty() && m_break_next_file_path.empty()) return;
+		
+		lua_getinfo(L, "nSlu", ar);
 		auto it = m_break_points.find(ar->source);
 		if (it != m_break_points.end() && it->second.find(ar->currentline) != it->second.end())
 		{
 			const auto file_path = it->first;
 			const auto file_line = ar->currentline;
+			m_in_break = true;
+			Execute([this, file_path, file_line]() {InBreak(file_path, file_line); });
 			m_break_cv.wait(lock);
+			m_in_break = false;
+			Execute([this]() {OutBreak(); });
 			if (m_break_next_line)
 			{
 				m_break_next_line = false;
@@ -363,7 +475,11 @@ public:
 		{
 			const auto file_path = m_break_next_file_path;
 			m_break_next_file_path.resize(0);
+			m_in_break = true;
+			Execute([this, file_path, file_line = m_break_next_file_line]() {InBreak(file_path, file_line); });
 			m_break_cv.wait(lock);
+			m_in_break = false;
+			Execute([this]() {OutBreak(); });
 			if (m_break_next_line)
 			{
 				m_break_next_line = false;
@@ -392,6 +508,7 @@ private:
 	std::mutex m_break_mutex;                 // 互斥锁
 	std::condition_variable m_break_cv;       // 条件变量
 	std::unordered_map<std::string, std::unordered_set<int>> m_break_points;
+	bool m_in_break = false;
 
 private:
 	CarpConnectReceiverPtr m_client;

@@ -7,6 +7,7 @@
 #include "carp_lua.hpp"
 #include "carp_connect_client.hpp"
 #include "carp_connect_server.hpp"
+#include "carp_script.hpp"
 
 #define _CarpLuaDebugBreakPoint 0
 
@@ -67,9 +68,11 @@ public:
 		if (m_client == nullptr) m_client = std::make_shared<CarpConnectClient>();
 
 		Run(true);
-		m_client->Connect(ip, port, &GetIOService()
-			, std::bind(&CarpLuaDebugClient::HandleConnectFailed, this, std::string(ip), port)
-			, std::bind(&CarpLuaDebugClient::HandleConnectSucceed, this, std::string(ip), port)
+
+		std::string ip_temp = ip;
+		m_client->Connect(ip_temp, port, &GetIOService()
+			, std::bind(&CarpLuaDebugClient::HandleConnectFailed, this, ip_temp, port)
+			, std::bind(&CarpLuaDebugClient::HandleConnectSucceed, this, ip_temp, port)
 			, std::bind(&CarpLuaDebugClient::HandleDisconnected, this)
 			, std::bind(&CarpLuaDebugClient::HandleMessage, this, std::placeholders::_1, std::placeholders::_2));
 	}
@@ -264,7 +267,7 @@ public:
 
 	void Send(const CarpMessage& message) const
 	{
-		if (!m_client) return;
+		if (!m_client || !m_client->IsConnected()) return;
 
 		int size = 0;
 		void* memory = message.CreateMemoryForSend(&size);
@@ -296,7 +299,7 @@ public:
 		luabridge::getGlobalNamespace(l_state)
 			.beginNamespace("carp")
 			.beginClass<CarpLuaDebugServer>("CarpLuaDebugServer")
-			.addCFunction("Start", &CarpLuaDebugServer::Start)
+			.addFunction("Start", &CarpLuaDebugServer::Start)
 			.addFunction("Stop", &CarpLuaDebugServer::Stop)
 			.endClass()
 			.endNamespace();
@@ -305,24 +308,26 @@ public:
 	}
 	
 public:
-	int Start(lua_State* l_state)
+	bool Start(CarpScript* script, const char* yun_ip, const char* ip, int port)
 	{
-		m_L = l_state;
-		lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE | LUA_MASKCOUNT, 1);
+		if (script == nullptr || ip == nullptr) return false;
+		
+		CARP_SYSTEM("debug server start");
 
-		const char* yun_ip = luaL_checkstring(l_state, 2);
-		const char* ip = luaL_checkstring(l_state, 3);
-		const int port = static_cast<int>(luaL_checkinteger(l_state, 4));
+		m_L = script->GetLuaState();
+		lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
 
 		m_server = std::make_shared<CarpConnectServerImpl>();
 		m_server->Start(yun_ip, ip, port, 30, this);
 		Run(true);
 
-		return 0;
+		return true;
 	}
 
 	void Stop()
 	{
+		CARP_SYSTEM("debug server stop");
+		
 		{
 			std::unique_lock<std::mutex> lock(m_break_mutex);
 			m_break_points.clear();
@@ -452,7 +457,7 @@ public:
 	{
 		std::unique_lock<std::mutex> lock(m_break_mutex);
 		if (m_break_points.empty() && m_break_next_file_path.empty()) return;
-		
+
 		lua_getinfo(L, "nSlu", ar);
 		auto it = m_break_points.find(ar->source);
 		if (it != m_break_points.end() && it->second.find(ar->currentline) != it->second.end())
@@ -491,7 +496,7 @@ public:
 
 	static void DebugHook(lua_State* L, lua_Debug* ar)
 	{
-		auto ref = luabridge::getGlobal(L, "carp_CarpLuaDebugServer");
+		const auto ref = luabridge::getGlobal(L, "carp_CarpLuaDebugServer");
 		auto* server = ref.cast<CarpLuaDebugServer*>();
 		if (server) server->DebugHookImpl(L, ar);
 	}

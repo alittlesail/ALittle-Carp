@@ -939,7 +939,7 @@ public:
 			return false;
 		}
 
-		// 创建定时器i
+		// 创建定时器
 		m_heartbeat_timer = std::make_shared<AsioTimer>(schedule->GetIOService(), std::chrono::seconds(heartbeat));
 		m_heartbeat_timer->async_wait(std::bind(&CarpConnectServer::ServerSendHeartbeat, this->shared_from_this(), std::placeholders::_1, heartbeat));
 

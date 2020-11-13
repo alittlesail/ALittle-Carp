@@ -152,7 +152,6 @@ private:
 	// 发起连接请求
 	void SendConnect(asio::io_service* io_service)
 	{
-		CARP_SYSTEM("asd111");
 		const auto size = sizeof(int) + sizeof(uint32_t);
 		void* memory = malloc(size);
 		// 这里讲session设置为0作为请求连接的操作
@@ -163,13 +162,13 @@ private:
 				, std::placeholders::_1, std::placeholders::_2, memory));
 
 		// 等待接收连接应答包
-		m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_endpoint
+		m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_receiver
 			, std::bind(&CarpRudpClient::HandleReceiveConnect, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2, io_service));
 
 		// 创建定时器
 		m_connect_timer = std::make_shared<AsioTimer>(*io_service, std::chrono::seconds(5));
-		m_connect_timer->async_wait(std::bind(&CarpRudpClient::HandleAsyncConnect, this->shared_from_this(), false));
+		m_connect_timer->async_wait(std::bind(&CarpRudpClient::HandleConnectTimeout, this->shared_from_this(), std::placeholders::_1));
 	}
 	void HandleSendConnect(const asio::error_code& ec, std::size_t actual_size, void* memory)
 	{
@@ -177,7 +176,6 @@ private:
 	}
 	void HandleReceiveConnect(const asio::error_code& ec, std::size_t actual_size, asio::io_service* io_service)
 	{
-		CARP_SYSTEM("asd222");
 		if (ec)
 		{
 			HandleAsyncConnect(false);
@@ -189,7 +187,7 @@ private:
 		if (actual_size != size)
 		{
 			// 继续收包
-			m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_endpoint
+			m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_receiver
 				, std::bind(&CarpRudpClient::HandleReceiveConnect, this->shared_from_this()
 					, std::placeholders::_1, std::placeholders::_2, io_service));
 			return;
@@ -207,6 +205,7 @@ private:
 		m_session = *reinterpret_cast<int*>(m_udp_buffer);
 		// 取conv
 		const auto conv = *reinterpret_cast<uint32_t*>(m_udp_buffer + sizeof(int));
+
 		// 检查是否连接成功
 		if (m_session <= 0 || conv == 0)
 		{
@@ -235,14 +234,15 @@ private:
 	// 处理连接超时
 	void HandleConnectTimeout(const asio::error_code& ec)
 	{
-		CARP_SYSTEM("asd444:" << ec.value());
+		// 如果出现错误码，说明是主动取消定时器的
+		if (ec == asio::error::operation_aborted) return;
+
 		HandleAsyncConnect(false);
 	}
 	
 	// 异步连接
 	void HandleAsyncConnect(bool succeed)
 	{
-		CARP_SYSTEM("asd333:" << (int)succeed);
 		// 重置偏移
 		m_kcp_data_size = 0;
 		// 标记为不是正在连接
@@ -349,7 +349,8 @@ public:
 		}
 
 		// 把数据喂给kcp
-		ikcp_input(m_kcp, m_udp_buffer + sizeof(int), static_cast<int>(actual_size - sizeof(int)));
+		int result = ikcp_input(m_kcp, m_udp_buffer + sizeof(int), static_cast<int>(actual_size - sizeof(int)));
+		if (result < 0) CARP_ERROR("ikcp_input:" << result);
 		// 继续接收下一个数据包
 		NextRead();
 
@@ -359,11 +360,15 @@ public:
 			const int peek_size = ikcp_peeksize(m_kcp);
 			if (peek_size <= 0) break;
 
-			if (static_cast<int>(m_kcp_buffer.size() - m_kcp_data_size) < peek_size)
+			if (m_kcp_buffer.size() < peek_size + m_kcp_data_size)
 				m_kcp_buffer.resize(peek_size + m_kcp_data_size);
 
 			const auto real_len = ikcp_recv(m_kcp, m_kcp_buffer.data() + m_kcp_data_size, static_cast<int>(m_kcp_buffer.size() - m_kcp_data_size));
-			if (real_len == 0) break;
+			if (real_len <= 0)
+			{
+				CARP_ERROR("ikcp_recv:" << real_len);
+				break;
+			}
 
 			m_kcp_data_size += real_len;	
 		}
@@ -381,6 +386,8 @@ public:
 			// 申请内存
 			void* memory = malloc(message_size + CARP_PROTOCOL_HEAD_SIZE);
 			memcpy(memory, m_kcp_buffer.data() + kcp_data_offset, message_size + CARP_PROTOCOL_HEAD_SIZE);
+			// 偏移向后走
+			kcp_data_offset += CARP_PROTOCOL_HEAD_SIZE + message_size;
 
 			// 读取完毕
 			// 发送给调度系统
@@ -388,9 +395,6 @@ public:
 				m_message_func(memory, message_size + CARP_PROTOCOL_HEAD_SIZE);
 			else
 				free(memory);
-			
-			// 偏移向后走
-			kcp_data_offset += CARP_PROTOCOL_HEAD_SIZE + message_size;
 		}
 
 		// 移动内存
@@ -409,8 +413,11 @@ private:
 	// 服务器间隔一定时间向客户端发送心跳包
 	void UpdateKcp(const asio::error_code& ec, int interval)
 	{
-		const auto cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-		ikcp_update(m_kcp, static_cast<uint32_t>(cur_time));
+		if (m_kcp)
+		{
+			const auto cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			ikcp_update(m_kcp, static_cast<uint32_t>(cur_time));
+		}
 		
 		if (!m_kcp_timer) return;
 		m_kcp_timer->expires_after(std::chrono::milliseconds(interval));
@@ -442,7 +449,8 @@ public:
 		{
 			int send = memory_size - offset;
 			if (send > max_size) send = max_size;
-			ikcp_send(m_kcp, body + offset, send);
+			int result = ikcp_send(m_kcp, body + offset, send);
+			if (result < 0) CARP_ERROR("ikcp_send:" << result);
 			offset += send;
 		}
 

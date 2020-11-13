@@ -40,12 +40,14 @@ public:
 
 	// 启动和关闭
 	virtual bool Start(const std::string& yun_ip, const std::string& ip, int port, int heartbeat, CarpRudpInterface* rudp_interface, CarpSchedule* schedule) = 0;
-	virtual void Close() = 0;
+	virtual void Close(bool exit) = 0;
 
 	// 获取ip和端口
 	virtual const std::string& GetYunIp() const = 0;
 	virtual const std::string& GetIp() const = 0;
 	virtual int GetPort() const = 0;
+
+	virtual CarpUSocketPtr GetSocket() = 0;
 
 	virtual void SendPocket(const asio::ip::udp::endpoint& endpoint, void* memory, int size) = 0;
 
@@ -92,7 +94,7 @@ public:
 	~CarpRudpReceiver()
 	{
 		// 关闭socket，释放资源
-		Close();
+		Close(false);
 	}
 
 	friend class CarpRudpServerImpl;
@@ -135,19 +137,31 @@ public:
 	}
 	
 	// 关闭连接，释放内存
-	void Close()
+	void Close(bool exit)
 	{
 		if (m_is_connected)
 		{
 			auto server = m_server.lock();
-			if (server)
+			if (server && m_kcp)
 			{
-				const auto size = sizeof(int) + sizeof(uint32_t);
-				char* memory = static_cast<char*>(malloc(size));
-				auto n_session = -m_session; // 这里使用负数的session来作为关闭操作
-				memcpy(memory, &n_session, sizeof(int));
-				memcpy(memory + sizeof(int), &m_kcp->conv, sizeof(uint32_t));
-				server->SendPocket(m_endpoint, memory, size);
+				if (exit && server->GetSocket())
+				{
+					const auto size = sizeof(int) + sizeof(uint32_t);
+					char buffer[size] = { 0 };
+					auto n_session = -m_session; // 这里使用负数的session来作为关闭操作
+					memcpy(buffer, &n_session, sizeof(int));
+					memcpy(buffer + sizeof(int), &m_kcp->conv, sizeof(uint32_t));
+					server->GetSocket()->send_to(asio::buffer(buffer, size), m_endpoint);
+				}
+				else
+				{
+					const auto size = sizeof(int) + sizeof(uint32_t);
+					char* memory = static_cast<char*>(malloc(size));
+					auto n_session = -m_session; // 这里使用负数的session来作为关闭操作
+					memcpy(memory, &n_session, sizeof(int));
+					memcpy(memory + sizeof(int), &m_kcp->conv, sizeof(uint32_t));
+					server->SendPocket(m_endpoint, memory, size);
+				}
 			}
 		}
 		m_is_connected = false;
@@ -170,7 +184,8 @@ private:
 		m_endpoint = endpoint;
 		
 		// 把数据喂给kcp
-		ikcp_input(m_kcp, buffer, static_cast<int>(actual_size));
+		int result = ikcp_input(m_kcp, buffer, static_cast<int>(actual_size));
+		if (result < 0) CARP_ERROR("ikcp_input:" << result);
 
 		// 接收所有可以接收的数据
 		while (true)
@@ -178,11 +193,15 @@ private:
 			const int peek_size = ikcp_peeksize(m_kcp);
 			if (peek_size <= 0) break;
 
-			if (static_cast<int>(m_kcp_buffer.size() - m_kcp_data_size) < peek_size)
+			if (m_kcp_buffer.size() < peek_size + m_kcp_data_size)
 				m_kcp_buffer.resize(peek_size + m_kcp_data_size);
 
 			const auto real_len = ikcp_recv(m_kcp, m_kcp_buffer.data() + m_kcp_data_size, static_cast<int>(m_kcp_buffer.size() - m_kcp_data_size));
-			if (real_len == 0) break;
+			if (real_len <= 0)
+			{
+				CARP_ERROR("ikcp_recv:" << real_len);
+				break;
+			}
 
 			m_kcp_data_size += real_len;
 		}
@@ -191,19 +210,21 @@ private:
 		size_t kcp_data_offset = 0;
 		while (kcp_data_offset + CARP_PROTOCOL_HEAD_SIZE <= m_kcp_data_size)
 		{
+			char* memory = m_kcp_buffer.data() + kcp_data_offset;
 			// 读取协议大小
-			const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(m_kcp_buffer.data() + kcp_data_offset);
+			const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(memory);
+			CARP_MESSAGE_ID* message_id = reinterpret_cast<CARP_MESSAGE_ID*>(memory + sizeof(CARP_MESSAGE_SIZE));
+			CARP_MESSAGE_RPCID* message_rpcid = reinterpret_cast<CARP_MESSAGE_RPCID*>(memory + sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID));
 
 			// 如果协议体的数据不足，那么就跳出
 			if (kcp_data_offset + CARP_PROTOCOL_HEAD_SIZE + message_size > m_kcp_data_size) break;
+			kcp_data_offset += CARP_PROTOCOL_HEAD_SIZE;
 
 			// 申请内存
-			char* memory = static_cast<char*>(malloc(message_size + CARP_PROTOCOL_HEAD_SIZE));
-			memcpy(memory, m_kcp_buffer.data() + kcp_data_offset, message_size + CARP_PROTOCOL_HEAD_SIZE);
-
-			// 读取协议头的信息
-			CARP_MESSAGE_ID* message_id = reinterpret_cast<CARP_MESSAGE_ID*>(memory + sizeof(CARP_MESSAGE_SIZE));
-			CARP_MESSAGE_RPCID* message_rpcid = reinterpret_cast<CARP_MESSAGE_RPCID*>(memory + sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID));
+			memory = static_cast<char*>(malloc(message_size));
+			memcpy(memory, m_kcp_buffer.data() + kcp_data_offset, message_size);
+			// 偏移向后走
+			kcp_data_offset += message_size;
 
 			// 如果是心跳包，那么就标记
 			if (*message_id == HeartbeatMessage::GetStaticID()) m_last_heartbeat = 0;
@@ -211,9 +232,6 @@ private:
 			// 通过消息队列执行发送操作
 			m_schedule->Execute(std::bind(&CarpRudpServer::HandleRudpMessage, m_server.lock(), this->shared_from_this()
 				, message_size, *message_id, *message_rpcid, memory));
-
-			// 偏移向后走
-			kcp_data_offset += CARP_PROTOCOL_HEAD_SIZE + message_size;
 		}
 
 		// 移动内存
@@ -255,8 +273,7 @@ public:
 	{
 		// 如果已经关闭，那么就不发送数据包
 		if (m_is_connected == false) return;
-		auto server = m_server.lock();
-		if (!server) return;
+		if (m_kcp == nullptr) return;
 
 		// 获取消息包总大小
 		CARP_MESSAGE_SIZE message_size = message.GetTotalSize();
@@ -269,13 +286,13 @@ public:
 		const int memory_size = CARP_PROTOCOL_HEAD_SIZE + message_size;
 
 		// 申请内存
-		void* memory = malloc(memory_size);
+		char* memory = static_cast<char*>(malloc(memory_size));
 		if (memory == nullptr)
 		{
 			CARP_ERROR("memory is null");
 			return;
 		}
-		char* body_memory = static_cast<char*>(memory);
+		char* body_memory = memory;
 
 		// 写入消息包大小和ID
 		memcpy(body_memory, &message_size, sizeof(CARP_MESSAGE_SIZE));
@@ -288,8 +305,22 @@ public:
 		// 系列化消息
 		message.Serialize(body_memory);
 
-		// 发送数据包
-		server->SendPocket(m_endpoint, memory, memory_size);
+		// 计算每次发送的最大字节数
+		const int max_size = static_cast<int>(m_kcp->mss * m_kcp->rcv_wnd);
+
+		// 将一个包按最大字节数进行切割
+		const char* body = memory;
+		int offset = 0;
+		while (offset < memory_size)
+		{
+			int send = memory_size - offset;
+			if (send > max_size) send = max_size;
+			int result = ikcp_send(m_kcp, body + offset, send);
+			if (result < 0) CARP_ERROR("ikcp_send:" << result);
+			offset += send;
+		}
+
+		free(memory);
 	}
 	
 private:
@@ -309,7 +340,7 @@ public:
 		m_random_gen = std::make_unique<std::default_random_engine>(rd());
 	}
 	
-	virtual ~CarpRudpServerImpl() { Close(); }
+	virtual ~CarpRudpServerImpl() { Close(true); }
 
 	friend CarpRudpReceiver;
 
@@ -372,8 +403,16 @@ public:
 	}
 
 	// 关闭服务器
-	void Close() override
+	void Close(bool exit) override
 	{
+		// 关闭所有客户端连接
+		for (auto& pair : m_outer_map)
+		{
+			m_conv_creator.ReleaseID(pair.first);
+			pair.second->Close(exit);
+		}
+		m_outer_map.clear();
+
 		// 释放带发送的消息包
 		for (auto& info : m_pocket_list) free(info.memory);
 		m_pocket_list.clear();
@@ -402,16 +441,10 @@ public:
 			m_kcp_timer = AsioTimerPtr();
 		}
 
-		// 关闭所有客户端连接
-		for (auto& pair : m_outer_map)
-		{
-			m_conv_creator.ReleaseID(pair.first);
-			pair.second->Close();
-		}
-		m_outer_map.clear();
-
 		CARP_SYSTEM("RudpServer: stop succeed.");
 	}
+
+	CarpUSocketPtr GetSocket() override { return m_socket; }
 
 private:
 	// 接收数据包
@@ -432,6 +465,7 @@ private:
 		if (ec)
 		{
 			CARP_ERROR("RudpServer read failed: " << ec.value());
+			NextRead();
 			return;
 		}
 
@@ -500,7 +534,7 @@ private:
 		{
 			// 检查连接对象和session
 			auto it = m_outer_map.find(conv);
-			if (it != m_outer_map.end() && it->second->CheckSession(-session))
+			if (it != m_outer_map.end() && it->second->CheckSession(session))
 				it->second->HandleRead(m_receiver, m_udp_buffer + sizeof(int), actual_size - sizeof(int));
 
 			NextRead();
@@ -612,7 +646,7 @@ private:
 		const auto receiver = it->second;
 		
 		// 关闭并移除客户端连接
-		it->second->Close();
+		it->second->Close(false);
 		m_outer_map.erase(it);
 
 		// 回收

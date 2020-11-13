@@ -732,7 +732,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "query ip by domain failed:"; m_error += asio::system_error(ec).what();
+			m_error = "query ip by domain failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -772,7 +772,7 @@ private:
 		}
 		else
 		{
-			m_error = "connect domain failed:"; m_error += asio::system_error(ec).what();
+			m_error = "connect domain failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 		}
 	}
@@ -781,7 +781,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "ssl hand shake failed:"; m_error += asio::system_error(ec).what();
+			m_error = "ssl hand shake failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -850,7 +850,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "socket send post request file end failed:"; m_error += asio::system_error(ec).what();
+			m_error = "socket send post request file end failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -880,7 +880,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "socket send post request file end failed:"; m_error += asio::system_error(ec).what();
+			m_error = "socket send post request file end failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -901,7 +901,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "read response failed:"; m_error += asio::system_error(ec).what();
+			m_error = "read response failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1002,7 +1002,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "read response failed:"; m_error += asio::system_error(ec).what();
+			m_error = "read response failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1054,7 +1054,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "read response failed:"; m_error += asio::system_error(ec).what();
+			m_error = "read response failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1359,7 +1359,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "query ip by domain failed:"; m_error += asio::system_error(ec).what();
+			m_error = "query ip by domain failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1410,7 +1410,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "ssl hand shake failed:"; m_error += asio::system_error(ec).what();
+			m_error = "ssl hand shake failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1553,7 +1553,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "socket send post request head failed:"; m_error += asio::system_error(ec).what();
+			m_error = "socket send post request head failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1586,7 +1586,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "socket send post request param failed:"; m_error += asio::system_error(ec).what();
+			m_error = "socket send post request param failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1615,7 +1615,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "socket send post request file begin failed:"; m_error += asio::system_error(ec).what();
+			m_error = "socket send post request file begin failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1802,7 +1802,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "read response failed:"; m_error += asio::system_error(ec).what();
+			m_error = "read response failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1833,7 +1833,7 @@ private:
 	{
 		if (ec)
 		{
-			m_error = "read response failed:"; m_error += asio::system_error(ec).what();
+			m_error = "read response failed:"; m_error += std::to_string(ec.value());
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}

@@ -938,7 +938,7 @@ public:
 		catch (asio::error_code& ec)
 		{
 			m_acceptor = CarpAcceptorPtr();
-			CARP_ERROR("ConnectServer: " << ip << " start failed at port: " << port << " error: " << ec.value());
+			CARP_ERROR("ClientServer: " << ip << " start failed at port: " << port << " error: " << ec.value());
 			return false;
 		}
 
@@ -953,7 +953,7 @@ public:
 		m_ip = ip;
 		m_port = port;
 
-		CARP_SYSTEM("ConnectServer: start succeed at " << m_ip << ":" << m_port);
+		CARP_SYSTEM("ClientServer: start succeed at " << m_ip << ":" << m_port);
 		return true;
 	}
 
@@ -980,7 +980,7 @@ public:
 			(*it)->Close();
 		m_outer_set.clear();
 
-		CARP_SYSTEM("ConnectServer: stop succeed.");
+		CARP_SYSTEM("ClientServer: stop succeed.");
 	}
 
 private:
@@ -1004,7 +1004,7 @@ private:
 		{
 			if (m_acceptor == nullptr) return;
 			
-			CARP_ERROR("ConnectServer accept failed: " << ec.value());
+			CARP_ERROR("ClientServer accept failed: " << ec.value());
 			if (error_count > 100)
 				Close();
 			else

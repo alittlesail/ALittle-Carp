@@ -40,6 +40,12 @@ public:
 		// 检查是否正在连接
 		if (IsConnected() || IsConnecting()) return;
 
+		if (ip.empty())
+		{
+			io_service->post(std::bind(&CarpRudpClient::HandleAsyncConnect, this->shared_from_this(), false));
+			return;
+		}
+
 		m_failed_func = failed_func;
 		m_succeed_func = succeed_func;
 		m_disconnected_func = disconnected_func;
@@ -146,6 +152,7 @@ private:
 	// 发起连接请求
 	void SendConnect(asio::io_service* io_service)
 	{
+		CARP_SYSTEM("asd111");
 		const auto size = sizeof(int) + sizeof(uint32_t);
 		void* memory = malloc(size);
 		// 这里讲session设置为0作为请求连接的操作
@@ -170,6 +177,7 @@ private:
 	}
 	void HandleReceiveConnect(const asio::error_code& ec, std::size_t actual_size, asio::io_service* io_service)
 	{
+		CARP_SYSTEM("asd222");
 		if (ec)
 		{
 			HandleAsyncConnect(false);
@@ -227,12 +235,14 @@ private:
 	// 处理连接超时
 	void HandleConnectTimeout(const asio::error_code& ec)
 	{
+		CARP_SYSTEM("asd444:" << ec.value());
 		HandleAsyncConnect(false);
 	}
 	
 	// 异步连接
 	void HandleAsyncConnect(bool succeed)
-	{	
+	{
+		CARP_SYSTEM("asd333:" << (int)succeed);
 		// 重置偏移
 		m_kcp_data_size = 0;
 		// 标记为不是正在连接

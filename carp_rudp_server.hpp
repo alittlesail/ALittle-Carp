@@ -327,7 +327,7 @@ public:
 		// 如果已经开启了就直接返回
 		if (m_socket)
 		{
-			CARP_ERROR("sip system connected(ip: " << m_ip << ", port:" << m_port << ")");
+			CARP_ERROR("RudpServer already started(ip: " << m_ip << ", port:" << m_port << ")");
 			return false;
 		}
 
@@ -340,14 +340,14 @@ public:
 		m_socket->open(endpoint.protocol(), ec);
 		if (ec)
 		{
-			CARP_ERROR("sip server udp socket open error: " << ec.value());
+			CARP_ERROR("RudpServer udp socket open error: " << ec.value());
 			return false;
 		}
 		// 绑定端口
 		m_socket->bind(endpoint, ec);
 		if (ec)
 		{
-			CARP_ERROR("sip server udp socket bind error: " << ec.value());
+			CARP_ERROR("RudpServer udp socket bind error: " << ec.value());
 			return false;
 		}
 		

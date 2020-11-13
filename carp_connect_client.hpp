@@ -48,7 +48,13 @@ public:
 		// 创建一个socket对象
 		m_socket = std::make_shared<asio::ip::tcp::socket>(*io_service);
 		// 创建一个目标服务器的连接点
-		const asio::ip::tcp::endpoint ep(asio::ip::address_v4::from_string(ip), port);
+		asio::error_code ec;
+		const asio::ip::tcp::endpoint ep(asio::ip::address_v4::from_string(ip, ec), port);
+		if (ec)
+		{
+			io_service->post(std::bind(&CarpConnectClient::HandleAsyncConnect, this->shared_from_this(), ec));
+			return;
+		}
 
 		// 保存并初始化
 		m_ip = ip;

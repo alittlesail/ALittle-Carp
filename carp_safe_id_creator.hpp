@@ -43,6 +43,12 @@ public:
 		return m_id_list.size();
 	}
 
+	bool IsEmpty() const
+	{
+		if (!m_id_list.empty()) return false;
+		return m_max_id >= std::numeric_limits<T>::max();
+	}
+
 	T GetMaxID() const
 	{
 		return m_max_id;

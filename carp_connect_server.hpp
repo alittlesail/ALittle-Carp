@@ -1,5 +1,5 @@
-#ifndef CARP_MESSAGE_SERVER_INCLUDED
-#define CARP_MESSAGE_SERVER_INCLUDED
+#ifndef CARP_CONNECT_SERVER_INCLUDED
+#define CARP_CONNECT_SERVER_INCLUDED
 
 #include <asio.hpp>
 #include <memory>
@@ -15,15 +15,15 @@ class CarpConnectReceiver;
 typedef std::shared_ptr<CarpConnectReceiver> CarpConnectReceiverPtr;
 typedef std::weak_ptr<CarpConnectReceiver> CarpConnectReceiverWeakPtr;
 
-typedef std::shared_ptr<asio::ip::tcp::socket> SocketPtr;
-typedef std::shared_ptr<asio::ip::tcp::acceptor> AcceptorPtr;
+typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;
+typedef std::shared_ptr<asio::ip::tcp::acceptor> CarpAcceptorPtr;
 typedef asio::basic_waitable_timer<std::chrono::system_clock> AsioTimer;
 typedef std::shared_ptr<AsioTimer> AsioTimerPtr;
 
-class CarpConnectSchedule : public CarpSchedule
+class CarpConnectInterface
 {
 public:
-	virtual ~CarpConnectSchedule() {}
+	virtual ~CarpConnectInterface() {}
 
 	virtual void HandleClientConnect(CarpConnectReceiverPtr sender) { }
 
@@ -38,7 +38,7 @@ public:
 	virtual ~CarpConnectServer() {}
 
 	// 启动和关闭
-	virtual bool Start(const std::string& yun_ip, const std::string& ip, int port, int heartbeat, CarpConnectSchedule* schedule) = 0;
+	virtual bool Start(const std::string& yun_ip, const std::string& ip, int port, int heartbeat, CarpConnectInterface* connect_interface, CarpSchedule* schedule) = 0;
 	virtual void Close() = 0;
 
 	// 获取ip和端口
@@ -50,10 +50,10 @@ public:
 	virtual void ServerSendHeartbeat(const asio::error_code& ec, int interval) = 0;
 
 	// 接收连接
-	virtual void HandleAccept(const asio::error_code& ec, SocketPtr socket, int error_count) = 0;
+	virtual void HandleAccept(const asio::error_code& ec, CarpSocketPtr socket, int error_count) = 0;
 
 	// 处理一个新的socket
-	virtual void HandleOuterConnect(SocketPtr socket) = 0;
+	virtual void HandleOuterConnect(CarpSocketPtr socket) = 0;
 
 	// 处理某个连接断开了
 	virtual void HandleOuterDisconnected(CarpConnectReceiverPtr receiver) = 0;
@@ -67,8 +67,8 @@ typedef std::weak_ptr<CarpConnectServer> CarpConnectServerWeakPtr;
 class CarpConnectReceiver : public std::enable_shared_from_this<CarpConnectReceiver>
 {
 public:
-	CarpConnectReceiver(SocketPtr socket, CarpConnectServerWeakPtr server, CarpConnectSchedule* schedule)
-		: m_socket(socket), m_server(server), m_schedule(schedule)
+	CarpConnectReceiver(CarpSocketPtr socket, CarpConnectServerWeakPtr server, CarpConnectInterface* connect_interface, CarpSchedule* schedule)
+		: m_socket(socket), m_server(server), m_connect_interface(connect_interface), m_schedule(schedule)
 	{
 		// 获取客户端的公网IP
 		m_remote_ip = socket->remote_endpoint().address().to_string();
@@ -105,7 +105,7 @@ public:
 			asio::error_code ec;
 			m_socket->close(ec);
 		}
-		m_socket = SocketPtr();
+		m_socket = CarpSocketPtr();
 
 		// 这里不要急着释放m_memory，可能asio正在用
 		// 放到析构函数里面释放
@@ -668,7 +668,7 @@ public:
 	bool IsConnected() const { return m_is_connected; }
 
 private:
-	SocketPtr m_socket;				// Socket
+	CarpSocketPtr m_socket;				// Socket
 	std::string m_remote_ip;		// 客户端的公网IP
 	int m_remote_port = 0;				// 客户端的公网端口
 
@@ -679,8 +679,10 @@ private:
 	void* m_memory = nullptr;
 	// 归属的服务器
 	CarpConnectServerWeakPtr m_server;
+	// 回调接口
+	CarpConnectInterface* m_connect_interface = nullptr;
 	// 对应调用模块
-	CarpConnectSchedule* m_schedule = nullptr;
+	CarpSchedule* m_schedule = nullptr;
 
 	//发送部分/////////////////////////////////////////////////////////////////////////////////
 
@@ -908,8 +910,9 @@ public:
 	// ip	服务器的IP
 	// port 服务器的端口
 	// heartbeat TCP心跳包保活间隔时间，单位秒
-	bool Start(const std::string& yun_ip, const std::string& ip, int port, int heartbeat, CarpConnectSchedule* schedule) override
+	bool Start(const std::string& yun_ip, const std::string& ip, int port, int heartbeat, CarpConnectInterface* connect_interface, CarpSchedule* schedule) override
 	{
+		m_connect_interface = connect_interface;
 		m_schedule = schedule;
 
 		// 如果已经开启了就直接返回
@@ -934,8 +937,8 @@ public:
 		}
 		catch (asio::error_code& ec)
 		{
-			m_acceptor = AcceptorPtr();
-			CARP_ERROR("ClientServer: " << ip << " start failed at port: " << port << " error: " << ec.value());
+			m_acceptor = CarpAcceptorPtr();
+			CARP_ERROR("ConnectServer: " << ip << " start failed at port: " << port << " error: " << ec.value());
 			return false;
 		}
 
@@ -950,7 +953,7 @@ public:
 		m_ip = ip;
 		m_port = port;
 
-		CARP_SYSTEM("ClientServer: start succeed at " << m_ip << ":" << m_port);
+		CARP_SYSTEM("ConnectServer: start succeed at " << m_ip << ":" << m_port);
 		return true;
 	}
 
@@ -961,7 +964,7 @@ public:
 		if (m_acceptor)
 		{
 			m_acceptor->close();
-			m_acceptor = AcceptorPtr();
+			m_acceptor = CarpAcceptorPtr();
 		}
 
 		// 释放定时器
@@ -977,7 +980,7 @@ public:
 			(*it)->Close();
 		m_outer_set.clear();
 
-		CARP_SYSTEM("ClientServer: stop succeed.");
+		CARP_SYSTEM("ConnectServer: stop succeed.");
 	}
 
 private:
@@ -988,20 +991,20 @@ private:
 		if (!m_acceptor) return;
 
 		// 创建一个Socket对象
-		SocketPtr socket = std::make_shared<asio::ip::tcp::socket>(m_schedule->GetIOService());
+		CarpSocketPtr socket = std::make_shared<asio::ip::tcp::socket>(m_schedule->GetIOService());
 		// 开始等待接收
 		m_acceptor->async_accept(*socket, std::bind(&CarpConnectServer::HandleAccept, this->shared_from_this()
 			, std::placeholders::_1, socket, error_count));
 	}
 
 	// 处理新的socket接入
-	void HandleAccept(const asio::error_code& ec, SocketPtr socket, int error_count) override
+	void HandleAccept(const asio::error_code& ec, CarpSocketPtr socket, int error_count) override
 	{
 		if (ec)
 		{
 			if (m_acceptor == nullptr) return;
 			
-			CARP_ERROR("ClientServer accept failed: " << ec.value());
+			CARP_ERROR("ConnectServer accept failed: " << ec.value());
 			if (error_count > 100)
 				Close();
 			else
@@ -1025,7 +1028,7 @@ public:
 	int GetPort() const override { return m_port; }
 
 private:
-	AcceptorPtr m_acceptor;		// 接收器，用于接收新的socket
+	CarpAcceptorPtr m_acceptor;		// 接收器，用于接收新的socket
 	std::string m_yun_ip;       // 云服务器对外的IP
 	std::string m_ip;			// 本地服务器的IP
 	int m_port = 0;					// 本地服务器的端口
@@ -1034,10 +1037,10 @@ private:
 
 private:
 	// 处理一个新的socket
-	void HandleOuterConnect(SocketPtr socket) override
+	void HandleOuterConnect(CarpSocketPtr socket) override
 	{
 		// 创建一个客户端连接
-		CarpConnectReceiverPtr receiver = std::make_shared<CarpConnectReceiver>(socket, this->shared_from_this(), m_schedule);
+		CarpConnectReceiverPtr receiver = std::make_shared<CarpConnectReceiver>(socket, this->shared_from_this(), m_connect_interface, m_schedule);
 		// 保存起来
 		m_outer_set.insert(receiver);
 
@@ -1045,7 +1048,7 @@ private:
 		receiver->NextReadHeadFirst();
 
 		// 通知客户端连接进来了
-		m_schedule->HandleClientConnect(receiver);
+		m_connect_interface->HandleClientConnect(receiver);
 	}
 
 	// 处理某个连接断开了
@@ -1056,7 +1059,7 @@ private:
 		m_outer_set.erase(receiver);
 
 		// 通知断开连接
-		m_schedule->HandleClientDisconnect(receiver);
+		m_connect_interface->HandleClientDisconnect(receiver);
 	}
 
 public:
@@ -1064,7 +1067,7 @@ public:
 	void HandleClientMessage(CarpConnectReceiverPtr receiver, CARP_MESSAGE_SIZE message_size, CARP_MESSAGE_ID message_id, CARP_MESSAGE_RPCID message_rpcid, void* memory) override
 	{
 		// 通知处理消息包
-		m_schedule->HandleClientMessage(receiver, message_size, message_id, message_rpcid, memory);
+		m_connect_interface->HandleClientMessage(receiver, message_size, message_id, message_rpcid, memory);
 		// 释放内存
 		if (memory) free(memory);
 	}
@@ -1072,7 +1075,8 @@ public:
 private:
 	// 保存客户端连接对象
 	std::set<CarpConnectReceiverPtr> m_outer_set;	// container outer
-	CarpConnectSchedule* m_schedule = nullptr;
+	CarpConnectInterface* m_connect_interface = nullptr;
+	CarpSchedule* m_schedule = nullptr;
 
 private:
 	// 服务器间隔一定时间向客户端发送心跳包

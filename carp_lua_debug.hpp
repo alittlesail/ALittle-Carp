@@ -297,7 +297,7 @@ private:
 	std::list<std::function<int(lua_State*)>> m_event_list;
 };
 
-class CarpLuaDebugServer : public CarpConnectSchedule
+class CarpLuaDebugServer : public CarpConnectInterface, public CarpSchedule
 {
 public:
 	~CarpLuaDebugServer() { Stop(); }
@@ -327,7 +327,7 @@ public:
 		lua_sethook(m_L, DebugHook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
 
 		m_server = std::make_shared<CarpConnectServerImpl>();
-		m_server->Start(yun_ip, ip, port, 30, this);
+		m_server->Start(yun_ip, ip, port, 30, this, this);
 		Run(true);
 
 		return true;

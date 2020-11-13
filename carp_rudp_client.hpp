@@ -17,7 +17,7 @@ typedef int CARP_MESSAGE_ID;
 typedef int CARP_MESSAGE_RPCID;
 
 #define CARP_PROTOCOL_HEAD_SIZE (sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID))
-#define CARP_UDP_BUFFER_SIZE 10240 // 设置一个大的值，肯定会超过一个udp
+#define CARP_UDP_CLIENT_BUFFER_SIZE 10240 // 设置一个大的值，肯定会超过一个udp
 
 class CarpRudpClient : public std::enable_shared_from_this<CarpRudpClient>
 {
@@ -59,6 +59,11 @@ public:
 		// 打开socket
 		asio::error_code ec;
 		m_socket->open(asio::ip::udp::v4(), ec);
+		if (ec)
+		{
+			io_service->post(std::bind(&CarpRudpClient::HandleAsyncConnect, this->shared_from_this(), false));
+			return;
+		}
 
 		// 发起连接
 		SendConnect(io_service);
@@ -296,7 +301,7 @@ public:
 		if (!m_socket) return;
 
 		// 开始接受协议头
-		m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_endpoint
+		m_socket->async_receive_from(asio::buffer(m_udp_buffer, sizeof(m_udp_buffer)), m_receiver
 			, std::bind(&CarpRudpClient::HandleRead, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2));
 	}
@@ -406,8 +411,9 @@ private:
 public:
 	CarpUdpSocketPtr m_socket;					// socket
 	asio::ip::udp::endpoint m_endpoint;			// 发送目标
+	asio::ip::udp::endpoint m_receiver;			// 接收消息源
 
-	char m_udp_buffer[CARP_UDP_BUFFER_SIZE] = {};	// 用于接收asio的udp数据缓冲区
+	char m_udp_buffer[CARP_UDP_CLIENT_BUFFER_SIZE] = {};	// 用于接收asio的udp数据缓冲区
 	std::vector<char> m_kcp_buffer;					// 用于接收kcp数据的
 	size_t m_kcp_data_size = 0;
 
@@ -498,7 +504,6 @@ private:
 private:
 	struct PocketInfo { int memory_size = 0; void* memory = nullptr; };
 	std::list<PocketInfo> m_pocket_list;  // 待发送的数据包列表
-
 	bool m_executing = false;	// is in sending
 
 private:

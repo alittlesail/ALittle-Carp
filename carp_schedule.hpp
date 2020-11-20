@@ -21,10 +21,15 @@ public:
 		if (!m_is_exit) return;
 		m_is_exit = false;
 
+#ifndef __EMSCRIPTEN__
 		if (async)
 			m_thread = new std::thread(&CarpSchedule::RunFull, this);
 		else
 			RunFull();
+#else
+		m_keep_run = std::make_shared<CarpAsioTimer>(m_io_service, std::chrono::seconds(0xEFFFFFFF));
+		m_keep_run->async_wait(std::bind(&CarpSchedule::LoopUpdate, this, std::placeholders::_1));
+#endif
 	}
 
 	// 同步run一个，所有回调会在调用Run所在的线程被执行

@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "carp_thread_consumer.hpp"
+#include "carp_log.hpp"
 
 class CarpTask
 {
@@ -35,12 +36,14 @@ class CarpTaskConsumer
 public:
 	void SetThreadCount(int count)
 	{
+#ifndef __EMSCRIPTEN__
 		for (int i = static_cast<int>(m_threads.size()); i < count; ++i)
 		{
 			CarpTaskThread* thread = new CarpTaskThread();
 			thread->Start();
 			m_threads.push_back(thread);
 		}
+#endif
 	}
 
 	int GetThreadCount() const { return static_cast<int>(m_threads.size()); }
@@ -49,7 +52,13 @@ public:
 	{
 		if (m_threads.empty())
 		{
+#ifdef __EMSCRIPTEN__
+			CARP_INFO("begin AddTask");
+			task->Execute();
+			CARP_INFO("end AddTask");
+#else
 			task->Abandon();
+#endif
 			return;
 		}
 

@@ -5,7 +5,6 @@
 #include <functional>
 
 #include "carp_thread_consumer.hpp"
-#include "carp_log.hpp"
 
 class CarpTask
 {
@@ -53,9 +52,7 @@ public:
 		if (m_threads.empty())
 		{
 #ifdef __EMSCRIPTEN__
-			CARP_INFO("begin AddTask");
 			task->Execute();
-			CARP_INFO("end AddTask");
 #else
 			task->Abandon();
 #endif

@@ -258,6 +258,11 @@ public:
 	int GetSize() const { return m_size; }
 
 public:
+	unsigned char ReadUChar(int offset) const
+	{
+		if (offset + static_cast<int>(sizeof(unsigned char)) > m_size) return 0;
+		return *reinterpret_cast<unsigned char*>(m_memory + offset);
+	}
 	char ReadChar(int offset) const
 	{
 		if (offset + static_cast<int>(sizeof(char)) > m_size) return 0;

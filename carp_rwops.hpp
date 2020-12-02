@@ -263,6 +263,16 @@ public:
 		if (offset + static_cast<int>(sizeof(char)) > m_size) return 0;
 		return *(m_memory + offset);
 	}
+	unsigned short ReadUShort(int offset) const
+	{
+		if (offset + static_cast<int>(sizeof(unsigned short)) > m_size) return 0;
+		return *reinterpret_cast<unsigned short*>(m_memory + offset);
+	}
+	int ReadShort(int offset) const
+	{
+		if (offset + static_cast<int>(sizeof(short)) > m_size) return 0;
+		return *reinterpret_cast<short*>(m_memory + offset);
+	}
 	unsigned int ReadUInt(int offset) const
 	{
 		if (offset + static_cast<int>(sizeof(unsigned int)) > m_size) return 0;

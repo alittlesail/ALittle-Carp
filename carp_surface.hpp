@@ -177,6 +177,12 @@ public:
 		m_pixels[y * m_width + x] = pixel;
 	}
 
+	inline void SetPixelByIndex(int index, unsigned int pixel)
+	{
+		if (index < 0 || index >= m_pixels.size()) return;
+		m_pixels[index] = pixel;
+	}
+
 	void TransferPixel(const char* type, int step)
 	{
 		if (type == 0 || m_width == 0 || m_height == 0 || step <= 0) return;

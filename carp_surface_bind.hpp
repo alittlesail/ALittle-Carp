@@ -32,6 +32,7 @@ public:
 			.addFunction("GetCarpSurfaceGrid9", GetCarpSurfaceGrid9)
 			.addFunction("GetCarpSurfacePixel", GetCarpSurfacePixel)
 			.addFunction("SetCarpSurfacePixel", SetCarpSurfacePixel)
+			.addCFunction("SetCarpSurfacePixelRect", SetCarpSurfacePixelRect)
 			.addFunction("GetPixelAlpha", GetPixelAlpha)
 			.addFunction("SetPixelAlpha", SetPixelAlpha)
 			.addFunction("GetPixelRed", GetPixelRed)
@@ -99,6 +100,22 @@ public:
 	static unsigned int GetCarpSurfaceHeight(CarpSurface* surface) { return surface->GetHeight(); }
 	static unsigned int GetCarpSurfacePixel(CarpSurface* surface, int x, int y) { return surface->GetPixel(x, y); }
 	static void SetCarpSurfacePixel(CarpSurface* surface, int x, int y, unsigned int value) { surface->SetPixel(x, y, value); }
+
+	static int SetCarpSurfacePixelRect(lua_State* l_state)
+	{
+		auto* surface = luabridge::Stack<CarpSurface*>::get(l_state, 1);
+		
+		lua_pushnil(l_state);
+		while (lua_next(l_state, 2) != 0)
+		{
+			const auto index = static_cast<int>(lua_tointeger(l_state, -2));
+			const auto color = static_cast<unsigned int>(lua_tointeger(l_state, -1));
+			surface->SetPixelByIndex(index, color);
+			lua_pop(l_state, 1);
+		}
+
+		return 0;
+	}
 
 	static void	BlitCarpSurface(CarpSurface* src, CarpSurface* dest, unsigned int x, unsigned int y)
 	{

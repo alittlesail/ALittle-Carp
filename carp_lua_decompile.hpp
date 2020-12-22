@@ -220,6 +220,9 @@ private:
 
 	void DumpCode(const std::string& tab, const Proto* f)
 	{
+		auto* CONSTANTS = f->k;
+		auto* UPVALUES = f->upvalues;
+
 		int last_line = -1;
 		for (int index = 0; index < f->sizecode; index++)
 		{
@@ -245,41 +248,49 @@ private:
 			const auto sc = GETARG_sC(i); const auto SC = std::to_string(sc);
 			const auto k = GETARG_k(i); const auto K = std::to_string(k);
 
+			std::string RKC;
+
 			switch(GET_OPCODE(i))
 			{
 			// R[A] := R[B]
 			case OP_MOVE:
 				Write("OP_MOVE       R[" + A + "] := R[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index));
 				break;
 			// R[A] := sBx
 			case OP_LOADI:
 				Write("OP_LOADI      R[" + A + "] := " + SBX);
+				Write("; " + RegisterName(f, a, index) + " := " + SBX);
 				break;
 			// R[A] := (lua_Number)sBx
 			case OP_LOADF:
 				Write("OP_LOADF      R[" + A + "] := " + SBX);
+				Write("; " + RegisterName(f, a, index) + " := " + SBX);
 				break;
 			// R[A] := K[Bx]
 			case OP_LOADK:
 				Write("OP_LOADK      R[" + A + "] := K[" + BX + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + ConstantValue(CONSTANTS, bx));
 				break;
 			// R[A] := K[extra arg]
 			case OP_LOADKX:
 				Write("OP_LOADKX     R[" + A + "] := K[" + std::to_string(GETARG_Ax(f->code[index + 1])) + "]");
-				index++;
+				Write("; " + RegisterName(f, a, index) + " := " + ConstantValue(CONSTANTS, GETARG_Ax(f->code[index + 1])));
 				break;
 				// R[A] := false
 			case OP_LOADFALSE:
 				Write("OP_LOADFALSE  R[" + A + "] := false");
+				Write("; " + RegisterName(f, a, index) + " := false");
 				break;
 			// R[A] := false; pc++
 			case OP_LFALSESKIP:
-				Write("OP_LFALSESKIP R[" + A + "] := false");
-				index++;  /* skip next instruction */
+				Write("OP_LFALSESKIP R[" + A + "] := false pc(" + std::to_string(index + 1) + ")++");
+				Write("; " + RegisterName(f, a, index) + " := false pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// R[A] := true
 			case OP_LOADTRUE:
 				Write("OP_LOADTRUE   R[" + A + "] := true");
+				Write("; " + RegisterName(f, a, index) + " := true");
 				break;
 			// R[A], R[A+1], ..., R[A+B] := nil
 			case OP_LOADNIL:
@@ -288,190 +299,247 @@ private:
 			// R[A] := UpValue[B]
 			case OP_GETUPVAL:
 				Write("OP_GETUPVAL   R[" + A + "] := U[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + getstr(UPVALUES[b].name));
 				break;
 			// UpValue[B] := R[A]
 			case OP_SETUPVAL:
 				Write("OP_SETUPVAL   U[" + B + "] := R[" + A + "]");
+				Write(std::string() + "; " + getstr(UPVALUES[b].name) + " := " + RegisterName(f, a, index));
 				break;
 			// R[A] := UpValue[B][K[C]:string]
 			case OP_GETTABUP:
 				Write("OP_GETTABUP   R[" + A + "] := U[" + B + "][K[" + C + "]:string]");
+				Write("; " + RegisterName(f, a, index) + " := " + getstr(UPVALUES[b].name) + "." + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B][R[C]]
 			case OP_GETTABLE:
 				Write("OP_GETTABLE   R[" + A + "] := R[" + B + "][R[" + C + "]]");
+				Write(";   " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + "[" + RegisterName(f, c, index) + "]");
 				break;
 			// R[A] := R[B][C]
 			case OP_GETI:
 				Write("OP_GETI       R[" + A + "] := R[" + B + "][" + C + "]");
+				Write(";   " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + "[" + C + "]");
 				break;
 			// R[A] := R[B][K[C]:string]
 			case OP_GETFIELD:
 				Write("OP_GETFIELD   R[" + A + "] := R[" + B + "][K[" + C + "]:string]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + "." + ConstantValue(CONSTANTS, c));
 				break;
             // UpValue[A][K[B]:string] := RK(C)
 			case OP_SETTABUP:
 				Write("OP_SETTABUP   U[" + A + "][K[" + B + "]:string] := RK(" + C + ")");
+				RKC = k ? ConstantValue(CONSTANTS, c) : RegisterName(f, c, index);
+				Write(std::string() + "; " + getstr(UPVALUES[a].name) + "." + ConstantValue(CONSTANTS, b) + " := " + RKC);
 				break;
 			// R[A][R[B]] := RK(C)
 			case OP_SETTABLE:
 				Write("OP_SETTABLE   R[" + A + "][R[" + B + "]] := RK(" + C + ")");
+				RKC = k ? ConstantValue(CONSTANTS, c) : RegisterName(f, c, index);
+				Write("; " + RegisterName(f, a, index) + "[" + RegisterName(f, b, index) + "] := " + RKC);
 				break;
 			// R[A][B] := RK(C)
 			case OP_SETI:
 				Write("OP_SETI       R[" + A + "][" + B + "] := RK(" + C + ")");
+				RKC = k ? ConstantValue(CONSTANTS, c) : RegisterName(f, c, index);
+				Write("; " + RegisterName(f, a, index) + "[" + B + "] := " + RKC);
 				break;
 			// R[A][K[B]:string] := RK(C)
 			case OP_SETFIELD:
 				Write("OP_SETFIELD   R[" + A + "][K[" + B + "]:string] := RK(" + C + ")");
+				RKC = k ? ConstantValue(CONSTANTS, c) : RegisterName(f, c, index);
+				Write("; " + RegisterName(f, a, index) + "." + ConstantValue(CONSTANTS, b) + " := " + RKC);
 				break;
             // R[A] := {}
 			case OP_NEWTABLE:
 				Write("OP_NEWTABLE   R[" + A + "] := {}");
+				Write("; " + RegisterName(f, a, index) + " := {}");
 				break;
 			// R[A+1] := R[B]; R[A] := R[B][RK(C):string]
 			case OP_SELF:
 				Write("OP_SELF       R[" + A + "+1] := R[" + B + "]; R[" + A + "] := R[" + B + "][RK(" + C + "):string]");
+				RKC = k ? ConstantValue(CONSTANTS, c) : RegisterName(f, c, index);
+				Write("; " + RegisterName(f, a + 1, index) + " := " + RegisterName(f, b, index) + "; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + "[" + RKC + "]");
 				break;
 			// R[A] := R[B] + sC
 			case OP_ADDI:
 				Write("OP_ADDI       R[" + A + "] := R[" + B + "] + " + SC);
+				Write("; " + RegisterName(f, a, index) + " : = " + RegisterName(f, b, index) + " + " + SC);
 				break;
 			// R[A] := R[B] + K[C]
 			case OP_ADDK:
 				Write("OP_ADDK       R[" + A + "] := R[" + B + "] + K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " + " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] - K[C]
 			case OP_SUBK:
 				Write("OP_SUBK       R[" + A + "] := R[" + B + "] - K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " - " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] * K[C]
 			case OP_MULK:
 				Write("OP_MULK       R[" + A + "] := R[" + B + "] * K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " * " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] % K[C]
 			case OP_MODK:
 				Write("OP_MODK       R[" + A + "] := R[" + B + "] % K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " % " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] ^ K[C]
 			case OP_POWK:
 				Write("OP_POWK       R[" + A + "] := R[" + B + "] ^ K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " ^ " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] / K[C]
 			case OP_DIVK:
 				Write("OP_DIVK       R[" + A + "] := R[" + B + "] / K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " / " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] // K[C]
 			case OP_IDIVK:
 				Write("OP_IDIVK      R[" + A + "] := R[" + B + "] // K[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " // " + ConstantValue(CONSTANTS, c));
 				break;
             // R[A] := R[B] & K[C]:integer
 			case OP_BANDK:
 				Write("OP_BANDK      R[" + A + "] := R[" + B + "] & K[" + C + "]:integer");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " & " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] & K[C]:integer
 			case OP_BORK:
 				Write("OP_BORK       R[" + A + "] := R[" + B + "] | K[" + C + "]:integer");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " | " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] ~ K[C]:integer
 			case OP_BXORK:
 				Write("OP_BXORK      R[" + A + "] := R[" + B + "] ~ K[" + C + "]:integer");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " ~ " + ConstantValue(CONSTANTS, c));
 				break;
 			// R[A] := R[B] >> sC
 			case OP_SHRI:
 				Write("OP_SHRI       R[" + A + "] := R[" + B + "] >> " + SC);
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " >> " + SC);
 				break;
 			// R[A] := sC << R[B]
 			case OP_SHLI:
 				Write("OP_SHLI       R[" + A + "] := " + SC + " << R[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + SC + " << " + RegisterName(f, b, index));
 				break;
 			// R[A] := R[B] + R[C]
 			case OP_ADD:
 				Write("OP_ADD        R[" + A + "] := R[" + B + "] + R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " + " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] - R[C]
 			case OP_SUB:
 				Write("OP_SUB        R[" + A + "] := R[" + B + "] - R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " - " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] * R[C]
 			case OP_MUL:
 				Write("OP_MUL        R[" + A + "] := R[" + B + "] * R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " * " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] % R[C]
 			case OP_MOD:
 				Write("OP_MOD        R[" + A + "] := R[" + B + "] % R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " % " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] ^ R[C]
 			case OP_POW:
 				Write("OP_POW        R[" + A + "] := R[" + B + "] ^ R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " ^ " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] / R[C]
 			case OP_DIV:
 				Write("OP_DIV        R[" + A + "] := R[" + B + "] / R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " / " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] // R[C]
 			case OP_IDIV:
 				Write("OP_IDIV       R[" + A + "] := R[" + B + "] // R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " // " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] & R[C]
 			case OP_BAND:
 				Write("OP_BAND       R[" + A + "] := R[" + B + "] & R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " & " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] | R[C]
 			case OP_BOR:
 				Write("OP_BOR        R[" + A + "] := R[" + B + "] | R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " | " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] ~ R[C]
 			case OP_BXOR:
 				Write("OP_BXOR       R[" + A + "] := R[" + B + "] ~ R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " ~ " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] >> R[C]
 			case OP_SHR:
 				Write("OP_SHR        R[" + A + "] := R[" + B + "] >> R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " >> " + RegisterName(f, c, index));
 				break;
 			// R[A] := R[B] << R[C]
 			case OP_SHL:
 				Write("OP_SHL        R[" + A + "] := R[" + B + "] << R[" + C + "]");
+				Write("; " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index) + " << " + RegisterName(f, c, index));
 				break;
 			// call C metamethod over R[A] and R[B]
 			case OP_MMBIN:
 				Write("OP_MMBIN      call C metamethod(" + std::to_string(c) + ") over R[" + A + "] and R[" + B + "]");
+				Write("; call C metamethod(" + std::to_string(c) + ") over " + RegisterName(f, a, index) + " and " + RegisterName(f, b, index));
 				break;
 			// call C metamethod over R[A] and sB
 			case OP_MMBINI:
 				Write("OP_MMBINI     call C metamethod(" + std::to_string(c) + ") over R[" + A + "] and " + SB);
+				Write("; call C metamethod(" + std::to_string(c) + ") over " + RegisterName(f, a, index) + " and " + SB);
 				break;
 			// call C metamethod over R[A] and K[B]
 			case OP_MMBINK:
 				Write("OP_MMBINK     call C metamethod(" + std::to_string(c) + ") over R[" + A + "] and K[" + B + "]");
+				Write("; call C metamethod(" + std::to_string(c) + ") over " + RegisterName(f, a, index) + " and " + ConstantValue(CONSTANTS, b));
 				break;
 			// R[A] := -R[B]
 			case OP_UNM:
 				Write("OP_UNM        R[" + A + "] := -R[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := -" + RegisterName(f, b, index));
 				break;
 			// R[A] := ~R[B]
 			case OP_BNOT:
 				Write("OP_BNOT       R[" + A + "] := ~R[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := ~" + RegisterName(f, b, index));
 				break;
 			// R[A] := not R[B]
 			case OP_NOT:
 				Write("OP_NOT        R[" + A + "] := not R[" + B + "]");
+				Write("; " + RegisterName(f, a, index) + " := not " + RegisterName(f, b, index));
 				break;
 			// R[A] := #R[B] (length operator)
 			case OP_LEN:
 				Write("OP_LEN        R[" + A + "] := #R[" + B + "] (length operator)");
+				Write("; " + RegisterName(f, a, index) + " := #" + RegisterName(f, b, index) + "  (length operator)");
 				break;
 			// R[A] := R[A].. ... ..R[A + B - 1]
 			case OP_CONCAT:
 				Write("OP_CONCAT     R[" + A + "] := R[" + A + "].. ... ..R[" + A + " + " + B + " - 1]");
+				Write("; " + RegisterName(f, a, index) + " := ");
+				for (int ri = a; ri <= a + b - 1; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + b - 1) Write("..");
+				}
 				break;
 			// close all upvalues >= R[A]
 			case OP_CLOSE:
 				Write("OP_CLOSE      close all upvalues >= R[" + A + "]");
+				Write("; close all upvalues >= " + RegisterName(f, a, index));
 				break;
 			// mark variable R[A] "to be closed"
 			case OP_TBC:
 				Write("OP_TBC        mark variable R[" + A + "] \"to be closed\"");
+				Write("; mark variable " + RegisterName(f, a, index) + " \"to be closed\"");
 				break;
 			// pc += sJ
 			case OP_JMP:
@@ -480,58 +548,96 @@ private:
 			// if ((R[A] == R[B]) ~= k) then pc++
 			case OP_EQ:
 				Write("OP_EQ         if ((R[" + A + "] == R[" + B + "]) ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " == " + RegisterName(f, b, index) + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] <  R[B]) ~= k) then pc++
 			case OP_LT:
 				Write("OP_LT         if ((R[" + A + "] < R[" + B + "]) ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " < " + RegisterName(f, b, index) + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] <=  R[B]) ~= k) then pc++
 			case OP_LE:
 				Write("OP_LE         if ((R[" + A + "] <= R[" + B + "]) ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " <= " + RegisterName(f, b, index) + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] ==  K[B]) ~= k) then pc++
 			case OP_EQK:
 				Write("OP_EQK        if ((R[" + A + "] == K[" + B + "]) ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " == " + ConstantValue(CONSTANTS, b) + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] == sB) ~= k) then pc++
 			case OP_EQI:
 				Write("OP_EQI        if ((R[" + A + "] == " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " == " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] < sB) ~= k) then pc++
 			case OP_LTI:
 				Write("OP_LTI        if ((R[" + A + "] < " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " < " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] <= sB) ~= k) then pc++
 			case OP_LEI:
 				Write("OP_LEI        if ((R[" + A + "] <= " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " <= " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] > sB) ~= k) then pc++
 			case OP_GTI:
 				Write("OP_GTI        if ((R[" + A + "] > " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " > " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if ((R[A] >= sB) ~= k) then pc++
 			case OP_GEI:
 				Write("OP_GEI        if ((R[" + A + "] >= " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if ((" + RegisterName(f, a, index) + " >= " + SB + ") ~= " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if (not R[A] == k) then pc++
 			case OP_TEST:
 				Write("OP_TEST       if (not R[" + A + "] == " + K + ") then pc(" + std::to_string(index + 1) + ")++");
+				Write("; if (not " + RegisterName(f, a, index) + " == " + K + ") then pc(" + std::to_string(index + 1) + ")++");
 				break;
 			// if (not R[B] == k) then pc++ else R[A] := R[B]
 			case OP_TESTSET:
 				Write("OP_TESTSET    if (not R[" + B + "] == " + K + ") then pc(" + std::to_string(index + 1) + ")++ else R[" + A + "] := R[" + B + "]");
+				Write("; if (not " + RegisterName(f, b, index) + " == " + K + ") then pc(" + std::to_string(index + 1) + ")++ else " + RegisterName(f, a, index) + " := " + RegisterName(f, b, index));
 				break;
 			// R[A], ... ,R[A+C-2] := R[A](R[A+1], ... ,R[A+B-1])
 			case OP_CALL:
 				Write("OP_CALL       R[" + A + "], ... ,R[" + A + "+"+ C + "-2] := R[" + A + "](R[" + A + "+1], ... ,R[" + A + "+" + B + "-1])");
+				Write("; ");
+				for (int ri = a; ri <= a + c - 2; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + c - 2) Write(", ");
+					else Write(" := ");
+				}
+				Write(RegisterName(f, a, index) + "(");
+				for (int ri = a + 1; ri <= a + b - 1; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + b - 1) Write(", ");
+				}
+				Write(")");
 				break;
 			// return R[A](R[A+1], ... ,R[A+B-1])
 			case OP_TAILCALL:
 				Write("OP_TAILCALL   return R[" + A + "](R[" + A + "+1], ... ,R[" + A + "+" + B + "-1])");
+				Write("; return " + RegisterName(f, a, index) + "(");
+				for (int ri = a + 1; ri <= a + b - 1; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + b - 1) Write(", ");
+				}
+				Write(")");
 				break;
 			// return R[A], ... ,R[A+B-2]
 			case OP_RETURN:
 				Write("OP_RETURN     return R[" + A + "], ... ,R[" + A + "+" + B + "-2]");
+				Write("; return ");
+				for (int ri = a; ri <= a + b -2; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + b - 2) Write(", ");
+				}
 				break;
 			// return
 			case OP_RETURN0:
@@ -540,6 +646,7 @@ private:
 			// return R[A]
 			case OP_RETURN1:
 				Write("OP_RETURN1    return R[" + A + "]");
+				Write("; return " + RegisterName(f, a, index));
 				break;
 			// update counters; if loop continues then pc-=Bx;
 			case OP_FORLOOP:
@@ -553,26 +660,52 @@ private:
 			// create upvalue for R[A + 3]; pc+=Bx
 			case OP_TFORPREP:
 				Write("OP_TFORPREP   create upvalue for R[" + A + " + 3]; pc(" + std::to_string(index + 1) + ")+=" + BX);
+				Write("; create upvalue for " + RegisterName(f, a + 3, index) + "; pc(" + std::to_string(index + 1) + ")+=" + BX);
 				break;
 			// R[A+4], ... ,R[A+3+C] := R[A](R[A+1], R[A+2]);
 			case OP_TFORCALL:
 				Write("OP_TFORCALL   R[" + A + "+4], ... ,R[" + A + "+3+" + C + "] := R[" + A + "](R[" + A + "+1], R[" + A + "+2])");
+				Write(";");
+				for (int ri = a + 4; ri <= a + 3 + c; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + 3 + c) Write(", ");
+					else Write(" := ");
+				}
+				Write(RegisterName(f, a, index) + "(" + RegisterName(f, a + 1, index) + ", " + RegisterName(f, a + 2, index) + ")");
 				break;
 			// if R[A+2] ~= nil then { R[A]=R[A+2]; pc -= Bx }
 			case OP_TFORLOOP:
 				Write("OP_TFORLOOP   if R[" + A + "+2] ~= nil then { R[" + A + "]=R[" + A + "+2]; pc(" + std::to_string(index + 1) + ") -= " + BX + " }");
+				Write(";   if " + RegisterName(f, a + 2, index) + " ~= nil then { " + RegisterName(f, a, index) + "=" + RegisterName(f, a + 2, index) + "; pc(" + std::to_string(index + 1) + ") -= " + BX + " }");
 				break;
 			// R[A][C+i] := R[A+i], 1 <= i <= B
 			case OP_SETLIST:
 				Write("OP_SETLIST    R[" + A + "][" + C + "+i] := R[" + A + "+i], 1 <= i <= " + B);
+				Write(";");
+				for (int ri = 1; ri <= b; ++ri)
+				{
+					Write(RegisterName(f, a, index) + "[" + std::to_string(c + ri) + "] := " + RegisterName(f, a + ri, index));
+					if (ri < b) Write(" ");
+				}
 				break;
 			// R[A] := closure(KPROTO[Bx])
 			case OP_CLOSURE:
 				Write("OP_CLOSURE    R[" + A + "] := closure(KPROTO[" + BX + "])");
+				Write("; " + RegisterName(f, a, index) + " := closure(KPROTO[" + BX + "])");
 				break;
 			// R[A], R[A+1], ..., R[A+C-2] = vararg
 			case OP_VARARG:
 				Write("OP_VARARG     R[" + A + "], R[" + A + "+1], ..., R[" + A + "+" + C + "-2] = vararg");
+				Write(";");
+				for (int ri = a; ri <= a + c - 2; ++ri)
+				{
+					Write(RegisterName(f, ri, index));
+					if (ri < a + c -2)
+						Write(", ");
+					else
+						Write(" = vararg");
+				}
 				break;
 			// (adjust vararg parameters)
 			case OP_VARARGPREP:
@@ -603,10 +736,57 @@ private:
 			case LUA_VLNGSTR:
 				WriteKeyValue(tab + std::to_string(i) + " string", getstr(tsvalue(o)));
 				break;
+				// 输出nil
+			case LUA_VNIL:
+				Write(tab + std::to_string(i) + " nil\n");
+				break;
+				// 输出false
+			case LUA_VFALSE:
+				Write(tab + std::to_string(i) + " false\n");
+				break;
+				// 输出true
+			case LUA_VTRUE:
+				Write(tab + std::to_string(i) + " true\n");
+				break;
 			default:
-				lua_assert(tt == LUA_VNIL || tt == LUA_VFALSE || tt == LUA_VTRUE);
+				break;
 			}
 		}
+	}
+
+	std::string ConstantValue(const TValue* k, int index)
+	{
+		const TValue* o = k + index;
+		int tt = ttypetag(o);
+		switch (tt) {
+			// 输出nil
+		case LUA_VNIL:
+			return "nil";
+			// 输出false
+		case LUA_VFALSE:
+			return "false";
+			// 输出true
+		case LUA_VTRUE:
+			return "true";
+			// 输出Number
+		case LUA_VNUMFLT:
+			return std::to_string(fltvalue(o));
+			// 输出Integer
+		case LUA_VNUMINT:
+			return std::to_string(ivalue(o));
+			// 输出字符串
+		case LUA_VSHRSTR:
+		case LUA_VLNGSTR:
+			return getstr(tsvalue(o));
+		default:
+			return "";
+		}
+	}
+
+	std::string RegisterName(const Proto* f, int index, int pc)
+	{
+		if (index < f->sizelocvars && pc >= f->locvars[index].startpc && pc < f->locvars[index].endpc) return getstr(f->locvars[index].varname);
+		return "R[" + std::to_string(index) + "]";
 	}
 
 	void DumpUpvalues(const std::string& tab, const Proto* f)

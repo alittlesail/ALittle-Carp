@@ -75,6 +75,7 @@ public:
 		
 		std::string show_path;
 		if (file_path != nullptr) show_path = file_path;
+		show_path = "@" + show_path;
 		if (luaL_loadbuffer(m_L, script, len, show_path.c_str()) == 0)
 		{
 			lua_pushstring(m_L, file_path);
@@ -92,10 +93,10 @@ private:
 	static void CallStack(lua_State* L, int n, std::string& stack_info)
 	{
 		if (n >= 100) return;
-		lua_Debug ar;
-		if (lua_getstack(L, n, &ar) != 1) return;
 
-		lua_getinfo(L, "nSlu", &ar);
+		lua_Debug ar;
+		if (lua_getstack(L, n, &ar) == 0) return;
+		lua_getinfo(L, "flnSrtu", &ar);
 
 		if (ar.name)
 			stack_info.append(ar.name).append("() : line ").append(std::to_string(ar.currentline)).append(" [").append(ar.source).append("]\n");
@@ -109,8 +110,7 @@ private:
 		std::string content;
 		const char* error = lua_tostring(L, -1);
 		if (error != nullptr) content = error;
-		lua_pop(L, 1);
-
+		
 		content.append("\n");
 		CallStack(L, 0, content);
 		CARP_SCRIPT_ERROR(content);

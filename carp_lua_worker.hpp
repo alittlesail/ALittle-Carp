@@ -153,7 +153,7 @@ private:
             .endClass()
             .endNamespace();
 
-        luabridge::setGlobal(m_L, this, "carp_CarpScript");
+        luabridge::setGlobal(m_L, this, "carp_CarpLuaWorker");
 
         // ¼ÓÔØºËÐÄ
         Require((m_core_path + "ALittle").c_str());

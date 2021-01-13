@@ -330,12 +330,17 @@ public:
 		m_server->Start(yun_ip, ip, port, 30, this, this);
 		Run(true);
 
+		m_stopped = false;
 		return true;
 	}
 
 	void Stop()
 	{
-		CARP_SYSTEM("debug server stop");
+		if (!m_stopped)
+		{
+			CARP_SYSTEM("debug server stop");
+			m_stopped = true;
+		}
 		
 		{
 			std::unique_lock<std::mutex> lock(m_break_mutex);
@@ -512,6 +517,7 @@ public:
 
 private:
 	lua_State* m_L = nullptr;
+	bool m_stopped = true;
 	
 private:
 	bool m_break_next_line = false;

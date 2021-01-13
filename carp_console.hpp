@@ -27,6 +27,9 @@ public:
         m_run = true;
         m_thread = new std::thread(&CarpConsole::Run, this);
         m_title = CarpString::UTF82Unicode(title);
+#ifdef _WIN32
+        ::SetConsoleTitleW(m_title.c_str());
+#endif
         m_handle = func;
         m_exit = exit;
         m_list = list;

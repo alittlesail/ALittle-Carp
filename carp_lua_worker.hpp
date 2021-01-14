@@ -18,6 +18,7 @@ extern "C" {
 #include "Carp/carp_string_bind.hpp"
 #include "Carp/carp_rwops_bind.hpp"
 #include "Carp/carp_surface_bind.hpp"
+#include "Carp/carp_process_bind.hpp"
 
 #include <thread>
 #include <mutex>
@@ -145,6 +146,7 @@ private:
         CarpStringBind::Bind(m_L);
         CarpRWopsBind::Bind(m_L);
         CarpSurfaceBind::Bind(m_L);
+        CarpProcessBind::Bind(m_L);
 
         luabridge::getGlobalNamespace(m_L)
             .beginNamespace("carp")

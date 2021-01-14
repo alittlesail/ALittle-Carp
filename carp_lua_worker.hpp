@@ -71,9 +71,8 @@ public:
         if (m_thread == nullptr) return false;
 
         // 把日志添加到列表
-        std::unique_lock<std::mutex> lock(m_mutex);
+        std::unique_lock<std::mutex> lock(m_push_mutex);
         m_push_list.emplace_back(info);
-        m_cv.notify_one();
 
         return true;
     }
@@ -109,9 +108,8 @@ public:
 
         // 解开锁
         {
-            std::unique_lock<std::mutex> lock(m_mutex);
+            std::unique_lock<std::mutex> lock(m_push_mutex);
             m_run = false;
-            m_cv.notify_all();
         }
         // 等待线程正常结束
         m_thread->join();
@@ -168,15 +166,16 @@ private:
         // 加载lua文件
         Require(m_lua_path.c_str());
 
+        // 获取上一次事假
+        auto last_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
         // 定义临时列表
         std::list<std::string> temp_list;
         while (m_run)
         {
             // 获取执行队列
             {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                while (m_run && m_push_list.empty())
-                    m_cv.wait(lock);
+                std::unique_lock<std::mutex> lock(m_push_mutex);
                 temp_list.swap(m_push_list);
             }
 
@@ -186,6 +185,12 @@ private:
                 Execute(temp_list.front());
                 temp_list.pop_front();
             }
+
+            auto cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+            Invoke("__ALITTLEAPI_WorkerUpdate", cur_time - last_time);
+            last_time = cur_time;
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
         }
 
         Release();
@@ -200,8 +205,7 @@ protected:
     }
 
 private:
-    std::mutex m_mutex;                 // 互斥锁
-    std::condition_variable m_cv;       // 条件变量
+    std::mutex m_push_mutex;                 // 互斥锁
     std::list<std::string> m_push_list;	// 等待日志的列表
 
 private:

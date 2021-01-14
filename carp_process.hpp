@@ -12,6 +12,29 @@
 class CarpProcess
 {
 public:
+    // 创建进程
+    static bool CreateCarpProcess(const std::string& cmd_line, const char* work_path)
+    {
+#ifdef _WIN32
+        std::wstring w_work_path;
+        if (work_path != nullptr) w_work_path = UTF82Unicode(work_path);
+        std::wstring w_cmd_line = UTF82Unicode(cmd_line);
+
+        LPCWSTR cur_dir = NULL;
+        if (!w_work_path.empty()) cur_dir = (LPCWSTR)w_work_path.c_str();
+
+        STARTUPINFOW si;
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        ZeroMemory(&pi, sizeof(pi));
+        BOOL result = CreateProcessW(NULL, (LPWSTR)w_cmd_line.c_str(), NULL, NULL, false, 0, NULL, cur_dir, &si, &pi);
+        return result == TRUE;
+#else
+        return false;
+#endif
+    }
+
 	// 根据可执行文件的路径获取进程ID
     static std::vector<unsigned long> GetProcessIDByPath(const std::string& path)
     {

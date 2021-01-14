@@ -13,12 +13,12 @@ class CarpProcess
 {
 public:
     // 创建进程
-    static bool CreateCarpProcess(const std::string& cmd_line, const char* work_path)
+    static bool CreateCarpProcess(const std::string& file_path, const std::string& param, const char* work_path)
     {
 #ifdef _WIN32
+        std::wstring w_cmd = UTF82Unicode(file_path) + L" " + UTF82Unicode(param);
         std::wstring w_work_path;
         if (work_path != nullptr) w_work_path = UTF82Unicode(work_path);
-        std::wstring w_cmd_line = UTF82Unicode(cmd_line);
 
         LPCWSTR cur_dir = NULL;
         if (!w_work_path.empty()) cur_dir = (LPCWSTR)w_work_path.c_str();
@@ -28,7 +28,14 @@ public:
         ZeroMemory(&si, sizeof(si));
         si.cb = sizeof(si);
         ZeroMemory(&pi, sizeof(pi));
-        BOOL result = CreateProcessW(NULL, (LPWSTR)w_cmd_line.c_str(), NULL, NULL, false, 0, NULL, cur_dir, &si, &pi);
+        BOOL result = CreateProcessW(NULL
+            , (LPWSTR)w_cmd.c_str()
+            , NULL
+            , NULL
+            , false
+            , CREATE_NEW_CONSOLE | NORMAL_PRIORITY_CLASS
+            , NULL
+            , cur_dir, &si, &pi);
         return result == TRUE;
 #else
         return false;

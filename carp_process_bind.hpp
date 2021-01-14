@@ -36,11 +36,12 @@ private:
 
 	static int CreateCarpProcess(lua_State* l_state)
 	{
-		const char* cmd_line = luaL_checkstring(l_state, 1);
-		luaL_argcheck(l_state, cmd_line != nullptr, 1, "cmd_line is null");
-		const char* work_path = luaL_checkstring(l_state, 2);
+		const char* file_path = luaL_checkstring(l_state, 1);
+		const char* param = luaL_checkstring(l_state, 2);
+		size_t l = 0;
+		const char* work_path = luaL_tolstring(l_state, 3, &l);
 
-		if (CarpProcess::CreateCarpProcess(cmd_line, work_path))
+		if (CarpProcess::CreateCarpProcess(file_path, param, work_path))
 			lua_pushboolean(l_state, 1);
 		else
 			lua_pushboolean(l_state, 0);

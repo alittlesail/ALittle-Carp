@@ -363,7 +363,7 @@ public:
 		}
 
 		// 不使用缓存，那么就直接打开原始文件
-		if (!OpenNativeFile(file_path, cache->m_native_file, cache->m_native_size))
+		if (OpenNativeFile(file_path, cache->m_native_file, cache->m_native_size))
 			return cache;
 
 		return nullptr;

@@ -142,7 +142,7 @@ private:
                     HandleCmd(cmd_utf8);
                     cmd.clear();
                 }
-                else
+                else if (ker.uChar.UnicodeChar != 0)
                 {
                     cmd.push_back(ker.uChar.UnicodeChar);
                 }

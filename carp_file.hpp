@@ -301,6 +301,23 @@ public:
 		fclose(file);
 		return true;
 	}
+	// 获取所有盘符
+	static void GetDriveStrings(std::vector<std::string>& result)
+	{
+#ifdef _WIN32
+		DWORD dwLen = GetLogicalDriveStrings(0, NULL);	//获取系统字符串长度.
+		std::vector<char> vecDriver;				//构建一个相应长度的数组.
+		vecDriver.resize(dwLen, 0);
+		GetLogicalDriveStrings(dwLen, vecDriver.data());		//获取盘符字符串.
+		char* pDriver = vecDriver.data();
+		while (*pDriver != '\0')
+		{
+			result.push_back(pDriver);
+			pDriver += strlen(pDriver) + 1;			//定位到下一个字符串.加一是为了跳过'\0'字符串.
+		}
+#else
+#endif
+	}
 
 #ifdef WIN32
 	static std::wstring UTF82Unicode(const std::string& utf8)

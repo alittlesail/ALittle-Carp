@@ -18,6 +18,7 @@ public:
 			.addCFunction("GetPathAttribute", GetPathAttribute)
             .addCFunction("GetFileNameListInFolder", GetFileNameListInFolder)
             .addCFunction("GetFolderNameListInFolder", GetFolderNameListInFolder)
+            .addCFunction("GetDriveStrings", GetDriveStrings)
 			.endNamespace();
 	}
 
@@ -95,6 +96,20 @@ private:
         for (size_t i = 0; i < dir_list.size(); ++i)
         {
             lua_pushstring(l_state, dir_list[i].c_str());
+            lua_rawseti(l_state, -2, static_cast<int>(i) + 1);
+        }
+        return 1;
+    }
+
+    static int GetDriveStrings(lua_State* l_state)
+    {
+        std::vector<std::string> result_list;
+        CarpFile::GetDriveStrings(result_list);
+
+        lua_newtable(l_state);
+        for (size_t i = 0; i < result_list.size(); ++i)
+        {
+            lua_pushstring(l_state, result_list[i].c_str());
             lua_rawseti(l_state, -2, static_cast<int>(i) + 1);
         }
         return 1;

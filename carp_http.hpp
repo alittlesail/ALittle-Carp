@@ -184,7 +184,7 @@ public:
 	}
 
 public:
-	static bool AnalysisRequest(const std::string& request, std::string& method, std::string& path, std::string* param, std::string* content_type, std::string* content)
+	static bool AnalysisRequest(const std::string& request, std::string& url, std::string& method, std::string& path, std::string* param, std::string* content_type, std::string* content)
 	{
 		const auto method_end_pos = request.find(' ');
 		if (method_end_pos == std::string::npos)
@@ -196,7 +196,7 @@ public:
 		if (url_end_pos == std::string::npos)
 			return false;
 
-		const auto url = UrlDecode(request.substr(method_end_pos + 1, url_end_pos - method_end_pos - 1));
+		url = UrlDecode(request.substr(method_end_pos + 1, url_end_pos - method_end_pos - 1));
 
 		const auto path_end_pos = url.find('?');
 		if (path_end_pos != std::string::npos)

@@ -231,7 +231,7 @@ private:
 		// stop receive if lager than max size
 		if (m_websocket_handshake.size() > WEBSOCKET_HEAD_BUFFER_SIZE_MAX)
 		{
-			CARP_SYSTEM("websocket hand shake is large than " << WEBSOCKET_HEAD_BUFFER_SIZE_MAX);
+			CARP_SYSTEM("websocket hand shake(" << m_websocket_handshake.size() << ") is large than " << WEBSOCKET_HEAD_BUFFER_SIZE_MAX);
 			CarpConnectServerPtr server = m_server.lock();
 			if (server)	server->HandleOuterDisconnected(this->shared_from_this());
 			return;
@@ -893,7 +893,7 @@ private:
 	bool m_is_connected = true;// 是否处于连接状态
 
 private:
-	static const int WEBSOCKET_HEAD_BUFFER_SIZE_MAX = 1024;
+	static const int WEBSOCKET_HEAD_BUFFER_SIZE_MAX = 2048;
 	static const int MESSAGE_BUFFER_SIZE = 102400000;
 };
 

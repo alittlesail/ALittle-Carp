@@ -7,6 +7,7 @@
 #include <functional>
 #include <string>
 #include <thread>
+#include <deque>
 
 #include <Windows.h>
 #include "carp_string.hpp"
@@ -20,7 +21,7 @@ public:
 public:
     void Setup(const std::string& title
         , std::function<void(const std::string&, const std::string&)> func
-        , std::function<void()> exit, std::function<void()> list)
+        , std::function<void()> exit_handle, std::function<void()> list_handle)
     {
         if (m_thread != nullptr) return;
 
@@ -31,8 +32,8 @@ public:
         ::SetConsoleTitleW(m_title.c_str());
 #endif
         m_handle = func;
-        m_exit = exit;
-        m_list = list;
+        m_exit_handle = exit_handle;
+        m_list_handle = list_handle;
     }
     void Shutdown()
     {
@@ -56,7 +57,7 @@ public:
     }
 
 private:
-    int Run() const
+    int Run()
     {
         // Get the standard input handle. 
         auto* const std_in = GetStdHandle(STD_INPUT_HANDLE);
@@ -90,7 +91,31 @@ private:
 
                 auto& ker = ir_in_buf[i].Event.KeyEvent;
                 if (!ker.bKeyDown) continue;
-                if (ker.uChar.AsciiChar == 0) continue;
+
+                // up
+                if (ker.wVirtualKeyCode == 38)
+                {
+                    if (!m_cmd_queue.empty())
+                    {
+                        if (m_index >= 1) --m_index;
+                        if (m_index >= 0 && m_index < m_cmd_queue.size())
+                            cmd = m_cmd_queue[m_index];
+                    }
+                }
+                // down
+                else if (ker.wVirtualKeyCode == 40)
+                {
+                    if (!m_cmd_queue.empty())
+                    {
+                        if (m_index + 1 < m_cmd_queue.size()) ++m_index;
+                        if (m_index >= 0 && m_index < m_cmd_queue.size())
+                            cmd = m_cmd_queue[m_index];
+                    }
+                }
+                else
+                {
+                    if (ker.uChar.AsciiChar == 0) continue;
+                }
 
                 if (ker.uChar.AsciiChar == 8)
                 {
@@ -107,6 +132,11 @@ private:
                     || ker.uChar.AsciiChar == '\n')
                 {
                     if (cmd.empty()) continue;
+
+                    // add to queue
+                    m_cmd_queue.emplace_back(cmd);
+                    if (m_cmd_queue.size() > 100) m_cmd_queue.pop_front();
+                    m_index = m_cmd_queue.size();
 
                     auto cmd_utf8 = CarpString::Unicode2UTF8(cmd);
                     HandleCmd(cmd_utf8);
@@ -126,7 +156,7 @@ private:
 
         return 0;
     }
-    void HandleCmd(std::string& cmd) const
+    void HandleCmd(std::string& cmd)
     {
         CarpString::TrimLeft(cmd);
         CarpString::TrimRight(cmd);
@@ -134,15 +164,15 @@ private:
 
         std::string upper_cmd = cmd;
         CarpString::UpperString(upper_cmd);
-        if (m_exit && upper_cmd == "EXIT")
+        if (m_exit_handle && upper_cmd == "EXIT")
         {
-            m_exit();
+            m_exit_handle();
             return;
         }
 
-        if (m_list && upper_cmd == "HELP")
+        if (m_list_handle && upper_cmd == "HELP")
         {
-            m_list();
+            m_list_handle();
             return;
         }
 
@@ -171,9 +201,13 @@ private:
 
 private:
     std::wstring m_title;
-    std::function<void()> m_exit;
-    std::function<void()> m_list;
+    std::function<void()> m_exit_handle;
+    std::function<void()> m_list_handle;
     std::function<void(const std::string&, const std::string&)> m_handle;
+
+private:
+    std::deque<std::wstring> m_cmd_queue;
+    size_t m_index = 0;
 };
 
 extern CarpConsole s_carp_console;

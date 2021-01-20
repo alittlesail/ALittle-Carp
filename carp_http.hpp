@@ -1028,7 +1028,7 @@ private:
 			{
 				m_file.close();
 				const bool result = m_status == "200";
-				if (!result) m_error = "status != 200";
+				if (!result) m_error = "status(" + m_status + ") != 200";
 				m_complete_callback(result, "", m_response_head, m_error);
 				return;
 			}
@@ -1040,7 +1040,7 @@ private:
 			if (m_response_size <= 0)
 			{
 				const bool result = m_status == "200";
-				if (!result) m_error = "status != 200";
+				if (!result) m_error = "status(" + m_status + ") != 200";
 				m_complete_callback(result, m_response, m_response_head, m_error);
 				return;
 			}
@@ -1124,13 +1124,13 @@ private:
 				{
 					m_file.close();
 					const auto result = m_status == "200";
-					if (!result) m_error = "status != 200";
+					if (!result) m_error = "status(" + m_status + ") != 200";
 					m_complete_callback(result, "", m_response_head, m_error);
 				}
 				else
 				{
 					const auto result = m_status == "200";
-					if (!result) m_error = "status != 200";
+					if (!result) m_error = "status(" + m_status + ") != 200";
 					m_complete_callback(result, m_response, m_response_head, m_error);
 				}
 				return;
@@ -1179,13 +1179,13 @@ private:
 			{
 				m_file.close();
 				const auto result = m_status == "200";
-				if (!result) m_error = "status != 200";
+				if (!result) m_error = "status(" + m_status + ") != 200";
 				m_complete_callback(result, "", m_response_head, m_error);
 			}
 			else
 			{
 				const auto result = m_status == "200";
-				if (!result) m_error = "status != 200";
+				if (!result) m_error = "status(" + m_status + ") != 200";
 				m_complete_callback(result, m_response, m_response_head, m_error);
 			}
 			return;

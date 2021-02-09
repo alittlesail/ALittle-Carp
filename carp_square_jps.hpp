@@ -294,9 +294,9 @@ private:
 			// 检查目标格子是否有阻挡
 			if (!IsEmptyImpl(target_x, target_y)) break;
 			// 检查水平相邻的格子是否有阻挡
-			if (!IsEmptyImpl(target_x, cur->y)) break;
+			if (!IsEmptyImpl(target_x, target_y - dir_y)) break;
 			// 检查垂直相邻的格子是否有阻挡
-			if (!IsEmptyImpl(cur->x, target_y)) break;
+			if (!IsEmptyImpl(target_x - dir_x, target_y)) break;
 
 			CarpSquareJPSNode* target_node = nullptr;
 

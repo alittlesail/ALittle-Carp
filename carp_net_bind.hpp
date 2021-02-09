@@ -46,7 +46,6 @@ public:
 	static int Run(lua_State* l_state)
 	{
 		auto* c = static_cast<CarpNet*>(lua_touserdata(l_state, 1));
-		luaL_argcheck(l_state, c != nullptr, 1, "net object is null");
 		if (c == nullptr) return 0;
 		c->m_schedule.RunOne();
 		return c->HandleEvent(l_state);
@@ -55,7 +54,6 @@ public:
 	static int Poll(lua_State* l_state)
 	{
 		auto* c = static_cast<CarpNet*>(lua_touserdata(l_state, 1));
-		luaL_argcheck(l_state, c != nullptr, 1, "net object is null");
 		if (c == nullptr) return 0;
 		c->m_schedule.PollOne();
 		return c->HandleEvent(l_state);

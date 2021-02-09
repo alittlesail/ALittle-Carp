@@ -11,6 +11,7 @@ public:
 
 public:
     unsigned int GetSize() const { return m_size; }
+    T* GetElement(unsigned int index) { return m_elements[index]; }
     bool IsEmpty() const { return 0 == m_size; }
     T* GetTop() { return m_size > 0 ? *m_elements : nullptr; }
 	

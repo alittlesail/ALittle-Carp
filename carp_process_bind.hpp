@@ -22,7 +22,6 @@ private:
 	static int GetProcessIDByPath(lua_State* l_state)
 	{
 		const char* path = luaL_checkstring(l_state, 1);
-		luaL_argcheck(l_state, path != nullptr, 1, "path is null");
 
 		const auto result = CarpProcess::GetProcessIDByPath(path);
 		lua_newtable(l_state);

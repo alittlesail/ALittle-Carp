@@ -32,9 +32,9 @@ struct CarpSquareJPSNode
 		const auto delta_x = std::abs(v_x - end_x);
 		const auto delta_y = std::abs(v_y - end_y);
 		if (delta_x < delta_y)
-			h = delta_x * s_carp_square_hypotenuse_cost + delta_y * s_carp_square_straight_cost;
+			f = g + delta_x * s_carp_square_hypotenuse_cost + delta_y * s_carp_square_straight_cost;
 		else
-			h = delta_y * s_carp_square_hypotenuse_cost + delta_x * s_carp_square_straight_cost;
+			f = g + delta_y * s_carp_square_hypotenuse_cost + delta_x * s_carp_square_straight_cost;
 
 		parent = v_parent;
 
@@ -50,7 +50,7 @@ struct CarpSquareJPSNode
 
 	// 代价
 	int g = 0;
-	int h = 0;
+	int f = 0;
 
 	// 父节点
 	CarpSquareJPSNode* parent = nullptr;
@@ -59,7 +59,7 @@ struct CarpSquareJPSNode
     int GetHeapIndex() const { return heap_index; }
     void Reset() { heap_index = -1; }
 
-    bool operator > (const CarpSquareJPSNode& node) const { return g + h > node.g + node.h; }
+    bool operator > (const CarpSquareJPSNode& node) const { return f > node.f; }
 };
 
 class CarpSquareJPS
@@ -240,8 +240,8 @@ public:
 				// 如果是斜方向
 				else
 				{
-					const auto dir_x = cur->x < end_x ? 1 : -1;
-					const auto dir_y = cur->y < end_y ? 1 : -1;
+					const auto dir_x = cur->parent->x < cur->x ? 1 : -1;
+					const auto dir_y = cur->parent->y < cur->y ? 1 : -1;
 
 					SearchHVDir(cur, end_x, end_y, dir_x, dir_y, open_list, open_set, close_map);
 				}

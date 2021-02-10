@@ -26,7 +26,8 @@ public:
 public:
     virtual ~CarpCsv() = default;
 
-    typedef size_t(*READ_FILE)(void*, size_t, size_t, void*);
+    // 第一个参数是文件指针，第二个参数是内存地址，第三个参数是元素大小，第四个是元素个数
+    typedef size_t(*READ_FILE)(void*, void*, size_t, size_t);
 
 public:
 	const char* Load(const char* file_path)
@@ -46,6 +47,8 @@ public:
         return result;
     }
 #endif
+
+    static size_t WrapFRead(void* file, void* buffer, size_t size, size_t count) { return fread(buffer, size, count, static_cast<FILE*>(file)); }
 	
     bool ReadFromStdFile(const std::string& file_path, std::string* error = nullptr)
     {
@@ -66,7 +69,7 @@ public:
 
         try
         {
-            ReadFile(reinterpret_cast<READ_FILE>(fread), file, -1);
+            ReadFile(WrapFRead, file, -1);
             fclose(file);
         }
         catch (CarpCsvException& e)
@@ -122,13 +125,13 @@ private:
     {
         // 读取第一个字符
         char cur_char = CARP_CSV_END_OF_FILE;
-        size_t size = read_func(&cur_char, 1, 1, file);
+        size_t size = read_func(file, &cur_char, 1, 1);
         if (size == 0) Throw("file is empty");
         if (cur_char == 0) Throw("row(" + std::to_string(GetRowCount() + 1) + ") has char is 0");
 
         // 读取下一个字符
         char next_char = 0;
-        size = read_func(&next_char, 1, 1, file);
+        size = read_func(file, &next_char, 1, 1);
         if (size == 0)
         {
             m_data.resize(1);
@@ -299,7 +302,7 @@ private:
     char ReadNextChar(READ_FILE read_func, void* file) const
     {
         char next_char = CARP_CSV_END_OF_FILE;
-        const size_t size = read_func(&next_char, 1, 1, file);
+        const size_t size = read_func(file, &next_char, 1, 1);
         if (size != 0 && next_char == 0) Throw("row(" + std::to_string(GetRowCount()) + ") has char is 0");
         return next_char;
     }

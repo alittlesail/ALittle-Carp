@@ -21,7 +21,7 @@ public:
 public:
     void Setup(const std::string& title
         , std::function<void(const std::string&, const std::string&)> func
-        , std::function<void()> exit_handle, std::function<void()> list_handle)
+        , std::function<void()> exit_handle, std::function<void()> help_handle, std::function<void()> restart_handle)
     {
         if (m_thread != nullptr) return;
 
@@ -33,7 +33,8 @@ public:
 #endif
         m_handle = func;
         m_exit_handle = exit_handle;
-        m_list_handle = list_handle;
+        m_help_handle = help_handle;
+        m_restart_handle = restart_handle;
     }
     void Shutdown()
     {
@@ -170,9 +171,15 @@ private:
             return;
         }
 
-        if (m_list_handle && upper_cmd == "HELP")
+        if (m_help_handle && upper_cmd == "HELP")
         {
-            m_list_handle();
+            m_help_handle();
+            return;
+        }
+
+        if (m_restart_handle && upper_cmd == "RESTART")
+        {
+            m_restart_handle();
             return;
         }
 
@@ -202,7 +209,8 @@ private:
 private:
     std::wstring m_title;
     std::function<void()> m_exit_handle;
-    std::function<void()> m_list_handle;
+    std::function<void()> m_help_handle;
+    std::function<void()> m_restart_handle;
     std::function<void(const std::string&, const std::string&)> m_handle;
 
 private:

@@ -124,10 +124,10 @@ public:
 	{
 		void* memory = malloc(content.size());
 		memcpy(memory, content.c_str(), content.size());
-		m_socket->async_send_to(asio::buffer(memory, content.size()), end_point
-			, std::bind(&CarpUdpServer::HandleSend, this->shared_from_this(), memory, std::placeholders::_1, std::placeholders::_2));
+		Send(memory, content.size(), end_point);
 	}
 
+private:
 	/* handle send
 	 */
 	void HandleSend(void* memory, const asio::error_code& ec, std::size_t actual_size)
@@ -136,7 +136,6 @@ public:
 		if (ec) CARP_ERROR("HandleSend error:" << ec.value());
 	}
 
-private:
 	/* next read
 	 */
 	void NextRead()

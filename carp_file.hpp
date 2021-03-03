@@ -308,7 +308,7 @@ public:
 		DWORD dwLen = GetLogicalDriveStrings(0, NULL);	//获取系统字符串长度.
 		std::vector<char> vecDriver;				//构建一个相应长度的数组.
 		vecDriver.resize(dwLen, 0);
-		GetLogicalDriveStrings(dwLen, vecDriver.data());		//获取盘符字符串.
+		GetLogicalDriveStringsA(dwLen, vecDriver.data());		//获取盘符字符串.
 		char* pDriver = vecDriver.data();
 		while (*pDriver != '\0')
 		{

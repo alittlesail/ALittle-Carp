@@ -19,11 +19,11 @@ public:
 
 public:
 	/* start server
-	 * @param ip: local ip dress
-	 * @param port: port
+	 * @param local_ip: local ip dress
+	 * @param local_port: port
 	 * @param buffer_size: size of receive buffer
 	 */
-	bool Start(asio::io_service& io_service, const std::string& local_ip, unsigned int local_port, unsigned int buffer_size = 10000)
+	bool Start(const std::string& local_ip, unsigned int local_port, unsigned int buffer_size = 10240)
 	{
 		// check is already started
 		if (m_socket)
@@ -32,7 +32,7 @@ public:
 			return false;
 		}
 
-		m_socket = CarpUSocketPtr(new asio::ip::udp::socket(io_service));
+		m_socket = CarpUSocketPtr(new asio::ip::udp::socket(m_io_service));
 		asio::ip::udp::endpoint local_add = asio::ip::udp::endpoint(asio::ip::address_v4::from_string(local_ip), local_port);
 
 		asio::error_code ec;
@@ -82,7 +82,7 @@ public:
 		CarpUdpServerPtr sender;
 		asio::ip::udp::endpoint end_point;
 		const char* memory;
-		int memory_size;
+		size_t memory_size;
 	};
 	// release memory ,if set false then UDPSystem does not release info's memory, if true then release
 	typedef std::function<void(HandleInfo& info)> UdpHandle;
@@ -90,11 +90,12 @@ public:
 	/* register get handler
 	 * @param func: handle callback
 	 */
-	void RegisterUDPHandle(UdpHandle func) { m_udp_handle = func; }
+	void RegisterUdpHandle(UdpHandle func) { m_udp_handle = func; }
 
+private:
 	/* handle
 	 */
-	void HandleUdpHandle(const asio::ip::udp::endpoint& end_point, const char* memory, int memory_size)
+	void HandleUdpHandle(const asio::ip::udp::endpoint& end_point, const char* memory, size_t memory_size)
 	{
 		if (m_udp_handle)
 		{
@@ -109,13 +110,12 @@ public:
 		free((void*)memory);
 	}
 
-private:
 	UdpHandle m_udp_handle; // udp handle
 
 public:
 	/* send data
 	 */
-	void Send(void* memory, int size, const asio::ip::udp::endpoint& end_point)
+	void Send(void* memory, size_t size, const asio::ip::udp::endpoint& end_point)
 	{
 		m_socket->async_send_to(asio::buffer(memory, size), end_point
 			, std::bind(&CarpUdpServer::HandleSend, this->shared_from_this(), memory, std::placeholders::_1, std::placeholders::_2));
@@ -158,6 +158,12 @@ private:
 			return;
 		}
 
+		if (actual_size >= m_buffer.size())
+		{
+			CARP_ERROR("udp read size(" << actual_size << ") >= buffer size(" << m_buffer.size() << ")");
+			return;
+		}
+
 		// create memory from pool
 		char* memory = (char*)malloc(actual_size + 1);
 		// copy message head to memory
@@ -177,6 +183,8 @@ private:
 private:
 	CarpUSocketPtr m_socket;
 	asio::io_service& m_io_service;
+
+private:
 	std::string m_ip;
 	unsigned int m_port = 0;
 
@@ -184,6 +192,5 @@ private:
 	asio::ip::udp::endpoint m_receiver;
 	std::vector<char> m_buffer;
 };
-
 
 #endif

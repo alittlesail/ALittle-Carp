@@ -6,6 +6,7 @@
 
 #include <string>
 #include <sstream>
+#include <vector>
 
 #ifdef __ANDROID__
 #include <android/log.h>
@@ -47,15 +48,16 @@ class CarpLog : public CarpThreadConsumer<CarpLogInfo>
 {
 public:
 	// 设置日志文件名前缀
-	void Setup(const std::string& path, const std::string& name)
+	void Setup(const std::string& path, const std::string& name, bool print)
 	{
 		// 保存文件名
 		m_file_name = name;
 		m_file_path = path;
+		m_print = print;
 
 #ifdef _WIN32
 		// 获取控制台句柄
-		m_out = GetStdHandle(STD_OUTPUT_HANDLE);
+		if (m_print) m_out = GetStdHandle(STD_OUTPUT_HANDLE);
 #endif
 
 #ifndef __EMSCRIPTEN__
@@ -68,6 +70,7 @@ private:
 	// 日志文件前缀
 	std::string m_file_name;
 	std::string m_file_path;
+	bool m_print = true;
 
 #ifdef _WIN32
 	static std::string UTF82ANSI(const std::string& utf8)
@@ -93,11 +96,14 @@ public:
 		// 如果还未启动直接返回
 		if (!IsStart())
 		{
+			if (m_print)
+			{
 #ifdef _WIN32
-			printf("%s\n", UTF82ANSI(content).c_str());
+				printf("%s\n", UTF82ANSI(content).c_str());
 #else
-			printf("%s\n", content);
+				printf("%s\n", content);
 #endif		
+			}
 			return;
 		}
 
@@ -165,39 +171,42 @@ protected:
 			m_cur_day = CarpTime::CalcTodayBeginTime(cur_time);
 		}
 
-		if (m_file == nullptr)
-			return;
-
-		// 设置控制台颜色
-#ifdef _WIN32
-		if (info.level == CARP_LOG_LEVEL_INFO)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
-		else if (info.level == CARP_LOG_LEVEL_WARN)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_WARN);
-		else if (info.level == CARP_LOG_LEVEL_ERROR)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_ERROR);
-		else if (info.level == CARP_LOG_LEVEL_SYSTEM)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_SYSTEM);
-		else if (info.level == CARP_LOG_LEVEL_DATABASE)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_DATABASE);
-		else if (info.level == CARP_LOG_LEVEL_EVENT)
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_EVENT);
-		else
-			SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
-		printf("%s", UTF82ANSI(info.content).c_str());
-		SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-#elif __ANDROID__
-		if (info.level == CARP_LOG_LEVEL_ERROR)
-			__android_log_write(ANDROID_LOG_ERROR, "SDL", info.content.c_str());
-		else if (info.level == CARP_LOG_LEVEL_WARN)
-			__android_log_write(ANDROID_LOG_WARN, "SDL", info.content.c_str());
-		else
-			__android_log_write(ANDROID_LOG_INFO, "SDL", info.content.c_str());
-#else
-		printf("%s", info.content.c_str());
-#endif
+		if (m_file == nullptr) return;
 		// 写入到文件
 		std::fwrite(info.content.data(), 1, info.content.size(), m_file);
+
+		// 打印到控制台
+		if (m_print)
+		{
+			// 设置控制台颜色
+#ifdef _WIN32
+			if (info.level == CARP_LOG_LEVEL_INFO)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
+			else if (info.level == CARP_LOG_LEVEL_WARN)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_WARN);
+			else if (info.level == CARP_LOG_LEVEL_ERROR)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_ERROR);
+			else if (info.level == CARP_LOG_LEVEL_SYSTEM)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_SYSTEM);
+			else if (info.level == CARP_LOG_LEVEL_DATABASE)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_DATABASE);
+			else if (info.level == CARP_LOG_LEVEL_EVENT)
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_EVENT);
+			else
+				SetConsoleTextAttribute(m_out, CARP_LOG_COLOR_INFO);
+			printf("%s", UTF82ANSI(info.content).c_str());
+			SetConsoleTextAttribute(m_out, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+#elif __ANDROID__
+			if (info.level == CARP_LOG_LEVEL_ERROR)
+				__android_log_write(ANDROID_LOG_ERROR, "SDL", info.content.c_str());
+			else if (info.level == CARP_LOG_LEVEL_WARN)
+				__android_log_write(ANDROID_LOG_WARN, "SDL", info.content.c_str());
+			else
+				__android_log_write(ANDROID_LOG_INFO, "SDL", info.content.c_str());
+#else
+			printf("%s", info.content.c_str());
+#endif
+		}
 	}
 
 private:

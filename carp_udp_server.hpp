@@ -2,6 +2,7 @@
 #define CARP_UDP_SERVER_INCLUDED
 
 #include <memory>
+#include <string>
 #include <asio.hpp>
 
 #include "carp_log.hpp"
@@ -126,6 +127,7 @@ public:
 		memcpy(memory, content.c_str(), content.size());
 		Send(memory, content.size(), end_point);
 	}
+	size_t GetBufferSize() const { return m_buffer.size(); }
 
 private:
 	/* handle send

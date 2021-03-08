@@ -54,7 +54,7 @@ public:
 		}
 	}
 
-	void TimerOnce(int delay_ms, const std::function<void(time_t)>& timer_func)
+	void TimerOnce(int delay_ms, std::function<void(time_t)> timer_func)
 	{
 		if (m_thread)
 			m_io_service.post(std::bind(&CarpSchedule::TimerOnceImpl, this, delay_ms, timer_func));
@@ -62,7 +62,7 @@ public:
 			TimerOnceImpl(delay_ms, timer_func);
 	}
 
-	void TimerLoop(int interval_ms, const std::function<void(time_t)>& timer_func)
+	void TimerLoop(int interval_ms, std::function<void(time_t)> timer_func)
 	{
 		if (m_thread)
 			m_io_service.post(std::bind(&CarpSchedule::TimerLoopImpl, this, interval_ms, timer_func));

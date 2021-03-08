@@ -32,16 +32,13 @@ struct CarpTimerNode
 class CarpTimer
 {
 public:
-	~CarpTimer()
-	{
-		for (auto& pair : m_map)
-            delete pair.second;
-        for (auto* node : m_pool)
-            delete node;
-	}
+	~CarpTimer() { Clear(); }
 	
 public:
     // 添加定时器
+    // delay_ms 延迟的毫秒
+    // loop 小于或等于0，表示无限循环。大于0表示循环次数
+    // interval_ms 循环间隔毫秒
     int Add(int delay_ms, int loop, int interval_ms)
     {
         CarpTimerNode* info = CreateNode();
@@ -95,9 +92,14 @@ public:
         return true;
     }
     // 更新时间
-    void Update(int frame_ms)
+    void Update(int frame_time)
     {
-        m_cur_time += frame_ms;
+        m_cur_time += frame_time;
+    }
+    // 更新为当前时间
+    void UpdateCurTime()
+    {
+        m_cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     }
     // 取出超时的定时器ID
     // 如果返回0，说明没有超时的定时器
@@ -137,6 +139,16 @@ public:
             m_map.erase(it);
     	}
         return -id;
+    }
+    // 清理
+    void Clear()
+    {
+        for (auto& pair : m_map)
+            delete pair.second;
+        m_map.clear();
+        for (auto* node : m_pool)
+            delete node;
+        m_pool.clear();
     }
 
 private:

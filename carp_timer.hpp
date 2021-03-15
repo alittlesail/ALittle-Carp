@@ -13,7 +13,7 @@ struct CarpTimerNode
     int id = 0;
     int heap_index = -1;
     int loop = 0;
-    int interval_ms = 0;
+    long long interval_ms = 0;
 
     void SetHeapIndex(int index) { heap_index = index; }
     int GetHeapIndex() const { return heap_index; }
@@ -39,7 +39,7 @@ public:
     // delay_ms 延迟的毫秒
     // loop 小于或等于0，表示无限循环。大于0表示循环次数
     // interval_ms 循环间隔毫秒
-    int Add(int delay_ms, int loop, int interval_ms)
+    int Add(long long delay_ms, int loop, long long interval_ms)
     {
         CarpTimerNode* info = CreateNode();
 
@@ -92,7 +92,7 @@ public:
         return true;
     }
     // 更新时间
-    void Update(int frame_time)
+    void Update(long long frame_time)
     {
         m_cur_time += frame_time;
     }
@@ -121,7 +121,6 @@ public:
             return info->id;
         }
         // 如果还有次数，那么就扣除次数
-        
         if (info->loop > 1)
         {
             --info->loop;
@@ -130,7 +129,6 @@ public:
             return info->id;
         }
         // 次数已经用完，那么就直接删除
-        
         const int id = info->id;
         const auto it = m_map.find(id);
     	if (it != m_map.end())

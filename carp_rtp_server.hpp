@@ -21,6 +21,7 @@ typedef std::weak_ptr<CarpRtpServer> CarpRtpServerWeakPtr;
 
 #define CARP_RTP_VERSION 2 // RTP version field must equal 2 (p66)
 
+// 这个结构体正好是4个uint32，已经字节对齐了
 struct CarpRtpHeader
 {
 	uint32_t v : 2;		/* protocol version */
@@ -62,26 +63,26 @@ public:
 	~CarpRtpServer() { Close(); }
 
 public:
-	static inline uint16_t CarpRtpReadUint16(const uint8_t* ptr) { return (((uint16_t)ptr[0]) << 8) | ptr[1]; }
-	static inline uint32_t CarpRtpReadUint32(const uint8_t* ptr) { return (((uint32_t)ptr[0]) << 24) | (((uint32_t)ptr[1]) << 16) | (((uint32_t)ptr[2]) << 8) | ptr[3]; }
-	static inline void CarpRtpWriteUint16(uint8_t* ptr, uint16_t val)
+	static uint16_t CarpRtpReadUint16(const uint8_t* ptr) { return (static_cast<uint16_t>(ptr[0]) << 8) | ptr[1]; }
+	static uint32_t CarpRtpReadUint32(const uint8_t* ptr) { return (static_cast<uint32_t>(ptr[0]) << 24) | (static_cast<uint32_t>(ptr[1]) << 16) | (static_cast<uint32_t>(ptr[2]) << 8) | ptr[3]; }
+	static void CarpRtpWriteUint16(uint8_t* ptr, uint16_t val)
 	{
-		ptr[0] = (uint8_t)(val >> 8);
-		ptr[1] = (uint8_t)val;
+		ptr[0] = static_cast<uint8_t>(val >> 8);
+		ptr[1] = static_cast<uint8_t>(val);
 	}
-	static inline void CarpRtpWriteUint32(uint8_t* ptr, uint32_t val)
+	static void CarpRtpWriteUint32(uint8_t* ptr, uint32_t val)
 	{
-		ptr[0] = (uint8_t)(val >> 24);
-		ptr[1] = (uint8_t)(val >> 16);
-		ptr[2] = (uint8_t)(val >> 8);
-		ptr[3] = (uint8_t)val;
+		ptr[0] = static_cast<uint8_t>(val >> 24);
+		ptr[1] = static_cast<uint8_t>(val >> 16);
+		ptr[2] = static_cast<uint8_t>(val >> 8);
+		ptr[3] = static_cast<uint8_t>(val);
 	}
-	static inline void CarpWriteRtpHeader(uint8_t* ptr, const CarpRtpHeader* header)
+	static void CarpWriteRtpHeader(uint8_t* ptr, const CarpRtpHeader* header)
 	{
-		ptr[0] = (uint8_t)((header->v << 6) | (header->p << 5) | (header->x << 4) | header->cc);
-		ptr[1] = (uint8_t)((header->m << 7) | header->pt);
-		ptr[2] = (uint8_t)(header->seq >> 8);
-		ptr[3] = (uint8_t)(header->seq & 0xFF);
+		ptr[0] = static_cast<uint8_t>((header->v << 6) | (header->p << 5) | (header->x << 4) | header->cc);
+		ptr[1] = static_cast<uint8_t>((header->m << 7) | header->pt);
+		ptr[2] = static_cast<uint8_t>(header->seq >> 8);
+		ptr[3] = static_cast<uint8_t>(header->seq & 0xFF);
 
 		CarpRtpWriteUint32(ptr + 4, header->timestamp);
 		CarpRtpWriteUint32(ptr + 8, header->ssrc);
@@ -104,19 +105,16 @@ public:
 	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	*/
 	///@return 0-ok, other-error
-	static int CarpRtpPacketDeserialize(struct CarpRtpPacket* pkt, const void* data, int bytes)
+	static bool CarpRtpPacketDeserialize(struct CarpRtpPacket* pkt, const void* data, size_t bytes)
 	{
-		uint32_t i, v;
-		int hdrlen;
-		const uint8_t* ptr;
-
 		if (bytes < CARP_RTP_FIXED_HEADER) // RFC3550 5.1 RTP Fixed Header Fields(p12)
-			return -1;
-		ptr = (const unsigned char*)data;
+			return false;
+
+		const auto* ptr = static_cast<const uint8_t*>(data);
 		memset(pkt, 0, sizeof(CarpRtpPacket));
 
 		// pkt header
-		v = CarpRtpReadUint32(ptr);
+		const uint32_t v = CarpRtpReadUint32(ptr);
 		pkt->rtp.v = CARP_RTP_V(v);
 		pkt->rtp.p = CARP_RTP_P(v);
 		pkt->rtp.x = CARP_RTP_X(v);
@@ -126,32 +124,30 @@ public:
 		pkt->rtp.seq = CARP_RTP_SEQ(v);
 		pkt->rtp.timestamp = CarpRtpReadUint32(ptr + 4);
 		pkt->rtp.ssrc = CarpRtpReadUint32(ptr + 8);
-		assert(RTP_VERSION == pkt->rtp.v);
+		if (CARP_RTP_VERSION != pkt->rtp.v) return false;
 
-		hdrlen = CARP_RTP_FIXED_HEADER + pkt->rtp.cc * 4;
-		if (CARP_RTP_VERSION != pkt->rtp.v || bytes < hdrlen + (pkt->rtp.x ? 4 : 0) + (pkt->rtp.p ? 1 : 0))
-			return -1;
+		const size_t hdr_len = CARP_RTP_FIXED_HEADER + pkt->rtp.cc * 4;
+		if (CARP_RTP_VERSION != pkt->rtp.v || bytes < hdr_len + (pkt->rtp.x ? 4 : 0) + (pkt->rtp.p ? 1 : 0))
+			return false;
 
 		// pkt contributing source
-		for (i = 0; i < pkt->rtp.cc; i++)
+		for (uint32_t i = 0; i < pkt->rtp.cc; i++)
 			pkt->csrc[i] = CarpRtpReadUint32(ptr + 12 + i * 4);
 
-		if (bytes < hdrlen) return -1;
-		pkt->payload = (uint8_t*)ptr + hdrlen;
-		pkt->payloadlen = bytes - hdrlen;
+		if (bytes < hdr_len) return false;
+		pkt->payload = const_cast<uint8_t*>(ptr) + hdr_len;
+		pkt->payloadlen = static_cast<int>(bytes - hdr_len);
 
 		// pkt header extension
 		if (1 == pkt->rtp.x)
 		{
-			const uint8_t* rtpext = ptr + hdrlen;
-			if (pkt->payloadlen < 4) return -1;
-			pkt->extension = rtpext + 4;
-			pkt->reserved = CarpRtpReadUint16(rtpext);
-			pkt->extlen = CarpRtpReadUint16(rtpext + 2) * 4;
-			if (pkt->extlen + 4 > pkt->payloadlen)
-				return -1;
-
-			pkt->payload = rtpext + pkt->extlen + 4;
+			const uint8_t* rtp_ext = ptr + hdr_len;
+			if (pkt->payloadlen < 4) return false;
+			pkt->extension = rtp_ext + 4;
+			pkt->reserved = CarpRtpReadUint16(rtp_ext);
+			pkt->extlen = CarpRtpReadUint16(rtp_ext + 2) * 4;
+			if (pkt->extlen + 4 > pkt->payloadlen) return false;
+			pkt->payload = rtp_ext + pkt->extlen + 4;
 			pkt->payloadlen -= pkt->extlen + 4;
 		}
 
@@ -159,13 +155,11 @@ public:
 		if (1 == pkt->rtp.p)
 		{
 			uint8_t padding = ptr[bytes - 1];
-			if (pkt->payloadlen < padding)
-				return -1;
-
+			if (pkt->payloadlen < padding) return false;
 			pkt->payloadlen -= padding;
 		}
 
-		return 0;
+		return true;
 	}
 
 	static bool CarpRtpPacketSerializeHeader(const CarpRtpPacket* pkt, std::vector<uint8_t>& data)
@@ -202,9 +196,10 @@ public:
 	///@return <0-error, >0-rtp packet size, =0-impossible
 	static bool CarpRtpPacketSerialize(const struct CarpRtpPacket* pkt, std::vector<uint8_t>& data)
 	{
+		data.resize(0);
 		if (!CarpRtpPacketSerializeHeader(pkt, data)) return false;
-		size_t index = data.size();
-		data.resize(data.size() + pkt->payloadlen);
+		const size_t index = data.size();
+		data.resize(data.size() + pkt->payloadlen, 0);
 		memcpy(data.data() + index, pkt->payload, pkt->payloadlen);
 		return true;
 	}
@@ -332,6 +327,7 @@ public:
 		m_inner_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_inner_rtp_endpoint = true;
 	}
+
 	// 设置和线路方互发RTP包的ip和端口
 	void SetRemoteRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
@@ -401,7 +397,7 @@ private:
 private:
 	std::string m_call_id;		// SIP呼叫ID
 	time_t m_last_receive_time = 0;	// 最后收到客户端数据包的时间
-	std::vector<unsigned char> m_rtp_buffer; // 用于发送rtp的缓冲区
+	std::vector<uint8_t> m_rtp_buffer; // 用于发送rtp的缓冲区
 
 private:
 	// rtp数据包处理
@@ -431,8 +427,7 @@ private:
 		{
 			// 解包
 			CarpRtpPacket pocket = { 0 };
-			const auto ret = CarpRtpPacketDeserialize(&pocket, info.memory, static_cast<int>(info.memory_size));
-			if (ret != 0)
+			if (!CarpRtpPacketDeserialize(&pocket, info.memory, info.memory_size))
 			{
 				CARP_ERROR("rtp_packet_deserialize failed!");
 				return;
@@ -576,18 +571,16 @@ private:
 			pocket.rtp.seq = sequence_number;
 			pocket.rtp.timestamp = timestamp;
 			pocket.rtp.ssrc = self_ptr->m_ssrc;
-
-			int pocket_size = CarpRtpPacketSerialize(&pocket, self_ptr->m_rtp_buffer);
-			if (pocket_size < 0)
+			if (!CarpRtpPacketSerialize(&pocket, self_ptr->m_rtp_buffer))
 			{
 				CARP_ERROR("CarpRtpPacketSerialize failed check_len:" << check_len);
 				return;
 			}
 
 			// 发送
-			void* new_memory = malloc(pocket_size);
-			memcpy(new_memory, self_ptr->m_rtp_buffer.data(), pocket_size);
-			self_ptr->m_udp_self_rtp->Send(new_memory, pocket_size, self_ptr->m_remote_rtp_endpoint);
+			void* new_memory = malloc(self_ptr->m_rtp_buffer.size());
+			memcpy(new_memory, self_ptr->m_rtp_buffer.data(), self_ptr->m_rtp_buffer.size());
+			self_ptr->m_udp_self_rtp->Send(new_memory, self_ptr->m_rtp_buffer.size(), self_ptr->m_remote_rtp_endpoint);
 		}
 	}
 	static void HandleInnerRtp(CarpUdpServer::HandleInfo& info, CarpRtpServerWeakPtr self)

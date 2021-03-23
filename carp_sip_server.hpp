@@ -74,12 +74,9 @@ public:
 
 public:
 	// 注册
-	void RegisterAccount(const std::string& nickname, const std::string& account, const std::string& password)
+	void RegisterAccount(const std::string& account, const std::string& password)
 	{
-		AccountInfo& account_info = m_account_map[nickname];
-		account_info.nickname = nickname;
-		account_info.account = account;
-		account_info.password = password;
+		m_account_map[account] = password;
 
 		const auto via_branch = CarpCrypto::StringMd5(CarpString::GenerateID("via_branch"));
 		const auto from_tag = CarpCrypto::StringMd5(CarpString::GenerateID("from_tag"));
@@ -88,14 +85,14 @@ public:
 		const std::string cmd = "REGISTER sip:" + m_register_uri + " SIP/2.0\r\n"
 			"Via: SIP/2.0/UDP " + m_self_uri + ";rport;branch=z9hG4bK-" + via_branch + "\r\n"
 			"Max-Forwards: 70\r\n"
-			"Contact: <sip:" + nickname + "@" + m_self_uri + ">\r\n"
-			"From: <sip:" + nickname + "@" + m_register_uri + ">;tag=" + from_tag + "\r\n"
-			"To: <sip:" + nickname + "@" + m_register_uri + ">\r\n"
+			"Contact: <sip:" + account + "@" + m_self_uri + ">\r\n"
+			"From: <sip:" + account + "@" + m_register_uri + ">;tag=" + from_tag + "\r\n"
+			"To: <sip:" + account + "@" + m_register_uri + ">\r\n"
 			"Call-ID: " + call_id + "\r\n"
 			"CSeq: 1 REGISTER\r\n"
 			"Expires: " + std::to_string(m_register_expires) + "\r\n"
 			"Allow: INVITE,ACK,CANCEL,OPTIONS,BYE,REFER,NOTIFY,INFO,MESSAGE,SUBSCRIBE,INFO\r\n"
-			"User-Agent: Carp\r\n"
+			"User-Agent: ALittle\r\n"
 			"Content-Length: 0\r\n\r\n";
 
 		m_udp_self_sip->Send(cmd, m_remote_sip_endpoint);
@@ -117,14 +114,14 @@ private:
 		// 判定是不是REGISTER
 		if (method != "REGISTER") return false;
 
-		std::string nickname;
+		std::string account;
 		std::string from_tag;
-		if (!GetFromFromHeader(content_list, nickname, from_tag)) return false;
+		if (!GetFromFromHeader(content_list, account, from_tag)) return false;
 
 		// 注册成功
 		if (status == "200")
 		{
-			if (m_register_succeed) m_register_succeed(nickname);
+			if (m_register_succeed) m_register_succeed(account);
 			return true;
 		}
 
@@ -133,14 +130,16 @@ private:
 		{
 			std::string nonce, realm, auth;
 
-			auto it = m_account_map.find(nickname);
+			auto it = m_account_map.find(account);
 			if (it == m_account_map.end())
 			{
-				CARP_ERROR("can't find account by nickname:" << nickname);
+				CARP_ERROR("can't find account by account:" << account);
 				return true;
 			}
+			auto password = it->second;
+
 			bool result = CalcAuth("WWW-AUTHENTICATE", content_list
-				, it->second.account, it->second.password
+				, account, password
 				, "REGISTER", "sip:" + m_register_uri
 				, nonce, realm, auth);
 
@@ -160,9 +159,9 @@ private:
 			std::string cmd = "REGISTER sip:" + m_register_uri + " SIP/2.0\r\n"
 				"Via: SIP/2.0/UDP " + m_self_uri + ";rport;branch=z9hG4bK-" + via_branch + "\r\n"
 				"Max-Forwards: 70\r\n"
-				"Contact: <sip:" + nickname + "@" + m_self_uri + ">\r\n"
-				"From: <sip:" + nickname + "@" + m_register_uri + ">;tag=" + from_tag + "\r\n"
-				"To: <sip:" + nickname + "@" + m_register_uri + ">\r\n"
+				"Contact: <sip:" + account + "@" + m_self_uri + ">\r\n"
+				"From: <sip:" + account + "@" + m_register_uri + ">;tag=" + from_tag + "\r\n"
+				"To: <sip:" + account + "@" + m_register_uri + ">\r\n"
 				"Call-ID: " + call_id + "\r\n"
 				"CSeq: " + std::to_string(seq + 1) + " REGISTER\r\n"
 				"Expires: " + std::to_string(m_register_expires) + "\r\n"
@@ -201,14 +200,7 @@ private:
 	std::function<void(const std::string&)> m_register_succeed;
 
 private:
-	// 注册信息
-	struct AccountInfo
-	{
-		std::string nickname;
-		std::string account;
-		std::string password;
-	};
-	std::map<std::string, AccountInfo> m_account_map;
+	std::map<std::string, std::string> m_account_map;
 
 private:
 	static bool GetNonceRealm(const std::string& head, const std::vector<std::string>& content_list, std::string& nonce, std::string& realm)

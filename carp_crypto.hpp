@@ -5,6 +5,8 @@
 #include <cstring>
 #include <string>
 
+#include "carp_lua.hpp"
+
 class CarpCrypto
 {
 public:
@@ -831,6 +833,13 @@ public:
 		}
 
 		return str;
+	}
+
+	static std::string StringMd5(const std::string& value)
+	{
+		MD5_HASH digest;
+		Md5Calculate(value.c_str(), static_cast<int>(value.size()), &digest);
+		return Md4HashToString(&digest);
 	}
 
 private:

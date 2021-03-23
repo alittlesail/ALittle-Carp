@@ -55,7 +55,7 @@ public:
 
 		// °´ĞĞÊı
 		std::string split_content(content.data(), content.size());
-		CarpString::Split(split_content, "\n", m_lines);
+		CarpString::Split(split_content, "\n", false, m_lines);
 		for (auto& line : m_lines)
 		{
 			if (!line.empty() && line.back() == '\r')

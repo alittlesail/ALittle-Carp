@@ -126,11 +126,11 @@ public:
 	static bool	CutBlitCarpSurface(CarpSurface* src, CarpSurface* dest, const char* from, const char* to)
 	{
 		std::vector<std::string> to_list;
-		CarpString::Split(to, ",", to_list);
+		CarpString::Split(to, ",", false, to_list);
 		if (to_list.size() < 4) return false;
 
 		std::vector<std::string> from_list;
-		CarpString::Split(from, ",", from_list);
+		CarpString::Split(from, ",", false, from_list);
 		if (from_list.size() < 4) return false;
 
 		CarpSurfaceRect dst_rect;

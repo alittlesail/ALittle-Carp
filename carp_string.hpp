@@ -44,6 +44,12 @@ public:
         }
     }
 
+    // Éú³ÉÎ¨Ò»×Ö·û´®
+    static std::string GenerateID(const std::string& pre)
+    {
+        return pre + "_" + std::to_string(time(nullptr)) + "_" + std::to_string(rand()) + "_" + std::to_string(rand());
+    }
+
     // ÅÐ¶ÏÊÇ·ñÊÇÊý×Ö
     static bool IsNumber(char value) { return value >= '0' && value <= '9'; }
     // ÅÐ¶ÏÊÇ·ñÊÇ×ÖÄ¸
@@ -318,17 +324,17 @@ public:
 
 private:
     template <typename T>
-    static void AddElement(T& list, const std::string& v) { list.push_back(v); }
-    static void AddElement(std::list<int>& list, const std::string& v) { list.push_back(std::atoi(v.c_str())); }
-    static void AddElement(std::vector<int>& list, const std::string& v) { list.push_back(std::atoi(v.c_str())); }
+    static void AddElement(T& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(v); }
+    static void AddElement(std::list<int>& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(std::atoi(v.c_str())); }
+    static void AddElement(std::vector<int>& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(std::atoi(v.c_str())); }
 
 public:
     // ÇÐ¸î×Ö·û´®
     template <typename T>
-    static void Split(const std::string& content, const std::string& split, T& list)
+    static void Split(const std::string& content, const std::string& split, bool ignore_empty, T& list)
     {
         list.resize(0);
-        if (content.size() == 0) return;
+        if (content.empty()) return;
 
         size_t start_index = 0;
         while (true)
@@ -336,7 +342,7 @@ public:
 	        const size_t pos = content.find(split, start_index);
             if (pos != std::string::npos)
             {
-                AddElement(list, content.substr(start_index, pos - start_index));
+                AddElement(list, content.substr(start_index, pos - start_index), ignore_empty);
                 start_index = pos + split.size();
                 continue;
             }
@@ -344,9 +350,9 @@ public:
         }
 
         if (start_index == 0)
-            AddElement(list, content);
+            AddElement(list, content, ignore_empty);
         else
-            AddElement(list, content.substr(start_index));
+            AddElement(list, content.substr(start_index), ignore_empty);
     }
 
 private:

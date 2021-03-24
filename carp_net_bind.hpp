@@ -321,7 +321,7 @@ public:
 
 	void Timer(int delay_ms)
 	{
-		m_schedule.Timer(delay_ms, [this](time_t time)
+		m_schedule.TimerOnce(delay_ms, [this](time_t time)
 		{
 			EventInfo event;
 			event.type = TIMER;

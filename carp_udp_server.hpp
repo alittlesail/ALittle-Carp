@@ -33,7 +33,7 @@ public:
 			return false;
 		}
 
-		m_socket = CarpUSocketPtr(new asio::ip::udp::socket(m_io_service));
+		m_socket = std::make_shared<asio::ip::udp::socket>(m_io_service);
 		asio::ip::udp::endpoint local_add = asio::ip::udp::endpoint(asio::ip::address_v4::from_string(local_ip), local_port);
 
 		asio::error_code ec;

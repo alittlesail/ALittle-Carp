@@ -504,9 +504,9 @@ private:
 		// º∆À„bit÷µ
 		const auto bit_value = static_cast<size_t>(1) << (size_bit_count - 1 - bit_offset);
 		if (value)
-		    size_t_value |= bit_value;
-		else
 			size_t_value &= ~bit_value;
+		else
+			size_t_value |= bit_value;
 	}
 
 	inline CarpSquareJPSNode* CreateNode()

@@ -50,7 +50,7 @@ public:
 		desired.samples = 4096;
 		desired.callback = StreamCallback;
 		desired.userdata = this;
-		if (SDL_OpenAudioDevice(nullptr, 0, &desired, nullptr, SDL_AUDIO_ALLOW_ANY_CHANGE) != 0) {
+		if (SDL_OpenAudio(&desired, nullptr) != 0) {
 			return false;
 		}
 		SDL_PauseAudio(0);
@@ -245,7 +245,7 @@ public:
 
 		const int result = SDL_AudioStreamPut(m_stream, m_stream_data.data(), static_cast<int>(m_stream_data.size() * sizeof(short)));
 		m_stream_data.resize(0);
-		return result >= 0;
+		return true;
 	}
 
 	void SetStreamVolume(float volume)

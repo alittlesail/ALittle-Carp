@@ -202,7 +202,7 @@ public:
         if (NULL == process) return false;
 
         PROCESS_MEMORY_COUNTERS pmc;
-        if (!GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc)))
+        if (!GetProcessMemoryInfo(process, &pmc, sizeof(pmc)))
         {
             if (process_id != 0) CloseHandle(process);
             return false;

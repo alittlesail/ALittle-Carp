@@ -4,6 +4,7 @@
 #include <list>
 #include <functional>
 #include <unordered_map>
+#include <map>
 #include <unordered_set>
 #include <memory>
 
@@ -43,9 +44,7 @@ public:
                     continue;
                 }
 
-                // 如果指针还在，那么就直接
-                for (auto& pair : it->second)
-                    pair.second(event);
+                it->second(event);
 
                 ++it;
             }
@@ -85,7 +84,7 @@ public:
 
             const E* e = dynamic_cast<const E*>(&event);
             if (e == nullptr) return;
-            listener->onEvent(*e);
+            listener->OnEvent(*e);
         };
 
         // 添加反向映射信息
@@ -183,8 +182,8 @@ private:
     bool IsLock() const { return m_lock > 0; }
 
 private:
-    std::unordered_map<std::weak_ptr<LISTENER_BASE>, std::unordered_set<size_t>> m_object;
-    std::unordered_map<size_t, std::unordered_map<std::weak_ptr<LISTENER_BASE>, std::function<void(const EVENT_BASE&)>>> m_listener;
+    std::map<std::weak_ptr<LISTENER_BASE>, std::unordered_set<size_t>, std::owner_less<std::weak_ptr<LISTENER_BASE>>> m_object;
+    std::unordered_map<size_t, std::map<std::weak_ptr<LISTENER_BASE>, std::function<void(const EVENT_BASE&)>, std::owner_less<std::weak_ptr<LISTENER_BASE>>>> m_listener;
 
 private:
     int m_lock = 0;

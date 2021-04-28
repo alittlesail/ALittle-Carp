@@ -38,7 +38,7 @@ public:
 #ifndef __EMSCRIPTEN__
 		for (int i = static_cast<int>(m_threads.size()); i < count; ++i)
 		{
-			CarpTaskThread* thread = new CarpTaskThread();
+			auto* thread = new CarpTaskThread();
 			thread->Start();
 			m_threads.push_back(thread);
 		}
@@ -64,25 +64,6 @@ public:
 		m_threads[m_index]->Add(task);
 	}
 
-	void PushEvent(const std::function<void()>& event)
-	{
-		m_mutex.lock();
-		m_event_list.push_back(event);
-		m_mutex.unlock();
-	}
-
-	void HandleEvent()
-	{
-		static std::vector<std::function<void()>> event_list;
-		m_mutex.lock();
-		event_list.swap(m_event_list);
-		m_mutex.unlock();
-
-		for (auto& event : event_list)
-			event();
-		event_list.resize(0);
-	}
-
 public:
 	void Shutdown()
 	{
@@ -94,10 +75,6 @@ public:
 private:
 	size_t m_index = 0;
 	std::vector<CarpTaskThread*> m_threads;
-
-private:
-	std::mutex m_mutex;
-	std::vector<std::function<void()>> m_event_list;
 };
 
 extern CarpTaskConsumer s_carp_task_consumer;

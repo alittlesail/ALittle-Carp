@@ -3,6 +3,7 @@
 
 #include <asio.hpp>
 #include <thread>
+#include <functional>
 
 typedef asio::basic_waitable_timer<std::chrono::system_clock> CarpAsioTimer;
 typedef std::shared_ptr<CarpAsioTimer> CarpAsioTimerPtr;
@@ -16,10 +17,13 @@ public:
 public:
 	// async为true表示异步执行，所有回调会在支线程被调用
 	// 如果为false，表示所有回调会在调用Run所在的线程被执行
-	void Run(bool async)
+	void Run(bool async, std::function<void()> setup = nullptr, std::function<void()> shutdown = nullptr)
 	{
 		if (!m_is_exit) return;
 		m_is_exit = false;
+
+		m_setup = setup;
+		m_shutdown = shutdown;
 
 #ifndef __EMSCRIPTEN__
 		if (async)
@@ -91,9 +95,13 @@ private:
 		m_keep_run = std::make_shared<CarpAsioTimer>(m_io_service, std::chrono::seconds(0xEFFFFFFF));
 		m_keep_run->async_wait(std::bind(&CarpSchedule::LoopUpdate, this, std::placeholders::_1));
 
+		if (m_setup) m_setup();
+
 		asio::error_code ec;
 		m_io_service.run(ec);
 		m_io_service.restart();
+
+		if (m_shutdown) m_shutdown();
 
 		m_keep_run = CarpAsioTimerPtr();
 		m_timer_once = CarpAsioTimerPtr();
@@ -150,6 +158,9 @@ public:
 
 private:
 	bool m_is_exit = true;
+
+	std::function<void()> m_setup;
+	std::function<void()> m_shutdown;
 
 private:
 	asio::io_service m_io_service;

@@ -204,7 +204,7 @@ public:
 
 		// 申请内存
 		if (m_memory) { free(m_memory); m_memory = nullptr; }
-		m_memory = malloc(message_size + CARP_PROTOCOL_HEAD_SIZE);
+		m_memory = malloc(message_size + m_message_head.size());
 		auto* const body_memory = static_cast<char*>(m_memory);
 
 		// 协议头复制到内存
@@ -219,7 +219,7 @@ public:
 		}
 
 		// 开始读取协议体
-		asio::async_read(*m_socket, asio::buffer(static_cast<char*>(m_memory) + CARP_PROTOCOL_HEAD_SIZE, message_size)
+		asio::async_read(*m_socket, asio::buffer(static_cast<char*>(m_memory) + m_message_head.size(), message_size)
 			, std::bind(&CarpConnectClientTemplate<H>::HandleReadBody, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 	void HandleReadBody(const asio::error_code& ec, std::size_t actual_size)
@@ -248,7 +248,7 @@ private:
 		const auto message_size = H::GetBodySize(m_message_head);
 		// 发送给调度系统
 		if (m_message_func)
-			m_message_func(m_memory, message_size + CARP_PROTOCOL_HEAD_SIZE);
+			m_message_func(m_memory, message_size + m_message_head.size());
 		else
 			free(m_memory);
 		// 内存已经移交出去，HandleMessage会负责释放
@@ -341,7 +341,6 @@ using CarpMessageHead = CarpMessageHeadTemplate<(sizeof(CARP_MESSAGE_SIZE) + siz
 using CarpConnectClient = CarpConnectClientTemplate<CarpMessageHead>;
 
 typedef std::shared_ptr<CarpConnectClient> CarpConnectClientPtr;
-typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;
 
 
 #endif

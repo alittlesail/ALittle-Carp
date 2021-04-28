@@ -2,22 +2,29 @@
 #define CARP_CONNECT_CLIENT_INCLUDED
 
 #include <memory>
+#include <vector>
 #include <asio.hpp>
 
-class CarpConnectClient;
-typedef std::shared_ptr<CarpConnectClient> CarpConnectClientPtr;
 typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;
 
-typedef unsigned int CARP_MESSAGE_SIZE;
-typedef int CARP_MESSAGE_ID;
-typedef int CARP_MESSAGE_RPCID;
+// MESSAGE_HEAD_SIZE 表示整个消息头的大小
+// MESSAGE_BODY_SIZE 表示消息体的消息体大小
+template <size_t MESSAGE_HEAD_SIZE, typename MESSAGE_BODY_SIZE>
+struct CarpMessageHeadTemplate
+{
+	static size_t GetHeadSize() { return MESSAGE_HEAD_SIZE; }
+	static MESSAGE_BODY_SIZE GetBodySize(std::vector<char>& memory) { return *reinterpret_cast<MESSAGE_BODY_SIZE*>(memory.data()); }
+};
 
-#define CARP_PROTOCOL_HEAD_SIZE (sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID))
-
-class CarpConnectClient : public std::enable_shared_from_this<CarpConnectClient>
+template <typename H>
+class CarpConnectClientTemplate : public std::enable_shared_from_this<CarpConnectClientTemplate<H>>
 {
 public:
-	~CarpConnectClient()
+	CarpConnectClientTemplate()
+	{
+		m_message_head.resize(H::GetHeadSize());
+	}
+	~CarpConnectClientTemplate()
 	{
 		Close();
 		// 释放内存
@@ -52,7 +59,7 @@ public:
 		const asio::ip::tcp::endpoint ep(asio::ip::address_v4::from_string(ip, ec), port);
 		if (ec)
 		{
-			io_service->post(std::bind(&CarpConnectClient::HandleAsyncConnect, this->shared_from_this(), ec));
+			io_service->post(std::bind(&CarpConnectClientTemplate<H>::HandleAsyncConnect, this->shared_from_this(), ec));
 			return;
 		}
 
@@ -61,7 +68,7 @@ public:
 		m_port = port;
 
 		// 开始异步连接
-		m_socket->async_connect(ep, std::bind(&CarpConnectClient::HandleAsyncConnect, this->shared_from_this(), std::placeholders::_1));
+		m_socket->async_connect(ep, std::bind(&CarpConnectClientTemplate<H>::HandleAsyncConnect, this->shared_from_this(), std::placeholders::_1));
 	}
 
 	// 判断是否已经连接
@@ -179,7 +186,7 @@ public:
 
 		// 开始接受协议头
 		asio::async_read(*m_socket, asio::buffer(m_message_head, sizeof(m_message_head))
-			, std::bind(&CarpConnectClient::HandleReadHead, this->shared_from_this()
+			, std::bind(&CarpConnectClientTemplate<H>::HandleReadHead, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2));
 	}
 	void HandleReadHead(const asio::error_code& ec, std::size_t actual_size)
@@ -193,7 +200,7 @@ public:
 		}
 
 		// 读取协议大小
-		const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(m_message_head);
+		const auto message_size = H::GetBodySize(m_message_head);
 
 		// 申请内存
 		if (m_memory) { free(m_memory); m_memory = nullptr; }
@@ -201,7 +208,7 @@ public:
 		auto* const body_memory = static_cast<char*>(m_memory);
 
 		// 协议头复制到内存
-		memcpy(body_memory, m_message_head, sizeof(m_message_head));
+		memcpy(body_memory, m_message_head.data(), m_message_head.size());
 
 		// 如果没有协议体表示读取完成
 		if (message_size == 0)
@@ -213,7 +220,7 @@ public:
 
 		// 开始读取协议体
 		asio::async_read(*m_socket, asio::buffer(static_cast<char*>(m_memory) + CARP_PROTOCOL_HEAD_SIZE, message_size)
-			, std::bind(&CarpConnectClient::HandleReadBody, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
+			, std::bind(&CarpConnectClientTemplate<H>::HandleReadBody, this->shared_from_this(), std::placeholders::_1, std::placeholders::_2));
 	}
 	void HandleReadBody(const asio::error_code& ec, std::size_t actual_size)
 	{
@@ -238,7 +245,7 @@ private:
 	{
 
 		// 获取协议大小
-		const auto message_size = *reinterpret_cast<CARP_MESSAGE_SIZE*>(m_message_head);
+		const auto message_size = H::GetBodySize(m_message_head);
 		// 发送给调度系统
 		if (m_message_func)
 			m_message_func(m_memory, message_size + CARP_PROTOCOL_HEAD_SIZE);
@@ -254,7 +261,7 @@ public:
 
 private:
 	// 保存协议头
-	char m_message_head[CARP_PROTOCOL_HEAD_SIZE] = {};
+	std::vector<char> m_message_head{};
 	// 保存协议体
 	void* m_memory = nullptr;
 
@@ -293,7 +300,7 @@ public:
 
 		// 发送
 		asio::async_write(*m_socket, asio::buffer(info.memory, info.memory_size)
-			, std::bind(&CarpConnectClient::HandleSend, this->shared_from_this()
+			, std::bind(&CarpConnectClientTemplate<H>::HandleSend, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2, info.memory));
 	}
 	void HandleSend(const asio::error_code& ec, std::size_t bytes_transferred, void* memory)
@@ -325,5 +332,16 @@ private:
 	std::function<void()> m_disconnected_func;
 	std::function<void(void*, int)> m_message_func;
 };
+
+typedef unsigned int CARP_MESSAGE_SIZE;
+typedef int CARP_MESSAGE_ID;
+typedef int CARP_MESSAGE_RPCID;
+
+using CarpMessageHead = CarpMessageHeadTemplate<(sizeof(CARP_MESSAGE_SIZE) + sizeof(CARP_MESSAGE_ID) + sizeof(CARP_MESSAGE_RPCID)), CARP_MESSAGE_SIZE>;
+using CarpConnectClient = CarpConnectClientTemplate<CarpMessageHead>;
+
+typedef std::shared_ptr<CarpConnectClient> CarpConnectClientPtr;
+typedef std::shared_ptr<asio::ip::tcp::socket> CarpSocketPtr;
+
 
 #endif

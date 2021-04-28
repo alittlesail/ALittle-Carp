@@ -185,7 +185,7 @@ public:
 		if (!m_socket) return;
 
 		// 开始接受协议头
-		asio::async_read(*m_socket, asio::buffer(m_message_head, sizeof(m_message_head))
+		asio::async_read(*m_socket, asio::buffer(m_message_head.data(), m_message_head.size())
 			, std::bind(&CarpConnectClientTemplate<H>::HandleReadHead, this->shared_from_this()
 				, std::placeholders::_1, std::placeholders::_2));
 	}
@@ -248,7 +248,7 @@ private:
 		const auto message_size = H::GetBodySize(m_message_head);
 		// 发送给调度系统
 		if (m_message_func)
-			m_message_func(m_memory, message_size + m_message_head.size());
+			m_message_func(m_memory, static_cast<int>(message_size + m_message_head.size()));
 		else
 			free(m_memory);
 		// 内存已经移交出去，HandleMessage会负责释放

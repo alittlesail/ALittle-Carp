@@ -39,6 +39,6 @@ extern CarpEventConsumer s_carp_event_consumer;
 #ifdef CARP_EVENT_CONSUMER_IMPL
 #ifndef CARP_EVENT_CONSUMER_IMPL_INCLUDE
 #define CARP_EVENT_CONSUMER_IMPL_INCLUDE
-CarpEventConsumer s_carp_events_consumer;
+CarpEventConsumer s_carp_event_consumer;
 #endif
 #endif

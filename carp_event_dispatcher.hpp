@@ -57,14 +57,14 @@ public:
 public:
     // ¼àÌıÊÂ¼ş
     template<typename E, typename T>
-    void AddEventListener(const std::weak_ptr<T>& weak_listener)
+    void AddEventListener(const std::shared_ptr<T>& listener)
     {
-        auto listener = weak_listener.lock();
         if (!listener) return;
+        std::weak_ptr<T> weak_listener = listener;
 
         if (IsLock())
         {
-            m_lock_list.push_back([this, weak_listener]() { AddEventListener<E, T>(weak_listener); });
+            m_lock_list.push_back([this, weak_listener]() { AddEventListener<E, T>(weak_listener.lock()); });
             return;
         }
 

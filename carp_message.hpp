@@ -575,18 +575,18 @@ inline int Template_Message_Deserialize(int cur_size, const void* data, int len,
 #define VA_CARP_MESSAGE_JOIN(X, Y)       VA_CARP_MESSAGE_CAT(X, Y)
 #define VA_CARP_MESSAGE_PROXY(F, ...)    VA_CARP_MESSAGE_EXPAND(F(__VA_ARGS__))
 
-#define CARP_MESSAGE_MACRO_1(Name) \
+#define CARP_MESSAGE_MACRO_2(Name, ID) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 }
-#define CARP_MESSAGE_MACRO_3(Name, t0, m0) \
+#define CARP_MESSAGE_MACRO_4(Name, ID, t0, m0) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0); } \
@@ -595,11 +595,11 @@ public: \
 	Name() : m0() {} \
 	t0 m0; \
 }
-#define CARP_MESSAGE_MACRO_5(Name, t0, m0, t1, m1) \
+#define CARP_MESSAGE_MACRO_6(Name, ID, t0, m0, t1, m1) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1); } \
@@ -608,11 +608,11 @@ public: \
     Name() : m0(), m1() {} \
 	t0 m0; t1 m1; \
 }
-#define CARP_MESSAGE_MACRO_7(Name, t0, m0, t1, m1, t2, m2) \
+#define CARP_MESSAGE_MACRO_8(Name, ID, t0, m0, t1, m1, t2, m2) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2); } \
@@ -621,11 +621,11 @@ public: \
     Name() : m0(), m1(), m2() {} \
 	t0 m0; t1 m1; t2 m2; \
 }
-#define CARP_MESSAGE_MACRO_9(Name, t0, m0, t1, m1, t2, m2, t3, m3) \
+#define CARP_MESSAGE_MACRO_10(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3); } \
@@ -634,11 +634,11 @@ public: \
     Name() : m0(), m1(), m2(), m3() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; \
 }
-#define CARP_MESSAGE_MACRO_11(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4) \
+#define CARP_MESSAGE_MACRO_12(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4); } \
@@ -647,11 +647,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; \
 }
-#define CARP_MESSAGE_MACRO_13(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5) \
+#define CARP_MESSAGE_MACRO_14(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5); } \
@@ -660,11 +660,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4(), m5() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; t5 m5; \
 }
-#define CARP_MESSAGE_MACRO_15(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6) \
+#define CARP_MESSAGE_MACRO_16(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5, m6); } \
@@ -673,11 +673,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4(), m5(), m6() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; t5 m5; t6 m6; \
 }
-#define CARP_MESSAGE_MACRO_17(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7) \
+#define CARP_MESSAGE_MACRO_18(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5, m6, m7); } \
@@ -686,11 +686,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4(), m5(), m6(), m7() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; t5 m5; t6 m6; t7 m7; \
 }
-#define CARP_MESSAGE_MACRO_19(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8) \
+#define CARP_MESSAGE_MACRO_20(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5, m6, m7, m8); } \
@@ -699,11 +699,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4(), m5(), m6(), m7(), m8() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; t5 m5; t6 m6; t7 m7; t8 m8; \
 }
-#define CARP_MESSAGE_MACRO_21(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8, t9, m9) \
+#define CARP_MESSAGE_MACRO_22(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8, t9, m9) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9); } \
@@ -712,11 +712,11 @@ public: \
     Name() : m0(), m1(), m2(), m3(), m4(), m5(), m6(), m7(), m8(), m9() {} \
 	t0 m0; t1 m1; t2 m2; t3 m3; t4 m4; t5 m5; t6 m6; t7 m7; t8 m8; t9 m9; \
 }
-#define CARP_MESSAGE_MACRO_23(Name, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8, t9, m9, t10, m10) \
+#define CARP_MESSAGE_MACRO_24(Name, ID, t0, m0, t1, m1, t2, m2, t3, m3, t4, m4, t5, m5, t6, m6, t7, m7, t8, m8, t9, m9, t10, m10) \
 class Name : public CarpMessage { \
 public: \
-	CARP_MESSAGE_ID GetID() const { return _##Name; } \
-	inline static CARP_MESSAGE_ID GetStaticID() { return _##Name; } \
+	CARP_MESSAGE_ID GetID() const { return ID; } \
+	inline static CARP_MESSAGE_ID GetStaticID() { return ID; } \
 	inline static CarpMessage* Create() { return new Name; } \
 public: \
 	int GetTotalSize() const { return Template_Message_GetTotalSize(0, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10); } \
@@ -729,14 +729,8 @@ public: \
 // 后面可以按规律去增加
 #define CARP_MESSAGE_MACRO(...)        VA_CARP_MESSAGE_PROXY(VA_CARP_MESSAGE_JOIN(CARP_MESSAGE_MACRO_, VA_CARP_MESSAGE_COUNT(__VA_ARGS__)), __VA_ARGS__)
 
-enum
-{
-	_HeartbeatMessage = 0,
-	_RpcErrorMessage = 1,
-};
-
-CARP_MESSAGE_MACRO(HeartbeatMessage);
-CARP_MESSAGE_MACRO(RpcErrorMessage, std::string, reason);
+CARP_MESSAGE_MACRO(HeartbeatMessage, 0);
+CARP_MESSAGE_MACRO(RpcErrorMessage, 1, std::string, reason);
 
 
 class CarpMessageReadFactory : public CarpMessage

@@ -453,6 +453,9 @@ private:
 #endif
 
 #ifdef CARP_FONT_IMPL
+#ifndef CARP_FONT_IMPL_INCLUDE
+#define CARP_FONT_IMPL_INCLUDE
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb/stb_truetype.h"
+#endif
 #endif

@@ -9,29 +9,17 @@
 #include "carp_connect_server.hpp"
 #include "carp_script.hpp"
 
-#define _CarpLuaDebugBreakPoint 0
+CARP_MESSAGE_MACRO(CarpLuaDebugBreakPoint, 0, std::string, file_path, int, file_line);
 
-#define _CarpLuaDebugAddBreakPoint 1
-#define _CarpLuaDebugRemoveBreakPoint 2
-#define _CarpLuaDebugClearBreakPoint 3
+CARP_MESSAGE_MACRO(CarpLuaDebugAddBreakPoint, 1, std::vector<CarpLuaDebugBreakPoint>, list);
+CARP_MESSAGE_MACRO(CarpLuaDebugRemoveBreakPoint, 2, std::vector<CarpLuaDebugBreakPoint>, list);
+CARP_MESSAGE_MACRO(CarpLuaDebugClearBreakPoint, 3);
 
-#define _CarpLuaDebugContinue 4	// 跳过当前断点
-#define _CarpLuaDebugNextLine 5	// 下一行
+CARP_MESSAGE_MACRO(CarpLuaDebugContinue, 4); // 跳过当前断点
+CARP_MESSAGE_MACRO(CarpLuaDebugNextLine, 5); // 下一行
 
-#define _CarpLuaDebugBreakIn 6	// 断点
-#define _CarpLuaDebugBreakOut 7	// 继续
-
-CARP_MESSAGE_MACRO(CarpLuaDebugBreakPoint, std::string, file_path, int, file_line);
-
-CARP_MESSAGE_MACRO(CarpLuaDebugAddBreakPoint, std::vector<CarpLuaDebugBreakPoint>, list);
-CARP_MESSAGE_MACRO(CarpLuaDebugRemoveBreakPoint, std::vector<CarpLuaDebugBreakPoint>, list);
-CARP_MESSAGE_MACRO(CarpLuaDebugClearBreakPoint);
-
-CARP_MESSAGE_MACRO(CarpLuaDebugContinue);
-CARP_MESSAGE_MACRO(CarpLuaDebugNextLine);
-
-CARP_MESSAGE_MACRO(CarpLuaDebugBreakIn, std::string, file_path, int, file_line);
-CARP_MESSAGE_MACRO(CarpLuaDebugBreakOut);
+CARP_MESSAGE_MACRO(CarpLuaDebugBreakIn, 6, std::string, file_path, int, file_line); // 断点
+CARP_MESSAGE_MACRO(CarpLuaDebugBreakOut, 7); // 继续
 
 enum CarpLuaDebugEvent
 {

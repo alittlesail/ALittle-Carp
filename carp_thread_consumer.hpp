@@ -6,7 +6,8 @@
 #include <list>
 #include <condition_variable>
 
-template <typename T>
+// T 日志结构类型，WAIT_FOR_FLUSH_MS 当大于0时，表示使用定时执行Flush
+template <typename T, int WAIT_FOR_FLUSH_MS = 0>
 class CarpThreadConsumer
 {
 public:
@@ -75,11 +76,25 @@ private:
         std::list<T> temp_list;
         while (m_run)
         {
+            // 判定是否刷入
+            bool flush = false;
+
             // 获取执行队列
             {
                 std::unique_lock<std::mutex> lock(m_mutex);
                 while (m_run && m_list.empty())
-                    m_cv.wait(lock);
+                {
+                    if (WAIT_FOR_FLUSH_MS > 0)
+                    {
+                        if (m_cv.wait_for(lock, std::chrono::milliseconds(WAIT_FOR_FLUSH_MS)) == std::cv_status::timeout)
+                        {
+                            flush = true;
+                            break;
+                        }
+                    }   
+                    else
+                        m_cv.wait(lock);
+                }
                 temp_list.swap(m_list);
             }
 
@@ -89,6 +104,8 @@ private:
                 Execute(temp_list.front());
                 temp_list.pop_front();
             }
+
+            if (flush) Flush();
         }
 
         return 0;
@@ -98,6 +115,7 @@ protected:
     // 执行日志
     virtual void Execute(T& info) = 0;
     virtual void Abandon(T& info) { Execute(info); }
+    virtual void Flush() {}
 
 private:
     std::mutex m_mutex;                 // 互斥锁

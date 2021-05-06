@@ -44,7 +44,7 @@ struct CarpLogInfo
 	short level = 0;				// 级别
 };
 
-class CarpLog : public CarpThreadConsumer<CarpLogInfo>
+class CarpLog : public CarpThreadConsumer<CarpLogInfo, 10000>
 {
 public:
 	// 设置日志文件名前缀
@@ -207,6 +207,11 @@ protected:
 			printf("%s", info.content.c_str());
 #endif
 		}
+	}
+
+	void Flush() override
+	{
+		if (m_file) std::fflush(m_file);
 	}
 
 private:

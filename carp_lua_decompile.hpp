@@ -1,6 +1,8 @@
 #ifndef CARP_LUA_DECOMPILE_INCLUDED
 #define CARP_LUA_DECOMPILE_INCLUDED
 
+#ifndef USE_RAVI
+
 #include <string>
 #include <set>
 
@@ -15,10 +17,10 @@
 #endif
 
 extern "C" {
-#include <lobject.h>
-#include <lstate.h>
-#include <lundump.h>
-#include <lopcodes.h>
+#include "lobject.h"
+#include "lstate.h"
+#include "lundump.h"
+#include "lopcodes.h"
 }
 
 #include "carp_log.hpp"
@@ -869,4 +871,5 @@ private:
 	std::vector<std::string> m_lines;
 };
 
+#endif
 #endif

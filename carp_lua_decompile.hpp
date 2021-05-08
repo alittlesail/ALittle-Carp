@@ -139,6 +139,7 @@ public:
 		}
 	}
 
+	// 这个代码是从ldebug.c中拷贝出来的
 	static int GetFuncLine(const Proto* f, int pc)
 	{
 		if (f->lineinfo == NULL)  /* no debug information? */

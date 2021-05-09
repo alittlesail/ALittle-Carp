@@ -1,8 +1,6 @@
 #ifndef CARP_LUA_DECOMPILE_INCLUDED
 #define CARP_LUA_DECOMPILE_INCLUDED
 
-#ifndef USE_RAVI
-
 #include <string>
 #include <set>
 
@@ -871,5 +869,4 @@ private:
 	std::vector<std::string> m_lines;
 };
 
-#endif
 #endif

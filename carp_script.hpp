@@ -7,23 +7,10 @@
 #include "carp_lua.hpp"
 
 #ifdef _WIN32
-
-#ifdef USE_RAVI
-
-#ifdef _DEBUG
-#pragma comment(lib, "libravi.lib")
-#else
-#pragma comment(lib, "libravi.lib")
-#endif
-
-#else
-
 #ifdef _DEBUG
 #pragma comment(lib, "luad.lib")
 #else
 #pragma comment(lib, "lua.lib")
-#endif
-
 #endif
 #endif
 

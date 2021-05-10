@@ -240,6 +240,101 @@ extern CarpLog s_carp_log;
 // 属于严重的代码错误，属于非常意外的，没想到会在这里出错的，提供给脚本系统使用
 #define CARP_SCRIPT_ERROR(text) do{ std::ostringstream astream; astream << text; s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); }while(0)
 
+#define VA_CARP_LOG_CHECK_EXPAND(...)      __VA_ARGS__
+
+#define VA_CARP_LOG_CHECK_FILTER_(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,_51,_52,_N,...) _N
+#define VA_CARP_LOG_CHECK_NUMBER_()        52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1
+#define VA_CARP_LOG_CHECK_HELPER(...)      VA_CARP_LOG_CHECK_EXPAND(VA_CARP_LOG_CHECK_FILTER_(__VA_ARGS__))
+#define VA_CARP_LOG_CHECK_COUNT(...)       VA_CARP_LOG_CHECK_HELPER(__VA_ARGS__, VA_CARP_LOG_CHECK_NUMBER_())
+
+#define VA_CARP_LOG_CHECK_CAT(X, Y)        X##Y
+#define VA_CARP_LOG_CHECK_JOIN(X, Y)       VA_CARP_LOG_CHECK_CAT(X, Y)
+#define VA_CARP_LOG_CHECK_PROXY(F, ...)    VA_CARP_LOG_CHECK_EXPAND(F(__VA_ARGS__))
+
+#define CARP_LOG_CHECK_MACRO_1(c) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c; \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_MACRO_2(c, p0) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_MACRO_3(c, p0, p1) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+		<< ", " << #p1 << ":" << (p1); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_MACRO_4(c, p0, p1, p2) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+		<< ", " << #p1 << ":" << (p1); \
+		<< ", " << #p2 << ":" << (p2); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
+    } \
+} while(0)
+
+// 后面可以按规律去增加
+#define CARP_CHECK(...)        VA_CARP_LOG_CHECK_PROXY(VA_CARP_LOG_CHECK_JOIN(CARP_LOG_CHECK_MACRO_, VA_CARP_LOG_CHECK_COUNT(__VA_ARGS__)), __VA_ARGS__)
+
+
+#define CARP_LOG_CHECK_RETURN_MACRO_2(c, r) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_RETURN_MACRO_3(c, r, p0) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_RETURN_MACRO_4(c, r, p0, p1) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+		<< ", " << #p1 << ":" << (p1); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_RETURN_MACRO_5(c, r, p0, p1, p2) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0); \
+		<< ", " << #p1 << ":" << (p1); \
+		<< ", " << #p2 << ":" << (p2); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
+    } \
+} while(0)
+
+// 后面可以按规律去增加
+#define CARP_CHECK_RETURN(...)        VA_CARP_LOG_CHECK_PROXY(VA_CARP_LOG_CHECK_JOIN(CARP_LOG_CHECK_RETURN_MACRO_, VA_CARP_LOG_CHECK_COUNT(__VA_ARGS__)), __VA_ARGS__)
+
+
 #endif
 
 #ifdef CARP_LOG_IMPL

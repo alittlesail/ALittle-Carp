@@ -106,18 +106,47 @@ public:
     virtual size_t GetRowCount() const { return m_data.size(); }
     const std::vector<std::string>& GetRowData(size_t index) const { return m_data[index]; }
 
-	// 这个函数的下标从1开始
     virtual const char* ReadCell(size_t row, size_t col)
 	{
-        if (row < 1 || col < 1 || row > m_data.size() || col > m_data[row - 1].size())
+        if (row >= m_data.size() || col >= m_data[row].size())
         {
             m_temp_string.clear();
             return m_temp_string.c_str();
         }
-        return m_data[row - 1][col - 1].c_str();
+        return m_data[row][col].c_str();
 	}
     virtual const char* GetPath() const { return m_file_path.c_str(); }
     virtual void Close() { m_data.clear(); }
+
+public:
+    // 以某一列为key，某一列为value，从某一行开始取键值
+    const std::string& GetKeyValueString(const std::string& key, const std::string& default_value, size_t start_row = 0, size_t key_col = 0, size_t value_col = 1)
+    {
+        for (size_t row = start_row + 1; row < m_data.size(); ++row)
+        {
+            if (key_col >= m_data[row].size()) continue;
+            if (value_col >= m_data[row].size()) continue;
+
+            if (m_data[row][key_col] == key) return m_data[row][value_col];
+        }
+
+        m_temp_string = default_value;
+        return m_temp_string;
+    }
+
+    // 以某一列为key，某一列为value，从某一行开始取键值
+    int GetKeyValueInt(const std::string& key, int default_value, size_t start_row = 0, size_t key_col = 0, size_t value_col = 1)
+    {
+        for (size_t row = start_row + 1; row < m_data.size(); ++row)
+        {
+            if (key_col >= m_data[row].size()) continue;
+            if (value_col >= m_data[row].size()) continue;
+
+            if (m_data[row][key_col] == key) return std::atoi(m_data[row][value_col].c_str());
+        }
+
+        return default_value;
+    }
 
 private:
     // 读取文件，并切割

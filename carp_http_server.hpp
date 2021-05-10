@@ -868,7 +868,7 @@ public:
 	    // sender, file_path, succeed or not, reason
 	    , std::function<void(CarpHttpSenderPtr, const std::string&, bool, const std::string&)> http_file_completed_func
 		// ssl
-		, const std::string& server_pem_path, const std::string& private_key_path, const std::string& pem_password)
+		, const std::string& server_pem_path = "", const std::string& private_key_path = "", const std::string& pem_password = "")
 	{
 		m_io_service = io_service;
 		m_http_message_func = http_message_func;

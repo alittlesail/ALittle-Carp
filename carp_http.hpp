@@ -403,14 +403,14 @@ typedef std::shared_ptr<asio::ip::tcp::acceptor> CarpHttpAcceptorPtr;
 class CarpHttpSocket;
 typedef std::shared_ptr<CarpHttpSocket> CarpHttpSocketPtr;
 
+#ifdef CARP_HAS_SSL
+#include <asio/ssl.hpp>
+
 #ifdef _WIN32
-#define CARP_HAS_SSL
 #pragma comment(lib, "libssl.lib")
 #pragma comment(lib, "libcrypto.lib")
 #endif
 
-#ifdef CARP_HAS_SSL
-#include <asio/ssl.hpp>
 
 typedef std::shared_ptr<asio::ssl::stream<asio::ip::tcp::socket>> CarpHttpSSLSocketPtr;
 class CarpHttpSocket

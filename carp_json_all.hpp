@@ -20,7 +20,8 @@
 
 #define CARP_JSON_MACRO(...) VA_CARP_JSON_PROXY(VA_CARP_JSON_JOIN(CARP_JSON_MACRO_, VA_CARP_JSON_COUNT(__VA_ARGS__)), __VA_ARGS__)
 
-typedef CARP_JSON_MACRO(CarpEmptyJson) CarpEmptyJson;
-typedef CARP_JSON_MACRO(CarpResultJson, bool, result) CarpResultJson;
+// ·¶Àý
+// typedef CARP_JSON_MACRO(CarpEmptyJson) CarpEmptyJson;
+// typedef CARP_JSON_MACRO(CarpResultJson, bool, result) CarpResultJson;
 
 #endif

@@ -840,7 +840,11 @@ public:
 class CarpHttpServer : public std::enable_shared_from_this<CarpHttpServer>, public CarpHttpServerInterface
 {
 public:
-	CarpHttpServer() : m_context(asio::ssl::context::sslv23) {}
+	CarpHttpServer()
+#ifdef CARP_HAS_SSL
+		: m_context(asio::ssl::context::sslv23)
+#endif
+	{}
 	virtual ~CarpHttpServer() { Close(); }
 
 public:
@@ -884,6 +888,7 @@ public:
 
 		try
 		{
+#ifdef CARP_HAS_SSL
 			if (is_ssl)
 			{
 				if (!server_pem_path.empty())
@@ -966,6 +971,7 @@ public:
 					m_context.use_tmp_dh(asio::buffer(dh512_pem.c_str(), dh512_pem.size()));
 				}
 			}
+#endif
 
 			// create acceptor
 			if (!ip.empty())
@@ -1011,7 +1017,9 @@ public:
 		if (!m_acceptor) return;
 
 		// reset
+#ifdef CARP_HAS_SSL
 		m_context = asio::ssl::context(asio::ssl::context::sslv23);
+#endif
 
 		// close accept
 		m_acceptor->close();
@@ -1073,7 +1081,11 @@ private:
 		if (!m_acceptor) return;
 
 		// create socket
-		CarpHttpSocketPtr socket = std::make_shared<CarpHttpSocket>(m_is_ssl, m_io_service, &m_context);
+		CarpHttpSocketPtr socket = std::make_shared<CarpHttpSocket>(m_is_ssl, m_io_service
+#ifdef CARP_HAS_SSL
+			, &m_context
+#endif
+			);
 
 		// bind callback
 		CARPHTTPSOCKET_AsyncAccept(socket, m_acceptor, std::bind(&CarpHttpServer::HandleAccept, shared_from_this(), socket, std::placeholders::_1, error_count));
@@ -1093,10 +1105,12 @@ private:
 
 		// set no delay
 		CARPHTTPSOCKET_SetNoDelay(socket);
+#ifdef CARP_HAS_SSL
 		if (socket->ssl_socket)
 			socket->ssl_socket->async_handshake(asio::ssl::stream<asio::ip::tcp::socket>::server
 				, std::bind(&CarpHttpServer::HandleHandShake, shared_from_this(), socket, std::placeholders::_1));
 		else
+#endif
 			HandleHandShake(socket, asio::error_code());
 
 		// accept next
@@ -1163,7 +1177,9 @@ private:
 
 private:
 	AcceptorPtr m_acceptor;
+#ifdef CARP_HAS_SSL
 	asio::ssl::context m_context;
+#endif
 	asio::io_service* m_io_service = nullptr;
 	bool m_is_ssl = false;
 	std::string m_pem_password;

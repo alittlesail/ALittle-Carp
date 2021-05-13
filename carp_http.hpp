@@ -70,6 +70,39 @@ public:
 		}
 	}
 
+private:
+	template <typename T>
+	static void AddElement(T& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(v); }
+	static void AddElement(std::list<int>& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(std::atoi(v.c_str())); }
+	static void AddElement(std::vector<int>& list, const std::string& v, bool ignore_empty) { if (ignore_empty && v.empty()) return; list.push_back(std::atoi(v.c_str())); }
+
+public:
+	// ÇÐ¸î×Ö·û´®
+	template <typename T>
+	static void Split(const std::string& content, const std::string& split, bool ignore_empty, T& list)
+	{
+		list.resize(0);
+		if (content.empty()) return;
+
+		size_t start_index = 0;
+		while (true)
+		{
+			const size_t pos = content.find(split, start_index);
+			if (pos != std::string::npos)
+			{
+				AddElement(list, content.substr(start_index, pos - start_index), ignore_empty);
+				start_index = pos + split.size();
+				continue;
+			}
+			break;
+		}
+
+		if (start_index == 0)
+			AddElement(list, content, ignore_empty);
+		else
+			AddElement(list, content.substr(start_index), ignore_empty);
+	}
+
 public:
 	// url¼ÓÃÜ
 	static std::string UrlEncode(const std::string& url)
@@ -222,11 +255,11 @@ public:
 	static void AnalysisParam(const std::string& param, std::map<std::string, std::string>& value_map)
 	{
 		std::vector<std::string> param_list;
-		CarpString::Split(param, "&", true, param_list);
+		Split(param, "&", true, param_list);
 		for (auto& value : param_list)
 		{
 			std::vector<std::string> value_list;
-			CarpString::Split(value, "=", true, value_list);
+			Split(value, "=", true, value_list);
 			if (value_list.size() != 2) continue;
 
 			value_map[value_list[0]] = value_list[1];

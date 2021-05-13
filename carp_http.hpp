@@ -219,6 +219,20 @@ public:
 		return true;
 	}
 
+	static void AnalysisParam(const std::string& param, std::map<std::string, std::string>& value_map)
+	{
+		std::vector<std::string> param_list;
+		CarpString::Split(param, "&", true, param_list);
+		for (auto& value : param_list)
+		{
+			std::vector<std::string> value_list;
+			CarpString::Split(value, "=", true, value_list);
+			if (value_list.size() != 2) continue;
+
+			value_map[value_list[0]] = value_list[1];
+		}
+	}
+
 public:
 	// 从http头获取status
 	static bool CalcStatusFromHttp(const std::string& response, std::string& status)

@@ -63,6 +63,12 @@ public:
 		Deserialize(doc);
 		return true;
 	}
+	virtual std::string ToString() const
+	{
+		std::string out;
+		WriteToString(out);
+		return out;
+	}
 };
 
 template <typename T>

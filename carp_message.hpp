@@ -177,20 +177,20 @@ public:
 		return total_size;
 	}
 
-	template <> static int GetTotalSize<std::string>(const std::string& object) /* include '\0' */ { return static_cast<int>(object.size()) + static_cast<int>(sizeof(int)) + 1; }
-	template <> static int GetTotalSize<bool>(const bool& object) { return static_cast<int>(sizeof(bool)); }
-	template <> static int GetTotalSize<char>(const char& object) { return static_cast<int>(sizeof(char)); }
-	template <> static int GetTotalSize<unsigned char>(const unsigned char& object) { return static_cast<int>(sizeof(unsigned char)); }
-	template <> static int GetTotalSize<short>(const short& object) { return static_cast<int>(sizeof(short)); }
-	template <> static int GetTotalSize<unsigned short>(const unsigned short& object) { return static_cast<int>(sizeof(unsigned short)); }
-	template <> static int GetTotalSize<int>(const int& object) { return static_cast<int>(sizeof(int)); }
-	template <> static int GetTotalSize<unsigned int>(const unsigned int& object) { return static_cast<int>(sizeof(unsigned int)); }
-	template <> static int GetTotalSize<long>(const long& object) { return static_cast<int>(sizeof(long)); }
-	template <> static int GetTotalSize<unsigned long>(const unsigned long& object) { return static_cast<int>(sizeof(unsigned long)); }
-	template <> static int GetTotalSize<long long>(const long long& object) { return static_cast<int>(sizeof(long long)); }
-	template <> static int GetTotalSize<unsigned long long>(const unsigned long long& object) { return static_cast<int>(sizeof(unsigned long long)); }
-	template <> static int GetTotalSize<float>(const float& object) { return static_cast<int>(sizeof(float)); }
-	template <> static int GetTotalSize<double>(const double& object) { return static_cast<int>(sizeof(double)); }
+	template <> static int GetTotalSize<std::string>(const std::string& object); /* include '\0' */
+	template <> static int GetTotalSize<bool>(const bool& object);
+	template <> static int GetTotalSize<char>(const char& object);
+	template <> static int GetTotalSize<unsigned char>(const unsigned char& object);
+	template <> static int GetTotalSize<short>(const short& object);
+	template <> static int GetTotalSize<unsigned short>(const unsigned short& object);
+	template <> static int GetTotalSize<int>(const int& object);
+	template <> static int GetTotalSize<unsigned int>(const unsigned int& object);
+	template <> static int GetTotalSize<long>(const long& object);
+	template <> static int GetTotalSize<unsigned long>(const unsigned long& object);
+	template <> static int GetTotalSize<long long>(const long long& object);
+	template <> static int GetTotalSize<unsigned long long>(const unsigned long long& object);
+	template <> static int GetTotalSize<float>(const float& object);
+	template <> static int GetTotalSize<double>(const double& object);
 
 	// ------------------------------------------------------------------------------------
 	template <typename T>
@@ -515,6 +515,21 @@ public:
 	template <> static int Deserialize<double>(double& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
 
 };
+
+template <> int CarpMessageTemplate::GetTotalSize<std::string>(const std::string& object) /* include '\0' */ { return static_cast<int>(object.size()) + static_cast<int>(sizeof(int)) + 1; }
+template <> int CarpMessageTemplate::GetTotalSize<bool>(const bool& object) { return static_cast<int>(sizeof(bool)); }
+template <> int CarpMessageTemplate::GetTotalSize<char>(const char& object) { return static_cast<int>(sizeof(char)); }
+template <> int CarpMessageTemplate::GetTotalSize<unsigned char>(const unsigned char& object) { return static_cast<int>(sizeof(unsigned char)); }
+template <> int CarpMessageTemplate::GetTotalSize<short>(const short& object) { return static_cast<int>(sizeof(short)); }
+template <> int CarpMessageTemplate::GetTotalSize<unsigned short>(const unsigned short& object) { return static_cast<int>(sizeof(unsigned short)); }
+template <> int CarpMessageTemplate::GetTotalSize<int>(const int& object) { return static_cast<int>(sizeof(int)); }
+template <> int CarpMessageTemplate::GetTotalSize<unsigned int>(const unsigned int& object) { return static_cast<int>(sizeof(unsigned int)); }
+template <> int CarpMessageTemplate::GetTotalSize<long>(const long& object) { return static_cast<int>(sizeof(long)); }
+template <> int CarpMessageTemplate::GetTotalSize<unsigned long>(const unsigned long& object) { return static_cast<int>(sizeof(unsigned long)); }
+template <> int CarpMessageTemplate::GetTotalSize<long long>(const long long& object) { return static_cast<int>(sizeof(long long)); }
+template <> int CarpMessageTemplate::GetTotalSize<unsigned long long>(const unsigned long long& object) { return static_cast<int>(sizeof(unsigned long long)); }
+template <> int CarpMessageTemplate::GetTotalSize<float>(const float& object) { return static_cast<int>(sizeof(float)); }
+template <> int CarpMessageTemplate::GetTotalSize<double>(const double& object) { return static_cast<int>(sizeof(double)); }
 
 // ------------------------------------------------------------------------------------
 

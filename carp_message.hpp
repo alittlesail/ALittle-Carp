@@ -265,35 +265,20 @@ public:
 		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
 	}
 
-	template <> static int Serialize<std::string>(const std::string& object, void* data)
-	{
-		// get string length
-		const int len = static_cast<int>(object.size());
-		// add '\0' to length
-		*static_cast<int*>(data) = len + 1;
-		// offset to string position
-		char* data_string = static_cast<char*>(data) + sizeof(int);
-		// copy string
-		for (int i = 0; i < len; ++i) data_string[i] = object.at(i);
-		// set tail of string to 0
-		data_string[len] = 0;
-		// return length
-		return len + static_cast<int>(sizeof(int)) + 1;
-	}
-	template <> static int Serialize<bool>(const bool& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<char>(const char& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<unsigned char>(const unsigned char& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<short>(const short& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<unsigned short>(const unsigned short& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<int>(const int& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<unsigned int>(const unsigned int& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<long>(const long& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<unsigned long>(const unsigned long& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<long long>(const long long& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<unsigned long long>(const unsigned long long& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<float>(const float& object, void* data) { return SerializePrimary(object, data); }
-	template <> static int Serialize<double>(const double& object, void* data) { return SerializePrimary(object, data); }
-
+	template <> static int Serialize<std::string>(const std::string& object, void* data);
+	template <> static int Serialize<bool>(const bool& object, void* data);
+	template <> static int Serialize<char>(const char& object, void* data);
+	template <> static int Serialize<unsigned char>(const unsigned char& object, void* data);
+	template <> static int Serialize<short>(const short& object, void* data);
+	template <> static int Serialize<unsigned short>(const unsigned short& object, void* data);
+	template <> static int Serialize<int>(const int& object, void* data);
+	template <> static int Serialize<unsigned int>(const unsigned int& object, void* data);
+	template <> static int Serialize<long>(const long& object, void* data);
+	template <> static int Serialize<unsigned long>(const unsigned long& object, void* data);
+	template <> static int Serialize<long long>(const long long& object, void* data);
+	template <> static int Serialize<unsigned long long>(const unsigned long long& object, void* data);
+	template <> static int Serialize<float>(const float& object, void* data);
+	template <> static int Serialize<double>(const double& object, void* data);
 
 	// ------------------------------------------------------------------------------------
 	template <typename T>
@@ -500,19 +485,19 @@ public:
 		return str_len + static_cast<int>(sizeof(int));
 	}
 	
-	template <> static int Deserialize<bool>(bool& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<char>(char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<unsigned char>(unsigned char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<short>(short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<unsigned short>(unsigned short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<int>(int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<unsigned int>(unsigned int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<long>(long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<unsigned long>(unsigned long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<long long>(long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<float>(float& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-	template <> static int Deserialize<double>(double& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+	template <> static int Deserialize<bool>(bool& object, const void* data, int len);
+	template <> static int Deserialize<char>(char& object, const void* data, int len);
+	template <> static int Deserialize<unsigned char>(unsigned char& object, const void* data, int len);
+	template <> static int Deserialize<short>(short& object, const void* data, int len);
+	template <> static int Deserialize<unsigned short>(unsigned short& object, const void* data, int len);
+	template <> static int Deserialize<int>(int& object, const void* data, int len);
+	template <> static int Deserialize<unsigned int>(unsigned int& object, const void* data, int len);
+	template <> static int Deserialize<long>(long& object, const void* data, int len);
+	template <> static int Deserialize<unsigned long>(unsigned long& object, const void* data, int len);
+	template <> static int Deserialize<long long>(long long& object, const void* data, int len);
+	template <> static int Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len);
+	template <> static int Deserialize<float>(float& object, const void* data, int len);
+	template <> static int Deserialize<double>(double& object, const void* data, int len);
 
 };
 
@@ -530,6 +515,82 @@ template <> int CarpMessageTemplate::GetTotalSize<long long>(const long long& ob
 template <> int CarpMessageTemplate::GetTotalSize<unsigned long long>(const unsigned long long& object) { return static_cast<int>(sizeof(unsigned long long)); }
 template <> int CarpMessageTemplate::GetTotalSize<float>(const float& object) { return static_cast<int>(sizeof(float)); }
 template <> int CarpMessageTemplate::GetTotalSize<double>(const double& object) { return static_cast<int>(sizeof(double)); }
+
+
+template <> static int CarpMessageTemplate::Serialize<std::string>(const std::string& object, void* data)
+{
+	// get string length
+	const int len = static_cast<int>(object.size());
+	// add '\0' to length
+	*static_cast<int*>(data) = len + 1;
+	// offset to string position
+	char* data_string = static_cast<char*>(data) + sizeof(int);
+	// copy string
+	for (int i = 0; i < len; ++i) data_string[i] = object.at(i);
+	// set tail of string to 0
+	data_string[len] = 0;
+	// return length
+	return len + static_cast<int>(sizeof(int)) + 1;
+}
+template <> int CarpMessageTemplate::Serialize<bool>(const bool& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<char>(const char& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<unsigned char>(const unsigned char& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<short>(const short& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<unsigned short>(const unsigned short& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<int>(const int& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<unsigned int>(const unsigned int& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<long>(const long& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<unsigned long>(const unsigned long& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<long long>(const long long& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<unsigned long long>(const unsigned long long& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<float>(const float& object, void* data) { return SerializePrimary(object, data); }
+template <> int CarpMessageTemplate::Serialize<double>(const double& object, void* data) { return SerializePrimary(object, data); }
+
+template <> static int CarpMessageTemplate::Deserialize<std::string>(std::string& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object.clear();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+
+	// check size enough
+	if (len <= static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= sizeof(int); // desc size of head
+
+	// get string length(include '\0')
+	const int str_len = *static_cast<const int*>(data);
+	if (str_len <= 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+
+	// if length > remain length, then analysis error
+	if (str_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+
+	// offset to string position
+	const char* str = static_cast<const char*>(data);
+	str += sizeof(int);
+
+	// check real length
+	while (*str && len > 0) { ++str; --len; }
+	if (len <= 0) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+
+	// check completed and copy string
+	object.assign(static_cast<const char*>(data) + sizeof(int));
+	return str_len + static_cast<int>(sizeof(int));
+}
+
+template <> int CarpMessageTemplate::Deserialize<bool>(bool& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<char>(char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<unsigned char>(unsigned char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<short>(short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<unsigned short>(unsigned short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<int>(int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<unsigned int>(unsigned int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<long>(long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<unsigned long>(unsigned long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<long long>(long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<float>(float& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate::Deserialize<double>(double& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
 
 // ------------------------------------------------------------------------------------
 

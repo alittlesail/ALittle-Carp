@@ -125,428 +125,198 @@ public:
 };
 
 // ------------------------------------------------------------------------------------
-class CarpMessageTemplate
+template <typename T>
+static int CarpMessageTemplate_GetTotalSize(const T& object)
 {
-public:
-	template <typename T>
-	static int GetTotalSize(const T& object)
-	{
-		return object.GetTotalSize() + sizeof(int);
-	}
-	template <typename T>
-	static int GetTotalSize(const std::set<T>& object)
-	{
-		int total_size = sizeof(int);
-
-		for (auto it = object.begin(); it != object.end(); ++it)
-			total_size += GetTotalSize(*it);
-
-		return total_size;
-	}
-	template <typename T>
-	static int GetTotalSize(const std::list<T>& object)
-	{
-		int total_size = sizeof(int);
-
-		for (auto it = object.begin(); it != object.end(); ++it)
-			total_size += GetTotalSize(*it);
-
-		return total_size;
-	}
-	template <typename T>
-	static int GetTotalSize(const std::vector<T>& object)
-	{
-		int total_size = sizeof(int);
-
-		for (size_t i = 0; i < object.size(); ++i)
-			total_size += GetTotalSize(object[i]);
-
-		return total_size;
-	}
-	template <typename K, typename V>
-	static int GetTotalSize(const std::map<K, V>& object)
-	{
-		int total_size = sizeof(int);
-
-		for (auto it = object.begin(); it != object.end(); ++it)
-		{
-			total_size += GetTotalSize(it->first);
-			total_size += GetTotalSize(it->second);
-		}
-
-		return total_size;
-	}
-
-	template <> static int GetTotalSize<std::string>(const std::string& object); /* include '\0' */
-	template <> static int GetTotalSize<bool>(const bool& object);
-	template <> static int GetTotalSize<char>(const char& object);
-	template <> static int GetTotalSize<unsigned char>(const unsigned char& object);
-	template <> static int GetTotalSize<short>(const short& object);
-	template <> static int GetTotalSize<unsigned short>(const unsigned short& object);
-	template <> static int GetTotalSize<int>(const int& object);
-	template <> static int GetTotalSize<unsigned int>(const unsigned int& object);
-	template <> static int GetTotalSize<long>(const long& object);
-	template <> static int GetTotalSize<unsigned long>(const unsigned long& object);
-	template <> static int GetTotalSize<long long>(const long long& object);
-	template <> static int GetTotalSize<unsigned long long>(const unsigned long long& object);
-	template <> static int GetTotalSize<float>(const float& object);
-	template <> static int GetTotalSize<double>(const double& object);
-
-	// ------------------------------------------------------------------------------------
-	template <typename T>
-	static inline int SerializePrimary(const T& object, void* data)
-	{
-		*static_cast<T*>(data) = object;
-		return static_cast<int>(sizeof(T));
-	}
-
-	template <typename T>
-	static int Serialize(const T& object, void* data)
-	{
-		const int result = object.Serialize(CARP_MESSAGE_DATA_OFFSET(data, sizeof(int)));
-		*static_cast<int*>(data) = result;
-		return result + sizeof(int);
-	}
-	template <typename T>
-	static int Serialize(const std::set<T>& object, void* data)
-	{
-		// get size
-		const int len = static_cast<int>(object.size());
-		*static_cast<int*>(data) = len;
-		// offset current data
-		char* current_data = static_cast<char*>(data) + sizeof(int);
-		for (auto it = object.begin(); it != object.end(); ++it)
-			current_data += Serialize(*it, current_data);
-
-		// return serialize size
-		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
-	}
-	template <typename T>
-	static int Serialize(const std::list<T>& object, void* data)
-	{
-		// get size
-		const int len = static_cast<int>(object.size());
-		*static_cast<int*>(data) = len;
-		// offset current data
-		char* current_data = static_cast<char*>(data) + sizeof(int);
-		for (auto it = object.begin(); it != object.end(); ++it)
-			current_data += Serialize(*it, current_data);
-
-		// return serialize size
-		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
-	}
-	template <typename T>
-	static int Serialize(const std::vector<T>& object, void* data)
-	{
-		// get size
-		const int len = static_cast<int>(object.size());
-		*static_cast<int*>(data) = len;
-		// offset current data
-		char* current_data = static_cast<char*>(data) + sizeof(int);
-		for (int i = 0; i < len; ++i)
-			current_data += Serialize(object[i], current_data);
-
-		// return serialize size
-		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
-	}
-	template <typename K, typename V>
-	static int Serialize(const std::map<K, V>& object, void* data)
-	{
-		const int len = static_cast<int>(object.size());
-		*static_cast<int*>(data) = len;
-
-		char* current_data = static_cast<char*>(data) + sizeof(int);
-		for (auto it = object.begin(); it != object.end(); ++it)
-		{
-			current_data += Serialize(it->first, current_data);
-			current_data += Serialize(it->second, current_data);
-		}
-
-		return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
-	}
-
-	template <> static int Serialize<std::string>(const std::string& object, void* data);
-	template <> static int Serialize<bool>(const bool& object, void* data);
-	template <> static int Serialize<char>(const char& object, void* data);
-	template <> static int Serialize<unsigned char>(const unsigned char& object, void* data);
-	template <> static int Serialize<short>(const short& object, void* data);
-	template <> static int Serialize<unsigned short>(const unsigned short& object, void* data);
-	template <> static int Serialize<int>(const int& object, void* data);
-	template <> static int Serialize<unsigned int>(const unsigned int& object, void* data);
-	template <> static int Serialize<long>(const long& object, void* data);
-	template <> static int Serialize<unsigned long>(const unsigned long& object, void* data);
-	template <> static int Serialize<long long>(const long long& object, void* data);
-	template <> static int Serialize<unsigned long long>(const unsigned long long& object, void* data);
-	template <> static int Serialize<float>(const float& object, void* data);
-	template <> static int Serialize<double>(const double& object, void* data);
-
-	// ------------------------------------------------------------------------------------
-	template <typename T>
-	static int DeserializePrimary(T& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object = 0;
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-		if (len < static_cast<int>(sizeof(T))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		object = *static_cast<const T*>(data);
-		return static_cast<int>(sizeof(T));
-	}
-
-	template <typename T>
-	static int Deserialize(T& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object = T();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		// check size enough
-		if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= static_cast<int>(sizeof(int)); // desc size of head
-
-		int object_len = *static_cast<const int*>(data);
-		if (object_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-
-		// if length > remain length, then analysis error
-		if (object_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-
-		const int result = object.Deserialize(CARP_MESSAGE_CONST_DATA_OFFSET(data, sizeof(int)), object_len);
-		if (result < CARP_MESSAGE_DR_NO_DATA) return result;
-
-		return object_len + static_cast<int>(sizeof(int));
-	}
-	template <typename T>
-	static int Deserialize(std::set<T>& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object.clear();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= static_cast<int>(sizeof(int));
-
-		// clear self
-		object.clear();
-
-		// get array length and check
-		const int array_len = *static_cast<const int*>(data);
-		if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-
-		// offset target data position
-		const char* current_data = static_cast<const char*>(data) + sizeof(int);
-		for (int i = 0; i < array_len; ++i)
-		{
-			T t;
-			const int result = Deserialize(t, current_data, len);
-			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
-			object.insert(t);
-		}
-
-		// calc final length
-		return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
-	}
-	template <typename T>
-	static int Deserialize(std::list<T>& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object.clear();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= static_cast<int>(sizeof(int));
-
-		// clear self
-		object.clear();
-
-		// get array length and check
-		const int array_len = *static_cast<const int*>(data);
-		if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-
-		// offset target data position
-		const char* current_data = static_cast<const char*>(data) + sizeof(int);
-		for (int i = 0; i < array_len; ++i)
-		{
-			object.push_back(T());
-			const int result = Deserialize(object.back(), current_data, len);
-			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
-		}
-
-		// calc final length
-		return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
-	}
-	template <typename T>
-	static int Deserialize(std::vector<T>& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object.clear();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= static_cast<int>(sizeof(int));
-
-		// clear self
-		object.resize(0);
-
-		// define max len
-		const int len_max = 1024;
-
-		// get array length and check
-		int array_len = *static_cast<const int*>(data);
-		if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-		if (array_len < len_max) object.reserve(array_len);
-
-		// offset target data position
-		const char* current_data = static_cast<const char*>(data) + sizeof(int);
-		for (int i = 0; i < array_len; ++i)
-		{
-			object.push_back(T());
-			const int result = Deserialize(object.back(), current_data, len);
-			if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
-		}
-
-		// calc final length
-		return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
-	}
-	template <typename K, typename V>
-	static int Deserialize(std::map<K, V>& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object.clear();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		// check length last
-		if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= static_cast<int>(sizeof(int));
-
-		// clear self
-		object.clear();
-
-		// get length
-		const int map_len = *static_cast<const int*>(data);
-		if (map_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-
-		// offset to data position
-		const char* current_data = static_cast<const char*>(data) + sizeof(int);
-		for (int i = 0; i < map_len; ++i)
-		{
-			// deserialize key
-			K key;
-			const int key_result = Deserialize(key, current_data, len);
-			if (key_result < CARP_MESSAGE_DR_NO_DATA) return key_result; current_data += key_result; len -= key_result;
-			// deserialize value
-			V& value = object[key] = V();
-			const int value_result = Deserialize(value, current_data, len);
-			if (value_result < CARP_MESSAGE_DR_NO_DATA) return value_result; current_data += value_result; len -= value_result;
-		}
-
-		return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
-	}
-	
-	template <> static int Deserialize<std::string>(std::string& object, const void* data, int len)
-	{
-		if (len == 0)
-		{
-			object.clear();
-			return CARP_MESSAGE_DR_NO_DATA;
-		}
-
-		// check size enough
-		if (len <= static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-		len -= sizeof(int); // desc size of head
-
-		// get string length(include '\0')
-		const int str_len = *static_cast<const int*>(data);
-		if (str_len <= 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
-
-		// if length > remain length, then analysis error
-		if (str_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-
-		// offset to string position
-		const char* str = static_cast<const char*>(data);
-		str += sizeof(int);
-
-		// check real length
-		while (*str && len > 0) { ++str; --len; }
-		if (len <= 0) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-
-		// check completed and copy string
-		object.assign(static_cast<const char*>(data) + sizeof(int));
-		return str_len + static_cast<int>(sizeof(int));
-	}
-	
-	template <> static int Deserialize<bool>(bool& object, const void* data, int len);
-	template <> static int Deserialize<char>(char& object, const void* data, int len);
-	template <> static int Deserialize<unsigned char>(unsigned char& object, const void* data, int len);
-	template <> static int Deserialize<short>(short& object, const void* data, int len);
-	template <> static int Deserialize<unsigned short>(unsigned short& object, const void* data, int len);
-	template <> static int Deserialize<int>(int& object, const void* data, int len);
-	template <> static int Deserialize<unsigned int>(unsigned int& object, const void* data, int len);
-	template <> static int Deserialize<long>(long& object, const void* data, int len);
-	template <> static int Deserialize<unsigned long>(unsigned long& object, const void* data, int len);
-	template <> static int Deserialize<long long>(long long& object, const void* data, int len);
-	template <> static int Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len);
-	template <> static int Deserialize<float>(float& object, const void* data, int len);
-	template <> static int Deserialize<double>(double& object, const void* data, int len);
-
-};
-
-template <> int CarpMessageTemplate::GetTotalSize<std::string>(const std::string& object) /* include '\0' */ { return static_cast<int>(object.size()) + static_cast<int>(sizeof(int)) + 1; }
-template <> int CarpMessageTemplate::GetTotalSize<bool>(const bool& object) { return static_cast<int>(sizeof(bool)); }
-template <> int CarpMessageTemplate::GetTotalSize<char>(const char& object) { return static_cast<int>(sizeof(char)); }
-template <> int CarpMessageTemplate::GetTotalSize<unsigned char>(const unsigned char& object) { return static_cast<int>(sizeof(unsigned char)); }
-template <> int CarpMessageTemplate::GetTotalSize<short>(const short& object) { return static_cast<int>(sizeof(short)); }
-template <> int CarpMessageTemplate::GetTotalSize<unsigned short>(const unsigned short& object) { return static_cast<int>(sizeof(unsigned short)); }
-template <> int CarpMessageTemplate::GetTotalSize<int>(const int& object) { return static_cast<int>(sizeof(int)); }
-template <> int CarpMessageTemplate::GetTotalSize<unsigned int>(const unsigned int& object) { return static_cast<int>(sizeof(unsigned int)); }
-template <> int CarpMessageTemplate::GetTotalSize<long>(const long& object) { return static_cast<int>(sizeof(long)); }
-template <> int CarpMessageTemplate::GetTotalSize<unsigned long>(const unsigned long& object) { return static_cast<int>(sizeof(unsigned long)); }
-template <> int CarpMessageTemplate::GetTotalSize<long long>(const long long& object) { return static_cast<int>(sizeof(long long)); }
-template <> int CarpMessageTemplate::GetTotalSize<unsigned long long>(const unsigned long long& object) { return static_cast<int>(sizeof(unsigned long long)); }
-template <> int CarpMessageTemplate::GetTotalSize<float>(const float& object) { return static_cast<int>(sizeof(float)); }
-template <> int CarpMessageTemplate::GetTotalSize<double>(const double& object) { return static_cast<int>(sizeof(double)); }
-
-
-template <> static int CarpMessageTemplate::Serialize<std::string>(const std::string& object, void* data)
-{
-	// get string length
-	const int len = static_cast<int>(object.size());
-	// add '\0' to length
-	*static_cast<int*>(data) = len + 1;
-	// offset to string position
-	char* data_string = static_cast<char*>(data) + sizeof(int);
-	// copy string
-	for (int i = 0; i < len; ++i) data_string[i] = object.at(i);
-	// set tail of string to 0
-	data_string[len] = 0;
-	// return length
-	return len + static_cast<int>(sizeof(int)) + 1;
+	return object.GetTotalSize() + sizeof(int);
 }
-template <> int CarpMessageTemplate::Serialize<bool>(const bool& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<char>(const char& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<unsigned char>(const unsigned char& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<short>(const short& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<unsigned short>(const unsigned short& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<int>(const int& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<unsigned int>(const unsigned int& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<long>(const long& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<unsigned long>(const unsigned long& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<long long>(const long long& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<unsigned long long>(const unsigned long long& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<float>(const float& object, void* data) { return SerializePrimary(object, data); }
-template <> int CarpMessageTemplate::Serialize<double>(const double& object, void* data) { return SerializePrimary(object, data); }
+template <typename T>
+static int CarpMessageTemplate_GetTotalSize(const std::set<T>& object)
+{
+	int total_size = sizeof(int);
 
-template <> static int CarpMessageTemplate::Deserialize<std::string>(std::string& object, const void* data, int len)
+	for (auto it = object.begin(); it != object.end(); ++it)
+		total_size += CarpMessageTemplate_GetTotalSize(*it);
+
+	return total_size;
+}
+template <typename T>
+static int CarpMessageTemplate_GetTotalSize(const std::list<T>& object)
+{
+	int total_size = sizeof(int);
+
+	for (auto it = object.begin(); it != object.end(); ++it)
+		total_size += CarpMessageTemplate_GetTotalSize(*it);
+
+	return total_size;
+}
+template <typename T>
+static int CarpMessageTemplate_GetTotalSize(const std::vector<T>& object)
+{
+	int total_size = sizeof(int);
+
+	for (size_t i = 0; i < object.size(); ++i)
+		total_size += CarpMessageTemplate_GetTotalSize(object[i]);
+
+	return total_size;
+}
+template <typename K, typename V>
+static int CarpMessageTemplate_GetTotalSize(const std::map<K, V>& object)
+{
+	int total_size = sizeof(int);
+
+	for (auto it = object.begin(); it != object.end(); ++it)
+	{
+		total_size += CarpMessageTemplate_GetTotalSize(it->first);
+		total_size += CarpMessageTemplate_GetTotalSize(it->second);
+	}
+
+	return total_size;
+}
+
+template <> int CarpMessageTemplate_GetTotalSize<std::string>(const std::string& object); /* include '\0' */
+template <> int CarpMessageTemplate_GetTotalSize<bool>(const bool& object);
+template <> int CarpMessageTemplate_GetTotalSize<char>(const char& object);
+template <> int CarpMessageTemplate_GetTotalSize<unsigned char>(const unsigned char& object);
+template <> int CarpMessageTemplate_GetTotalSize<short>(const short& object);
+template <> int CarpMessageTemplate_GetTotalSize<unsigned short>(const unsigned short& object);
+template <> int CarpMessageTemplate_GetTotalSize<int>(const int& object);
+template <> int CarpMessageTemplate_GetTotalSize<unsigned int>(const unsigned int& object);
+template <> int CarpMessageTemplate_GetTotalSize<long>(const long& object);
+template <> int CarpMessageTemplate_GetTotalSize<unsigned long>(const unsigned long& object);
+template <> int CarpMessageTemplate_GetTotalSize<long long>(const long long& object);
+template <> int CarpMessageTemplate_GetTotalSize<unsigned long long>(const unsigned long long& object);
+template <> int CarpMessageTemplate_GetTotalSize<float>(const float& object);
+template <> int CarpMessageTemplate_GetTotalSize<double>(const double& object);
+
+// ------------------------------------------------------------------------------------
+template <typename T>
+int CarpMessageTemplate_SerializePrimary(const T& object, void* data)
+{
+	*static_cast<T*>(data) = object;
+	return static_cast<int>(sizeof(T));
+}
+
+template <typename T>
+int CarpMessageTemplate_Serialize(const T& object, void* data)
+{
+	const int result = object.Serialize(CARP_MESSAGE_DATA_OFFSET(data, sizeof(int)));
+	*static_cast<int*>(data) = result;
+	return result + sizeof(int);
+}
+template <typename T>
+int CarpMessageTemplate_Serialize(const std::set<T>& object, void* data)
+{
+	// get size
+	const int len = static_cast<int>(object.size());
+	*static_cast<int*>(data) = len;
+	// offset current data
+	char* current_data = static_cast<char*>(data) + sizeof(int);
+	for (auto it = object.begin(); it != object.end(); ++it)
+		current_data += CarpMessageTemplate_Serialize(*it, current_data);
+
+	// return serialize size
+	return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
+}
+template <typename T>
+int CarpMessageTemplate_Serialize(const std::list<T>& object, void* data)
+{
+	// get size
+	const int len = static_cast<int>(object.size());
+	*static_cast<int*>(data) = len;
+	// offset current data
+	char* current_data = static_cast<char*>(data) + sizeof(int);
+	for (auto it = object.begin(); it != object.end(); ++it)
+		current_data += CarpMessageTemplate_Serialize(*it, current_data);
+
+	// return serialize size
+	return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
+}
+template <typename T>
+int CarpMessageTemplate_Serialize(const std::vector<T>& object, void* data)
+{
+	// get size
+	const int len = static_cast<int>(object.size());
+	*static_cast<int*>(data) = len;
+	// offset current data
+	char* current_data = static_cast<char*>(data) + sizeof(int);
+	for (int i = 0; i < len; ++i)
+		current_data += CarpMessageTemplate_Serialize(object[i], current_data);
+
+	// return serialize size
+	return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
+}
+template <typename K, typename V>
+int CarpMessageTemplate_Serialize(const std::map<K, V>& object, void* data)
+{
+	const int len = static_cast<int>(object.size());
+	*static_cast<int*>(data) = len;
+
+	char* current_data = static_cast<char*>(data) + sizeof(int);
+	for (auto it = object.begin(); it != object.end(); ++it)
+	{
+		current_data += Serialize(it->first, current_data);
+		current_data += Serialize(it->second, current_data);
+	}
+
+	return static_cast<int>(static_cast<char*>(current_data) - static_cast<char*>(data));
+}
+
+template <> int CarpMessageTemplate_Serialize<std::string>(const std::string& object, void* data);
+template <> int CarpMessageTemplate_Serialize<bool>(const bool& object, void* data);
+template <> int CarpMessageTemplate_Serialize<char>(const char& object, void* data);
+template <> int CarpMessageTemplate_Serialize<unsigned char>(const unsigned char& object, void* data);
+template <> int CarpMessageTemplate_Serialize<short>(const short& object, void* data);
+template <> int CarpMessageTemplate_Serialize<unsigned short>(const unsigned short& object, void* data);
+template <> int CarpMessageTemplate_Serialize<int>(const int& object, void* data);
+template <> int CarpMessageTemplate_Serialize<unsigned int>(const unsigned int& object, void* data);
+template <> int CarpMessageTemplate_Serialize<long>(const long& object, void* data);
+template <> int CarpMessageTemplate_Serialize<unsigned long>(const unsigned long& object, void* data);
+template <> int CarpMessageTemplate_Serialize<long long>(const long long& object, void* data);
+template <> int CarpMessageTemplate_Serialize<unsigned long long>(const unsigned long long& object, void* data);
+template <> int CarpMessageTemplate_Serialize<float>(const float& object, void* data);
+template <> int CarpMessageTemplate_Serialize<double>(const double& object, void* data);
+
+// ------------------------------------------------------------------------------------
+template <typename T>
+int CarpMessageTemplate_DeserializePrimary(T& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object = 0;
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+	if (len < static_cast<int>(sizeof(T))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	object = *static_cast<const T*>(data);
+	return static_cast<int>(sizeof(T));
+}
+
+template <typename T>
+int CarpMessageTemplate_Deserialize(T& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object = T();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+
+	// check size enough
+	if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= static_cast<int>(sizeof(int)); // desc size of head
+
+	int object_len = *static_cast<const int*>(data);
+	if (object_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+
+	// if length > remain length, then analysis error
+	if (object_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+
+	const int result = object.Deserialize(CARP_MESSAGE_CONST_DATA_OFFSET(data, sizeof(int)), object_len);
+	if (result < CARP_MESSAGE_DR_NO_DATA) return result;
+
+	return object_len + static_cast<int>(sizeof(int));
+}
+template <typename T>
+int CarpMessageTemplate_Deserialize(std::set<T>& object, const void* data, int len)
 {
 	if (len == 0)
 	{
@@ -554,43 +324,146 @@ template <> static int CarpMessageTemplate::Deserialize<std::string>(std::string
 		return CARP_MESSAGE_DR_NO_DATA;
 	}
 
-	// check size enough
-	if (len <= static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-	len -= sizeof(int); // desc size of head
+	if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= static_cast<int>(sizeof(int));
 
-	// get string length(include '\0')
-	const int str_len = *static_cast<const int*>(data);
-	if (str_len <= 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+	// clear self
+	object.clear();
 
-	// if length > remain length, then analysis error
-	if (str_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	// get array length and check
+	const int array_len = *static_cast<const int*>(data);
+	if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
 
-	// offset to string position
-	const char* str = static_cast<const char*>(data);
-	str += sizeof(int);
+	// offset target data position
+	const char* current_data = static_cast<const char*>(data) + sizeof(int);
+	for (int i = 0; i < array_len; ++i)
+	{
+		T t;
+		const int result = Deserialize(t, current_data, len);
+		if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
+		object.insert(t);
+	}
 
-	// check real length
-	while (*str && len > 0) { ++str; --len; }
-	if (len <= 0) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
-
-	// check completed and copy string
-	object.assign(static_cast<const char*>(data) + sizeof(int));
-	return str_len + static_cast<int>(sizeof(int));
+	// calc final length
+	return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
 }
+template <typename T>
+int CarpMessageTemplate_Deserialize(std::list<T>& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object.clear();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
 
-template <> int CarpMessageTemplate::Deserialize<bool>(bool& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<char>(char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<unsigned char>(unsigned char& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<short>(short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<unsigned short>(unsigned short& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<int>(int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<unsigned int>(unsigned int& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<long>(long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<unsigned long>(unsigned long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<long long>(long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<float>(float& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
-template <> int CarpMessageTemplate::Deserialize<double>(double& object, const void* data, int len) { return DeserializePrimary(object, data, len); }
+	if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= static_cast<int>(sizeof(int));
+
+	// clear self
+	object.clear();
+
+	// get array length and check
+	const int array_len = *static_cast<const int*>(data);
+	if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+
+	// offset target data position
+	const char* current_data = static_cast<const char*>(data) + sizeof(int);
+	for (int i = 0; i < array_len; ++i)
+	{
+		object.push_back(T());
+		const int result = Deserialize(object.back(), current_data, len);
+		if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
+	}
+
+	// calc final length
+	return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
+}
+template <typename T>
+int CarpMessageTemplate_Deserialize(std::vector<T>& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object.clear();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+
+	if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= static_cast<int>(sizeof(int));
+
+	// clear self
+	object.resize(0);
+
+	// define max len
+	const int len_max = 1024;
+
+	// get array length and check
+	int array_len = *static_cast<const int*>(data);
+	if (array_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+	if (array_len < len_max) object.reserve(array_len);
+
+	// offset target data position
+	const char* current_data = static_cast<const char*>(data) + sizeof(int);
+	for (int i = 0; i < array_len; ++i)
+	{
+		object.push_back(T());
+		const int result = CarpMessageTemplate_Deserialize(object.back(), current_data, len);
+		if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
+	}
+
+	// calc final length
+	return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
+}
+template <typename K, typename V>
+int CarpMessageTemplate_Deserialize(std::map<K, V>& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object.clear();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+
+	// check length last
+	if (len < static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= static_cast<int>(sizeof(int));
+
+	// clear self
+	object.clear();
+
+	// get length
+	const int map_len = *static_cast<const int*>(data);
+	if (map_len < 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+
+	// offset to data position
+	const char* current_data = static_cast<const char*>(data) + sizeof(int);
+	for (int i = 0; i < map_len; ++i)
+	{
+		// deserialize key
+		K key;
+		const int key_result = Deserialize(key, current_data, len);
+		if (key_result < CARP_MESSAGE_DR_NO_DATA) return key_result; current_data += key_result; len -= key_result;
+		// deserialize value
+		V& value = object[key] = V();
+		const int value_result = Deserialize(value, current_data, len);
+		if (value_result < CARP_MESSAGE_DR_NO_DATA) return value_result; current_data += value_result; len -= value_result;
+	}
+
+	return static_cast<int>(static_cast<const char*>(current_data) - static_cast<const char*>(data));
+}
+	
+template <> int CarpMessageTemplate_Deserialize<std::string>(std::string& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<bool>(bool& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<char>(char& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<unsigned char>(unsigned char& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<short>(short& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<unsigned short>(unsigned short& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<int>(int& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<unsigned int>(unsigned int& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<long>(long& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<unsigned long>(unsigned long& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<long long>(long long& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<float>(float& object, const void* data, int len);
+template <> int CarpMessageTemplate_Deserialize<double>(double& object, const void* data, int len);
 
 // ------------------------------------------------------------------------------------
 
@@ -604,7 +477,7 @@ inline int Template_Message_GetTotalSize(int cur_size)
 template<typename T1, typename ...T2>
 inline int Template_Message_GetTotalSize(int cur_size, const T1& t0, const T2& ...args)
 {
-	const int result = CarpMessageTemplate::GetTotalSize(t0);
+	const int result = CarpMessageTemplate_GetTotalSize(t0);
 	return Template_Message_GetTotalSize(cur_size + result, args...);
 }
 
@@ -618,7 +491,7 @@ inline int Template_Message_Serialize(int cur_size, void* data)
 template<typename T1, typename ...T2>
 inline int Template_Message_Serialize(int cur_size, void* data, const T1& t0, const T2& ...args)
 {
-	const int result = CarpMessageTemplate::Serialize(t0, data);
+	const int result = CarpMessageTemplate_Serialize(t0, data);
 	return Template_Message_Serialize(cur_size + result, CARP_MESSAGE_DATA_OFFSET(data, result), args...);
 }
 
@@ -632,7 +505,7 @@ inline int Template_Message_Deserialize(int cur_size, const void* data, int len)
 template<typename T1, typename ...T2>
 inline int Template_Message_Deserialize(int cur_size, const void* data, int len, T1& t0, T2& ...args)
 {
-	const int result = CarpMessageTemplate::Deserialize(t0, static_cast<const char*>(data), len);
+	const int result = CarpMessageTemplate_Deserialize(t0, static_cast<const char*>(data), len);
 	if (result < CARP_MESSAGE_DR_NO_DATA) return result;
 
 	return Template_Message_Deserialize(cur_size + result, static_cast<const char*>(data) + result, len - result, args...);
@@ -1064,7 +937,7 @@ public:
 	inline int WritePrimaryType(T value)
 	{
 		ResizeMemory(sizeof(value));
-		m_size += CarpMessageTemplate::Serialize(value, m_memory.data() + m_size);
+		m_size += CarpMessageTemplate_Serialize(value, m_memory.data() + m_size);
 		return static_cast<int>(sizeof(value));
 	}
 
@@ -1082,7 +955,7 @@ public:
 	int WriteULongLong(unsigned long long value) { return WritePrimaryType(value); }
 	int WriteFloat(float value) { return WritePrimaryType(value); }
 	int WriteDouble(double value) { return WritePrimaryType(value); }
-	void SetInt(int offset, int value) { CarpMessageTemplate::Serialize(value, m_memory.data() + offset); }
+	void SetInt(int offset, int value) { CarpMessageTemplate_Serialize(value, m_memory.data() + offset); }
 	int WriteString(const char* value)
 	{
 		const int len = static_cast<int>(strlen(value));
@@ -1121,4 +994,102 @@ public:
 	CARP_MESSAGE_SIZE m_size = 0;	// size
 };
 
+#endif
+
+#ifdef CARP_MESSAGE_IMPL
+#ifndef CARP_MESSAGE_IMPL_INCLUDE
+#define CARP_MESSAGE_IMPL_INCLUDE
+
+template <> int CarpMessageTemplate_GetTotalSize<std::string>(const std::string& object) /* include '\0' */ { return static_cast<int>(object.size()) + static_cast<int>(sizeof(int)) + 1; }
+template <> int CarpMessageTemplate_GetTotalSize<bool>(const bool& object) { return static_cast<int>(sizeof(bool)); }
+template <> int CarpMessageTemplate_GetTotalSize<char>(const char& object) { return static_cast<int>(sizeof(char)); }
+template <> int CarpMessageTemplate_GetTotalSize<unsigned char>(const unsigned char& object) { return static_cast<int>(sizeof(unsigned char)); }
+template <> int CarpMessageTemplate_GetTotalSize<short>(const short& object) { return static_cast<int>(sizeof(short)); }
+template <> int CarpMessageTemplate_GetTotalSize<unsigned short>(const unsigned short& object) { return static_cast<int>(sizeof(unsigned short)); }
+template <> int CarpMessageTemplate_GetTotalSize<int>(const int& object) { return static_cast<int>(sizeof(int)); }
+template <> int CarpMessageTemplate_GetTotalSize<unsigned int>(const unsigned int& object) { return static_cast<int>(sizeof(unsigned int)); }
+template <> int CarpMessageTemplate_GetTotalSize<long>(const long& object) { return static_cast<int>(sizeof(long)); }
+template <> int CarpMessageTemplate_GetTotalSize<unsigned long>(const unsigned long& object) { return static_cast<int>(sizeof(unsigned long)); }
+template <> int CarpMessageTemplate_GetTotalSize<long long>(const long long& object) { return static_cast<int>(sizeof(long long)); }
+template <> int CarpMessageTemplate_GetTotalSize<unsigned long long>(const unsigned long long& object) { return static_cast<int>(sizeof(unsigned long long)); }
+template <> int CarpMessageTemplate_GetTotalSize<float>(const float& object) { return static_cast<int>(sizeof(float)); }
+template <> int CarpMessageTemplate_GetTotalSize<double>(const double& object) { return static_cast<int>(sizeof(double)); }
+
+
+template <> int CarpMessageTemplate_Serialize<std::string>(const std::string& object, void* data)
+{
+	// get string length
+	const int len = static_cast<int>(object.size());
+	// add '\0' to length
+	*static_cast<int*>(data) = len + 1;
+	// offset to string position
+	char* data_string = static_cast<char*>(data) + sizeof(int);
+	// copy string
+	for (int i = 0; i < len; ++i) data_string[i] = object.at(i);
+	// set tail of string to 0
+	data_string[len] = 0;
+	// return length
+	return len + static_cast<int>(sizeof(int)) + 1;
+}
+template <> int CarpMessageTemplate_Serialize<bool>(const bool& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<char>(const char& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<unsigned char>(const unsigned char& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<short>(const short& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<unsigned short>(const unsigned short& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<int>(const int& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<unsigned int>(const unsigned int& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<long>(const long& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<unsigned long>(const unsigned long& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<long long>(const long long& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<unsigned long long>(const unsigned long long& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<float>(const float& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+template <> int CarpMessageTemplate_Serialize<double>(const double& object, void* data) { return CarpMessageTemplate_SerializePrimary(object, data); }
+
+template <> int CarpMessageTemplate_Deserialize<std::string>(std::string& object, const void* data, int len)
+{
+	if (len == 0)
+	{
+		object.clear();
+		return CARP_MESSAGE_DR_NO_DATA;
+	}
+
+	// check size enough
+	if (len <= static_cast<int>(sizeof(int))) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+	len -= sizeof(int); // desc size of head
+
+	// get string length(include '\0')
+	const int str_len = *static_cast<const int*>(data);
+	if (str_len <= 0) return CARP_MESSAGE_DR_FLAG_LEN_NOT_ENOUGH;
+
+	// if length > remain length, then analysis error
+	if (str_len > len) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+
+	// offset to string position
+	const char* str = static_cast<const char*>(data);
+	str += sizeof(int);
+
+	// check real length
+	while (*str && len > 0) { ++str; --len; }
+	if (len <= 0) return CARP_MESSAGE_DR_DATA_NOT_ENOUGH;
+
+	// check completed and copy string
+	object.assign(static_cast<const char*>(data) + sizeof(int));
+	return str_len + static_cast<int>(sizeof(int));
+}
+
+template <> int CarpMessageTemplate_Deserialize<bool>(bool& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<char>(char& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<unsigned char>(unsigned char& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<short>(short& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<unsigned short>(unsigned short& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<int>(int& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<unsigned int>(unsigned int& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<long>(long& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<unsigned long>(unsigned long& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<long long>(long long& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<unsigned long long>(unsigned long long& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<float>(float& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+template <> int CarpMessageTemplate_Deserialize<double>(double& object, const void* data, int len) { return CarpMessageTemplate_DeserializePrimary(object, data, len); }
+
+#endif
 #endif

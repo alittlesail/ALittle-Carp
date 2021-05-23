@@ -26,6 +26,7 @@ public:
 	}
 
 public:
+	struct CarpLuaRecord;
 	struct CarpLuaRecord
 	{
 		std::string source;

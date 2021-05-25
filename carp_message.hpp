@@ -126,12 +126,12 @@ public:
 
 // ------------------------------------------------------------------------------------
 template <typename T>
-static int CarpMessageTemplate_GetTotalSize(const T& object)
+int CarpMessageTemplate_GetTotalSize(const T& object)
 {
 	return object.GetTotalSize() + sizeof(int);
 }
 template <typename T>
-static int CarpMessageTemplate_GetTotalSize(const std::set<T>& object)
+int CarpMessageTemplate_GetTotalSize(const std::set<T>& object)
 {
 	int total_size = sizeof(int);
 
@@ -141,7 +141,7 @@ static int CarpMessageTemplate_GetTotalSize(const std::set<T>& object)
 	return total_size;
 }
 template <typename T>
-static int CarpMessageTemplate_GetTotalSize(const std::list<T>& object)
+int CarpMessageTemplate_GetTotalSize(const std::list<T>& object)
 {
 	int total_size = sizeof(int);
 
@@ -151,7 +151,7 @@ static int CarpMessageTemplate_GetTotalSize(const std::list<T>& object)
 	return total_size;
 }
 template <typename T>
-static int CarpMessageTemplate_GetTotalSize(const std::vector<T>& object)
+int CarpMessageTemplate_GetTotalSize(const std::vector<T>& object)
 {
 	int total_size = sizeof(int);
 
@@ -161,7 +161,7 @@ static int CarpMessageTemplate_GetTotalSize(const std::vector<T>& object)
 	return total_size;
 }
 template <typename K, typename V>
-static int CarpMessageTemplate_GetTotalSize(const std::map<K, V>& object)
+int CarpMessageTemplate_GetTotalSize(const std::map<K, V>& object)
 {
 	int total_size = sizeof(int);
 
@@ -339,7 +339,7 @@ int CarpMessageTemplate_Deserialize(std::set<T>& object, const void* data, int l
 	for (int i = 0; i < array_len; ++i)
 	{
 		T t;
-		const int result = Deserialize(t, current_data, len);
+		const int result = CarpMessageTemplate_Deserialize(t, current_data, len);
 		if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 		object.insert(t);
 	}
@@ -371,7 +371,7 @@ int CarpMessageTemplate_Deserialize(std::list<T>& object, const void* data, int 
 	for (int i = 0; i < array_len; ++i)
 	{
 		object.push_back(T());
-		const int result = Deserialize(object.back(), current_data, len);
+		const int result = CarpMessageTemplate_Deserialize(object.back(), current_data, len);
 		if (result < CARP_MESSAGE_DR_NO_DATA) return result; current_data += result; len -= result;
 	}
 

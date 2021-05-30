@@ -2,6 +2,7 @@
 #define CARP_LUA_PROFILER_INCLUDED
 
 #include <string>
+#include <memory>
 
 #include "carp_lua.hpp"
 #include "carp_script.hpp"
@@ -27,6 +28,8 @@ public:
 
 public:
 	struct CarpLuaRecord;
+	typedef std::shared_ptr<CarpLuaRecord> CarpLuaRecordPtr;
+
 	struct CarpLuaRecord
 	{
 		std::string source;
@@ -34,13 +37,13 @@ public:
 		int linedefined;
 		time_t total_time = 0;
 		int count = 0;
-		std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecord>> record_map;
+		std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecordPtr>> record_map;
 	};
 
 	struct CarpLuaStack
 	{
 		time_t start_time;
-		CarpLuaRecord* record;
+		CarpLuaRecordPtr record;
 	};
 	
 public:
@@ -95,15 +98,15 @@ public:
 		m_record_map.clear();
 	}
 
-	void WriteToFile(SDL_RWops* file, const std::string& tab, const std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecord>>& record_map)
+	void WriteToFile(SDL_RWops* file, const std::string& tab, const std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecordPtr>>& record_map)
 	{
-		std::vector<const CarpLuaRecord*> sort_list;
+		std::vector<CarpLuaRecordPtr> sort_list;
 		for (auto& pair : record_map)
 		{
 			for (auto& sub_pair : pair.second)
-				sort_list.push_back(&sub_pair.second);
+				sort_list.push_back(sub_pair.second);
 		}
-		std::sort(sort_list.begin(), sort_list.end(), [](const CarpLuaRecord* a, const CarpLuaRecord* b)->bool { return a->total_time > b->total_time; });
+		std::sort(sort_list.begin(), sort_list.end(), [](const CarpLuaRecordPtr& a, const CarpLuaRecordPtr& b)->bool { return a->total_time > b->total_time; });
 
 		for (auto& record : sort_list)
 		{
@@ -138,9 +141,23 @@ public:
 			if (ar->source != nullptr)
 			{
 				if (pre != nullptr)
-					back.record = &(pre->record->record_map[ar->source][ar->linedefined]);
+				{
+					back.record = pre->record->record_map[ar->source][ar->linedefined];
+					if (back.record == nullptr)
+					{
+						back.record = std::make_shared<CarpLuaRecord>();
+						pre->record->record_map[ar->source][ar->linedefined] = back.record;
+					}
+				}
 				else
-					back.record = &(m_record_map[ar->source][ar->linedefined]);
+				{
+					back.record = m_record_map[ar->source][ar->linedefined];
+					if (back.record == nullptr)
+					{
+						back.record = std::make_shared<CarpLuaRecord>();
+						m_record_map[ar->source][ar->linedefined] = back.record;
+					}
+				}
 
 				if (back.record->source.empty())
 				{
@@ -152,10 +169,24 @@ public:
 			else
 			{
 				if (pre != nullptr)
-					back.record = &(pre->record->record_map["unknown"][ar->linedefined]);
+				{
+					back.record = pre->record->record_map["unknown"][ar->linedefined];
+					if (back.record == nullptr)
+					{
+						back.record = std::make_shared<CarpLuaRecord>();
+						pre->record->record_map["unknown"][ar->linedefined] = back.record;
+					}
+				}
 				else
-					back.record = &(m_record_map["unknown"][ar->linedefined]);
-
+				{
+					back.record = m_record_map["unknown"][ar->linedefined];
+					if (back.record == nullptr)
+					{
+						back.record = std::make_shared<CarpLuaRecord>();
+						m_record_map["unknown"][ar->linedefined] = back.record;
+					}
+				}
+					
 				if (back.record->source.empty())
 				{
 					back.record->source = "unknown";
@@ -201,7 +232,7 @@ private:
 private:
 	std::vector<CarpLuaStack> m_stack;
 	size_t m_stack_size = 0;
-	std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecord>> m_record_map;
+	std::unordered_map<std::string, std::unordered_map<int, CarpLuaRecordPtr>> m_record_map;
 };
 
 #endif

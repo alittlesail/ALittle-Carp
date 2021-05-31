@@ -141,7 +141,7 @@ public:
 		attr.directory = (buffer.st_mode & S_IFDIR) != 0;
 		attr.modify_time = buffer.st_mtime;
 		attr.create_time = buffer.st_ctime;
-		attr.size = buffer.st_size;
+		attr.size = static_cast<size_t>(buffer.st_size);
 
 		return true;
 	}

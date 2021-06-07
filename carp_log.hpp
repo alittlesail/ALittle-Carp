@@ -272,7 +272,7 @@ do { \
 do { \
     if (!(c)) { \
         std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
-        << ", " << #p0 << ":" << (p0); \
+        << ", " << #p0 << ":" << (p0) \
 		<< ", " << #p1 << ":" << (p1); \
         s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
     } \
@@ -282,9 +282,21 @@ do { \
 do { \
     if (!(c)) { \
         std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
-        << ", " << #p0 << ":" << (p0); \
-		<< ", " << #p1 << ":" << (p1); \
+        << ", " << #p0 << ":" << (p0) \
+		<< ", " << #p1 << ":" << (p1) \
 		<< ", " << #p2 << ":" << (p2); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_MACRO_5(c, p0, p1, p2, p3) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0) \
+		<< ", " << #p1 << ":" << (p1) \
+		<< ", " << #p2 << ":" << (p2) \
+		<< ", " << #p3 << ":" << (p3); \
         s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return; \
     } \
 } while(0)
@@ -314,7 +326,7 @@ do { \
 do { \
     if (!(c)) { \
         std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
-        << ", " << #p0 << ":" << (p0); \
+        << ", " << #p0 << ":" << (p0) \
 		<< ", " << #p1 << ":" << (p1); \
         s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
     } \
@@ -324,9 +336,21 @@ do { \
 do { \
     if (!(c)) { \
         std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
-        << ", " << #p0 << ":" << (p0); \
-		<< ", " << #p1 << ":" << (p1); \
+        << ", " << #p0 << ":" << (p0) \
+		<< ", " << #p1 << ":" << (p1) \
 		<< ", " << #p2 << ":" << (p2); \
+        s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
+    } \
+} while(0)
+
+#define CARP_LOG_CHECK_RETURN_MACRO_6(c, r, p0, p1, p2, p3) \
+do { \
+    if (!(c)) { \
+        std::ostringstream astream; astream << "ERROR:" << __FILE__ << ":"<< __FUNCTION__ << "() " << __LINE__ << " CHECK failed:" << #c \
+        << ", " << #p0 << ":" << (p0) \
+		<< ", " << #p1 << ":" << (p1) \
+		<< ", " << #p2 << ":" << (p2) \
+		<< ", " << #p3 << ":" << (p3); \
         s_carp_log.Log(astream.str().c_str(), CARP_LOG_LEVEL_ERROR); return r; \
     } \
 } while(0)

@@ -267,8 +267,9 @@ public:
 					auto buffer_length = field_list[i].length;
 					// 首先，对于数值类型的变量，mysql_stmt_fetch会无视buffer_length参数，强行写入
 					// 所以这里的内存长度，必须大于或等于8个字节
-					// 这里定1024，是因为减少字符串阶段通知
-					if (buffer_length <= 0 || buffer_length >= 1024) buffer_length = 1024;
+					if (buffer_length <= sizeof(uint64_t)) buffer_length = sizeof(uint64_t);
+					// 这里定1024，是因为减少字符串截断通知
+					else if (buffer_length >= 1024) buffer_length = 1024;
 					bind.buffer = malloc(buffer_length);
 					bind.buffer_length = buffer_length;
 					bind.length = &info->value_length[i];
@@ -441,6 +442,11 @@ public:
 	void PushDouble(double param) { CommonBindForInput(static_cast<void*>(&param), sizeof(double), false, MYSQL_TYPE_DOUBLE); }
 	void PushString(const char* param) { CommonBindForInput((void*)param, strlen(param), false, MYSQL_TYPE_STRING); }
 
+	void PushTime(const MYSQL_TIME* param) { CommonBindForInput((void*)param, sizeof(MYSQL_TIME), false, MYSQL_TYPE_TIME); }
+	void PushDate(const MYSQL_TIME* param) { CommonBindForInput((void*)param, sizeof(MYSQL_TIME), false, MYSQL_TYPE_DATE); }
+	void PushDateTime(const MYSQL_TIME* param) { CommonBindForInput((void*)param, sizeof(MYSQL_TIME), false, MYSQL_TYPE_DATETIME); }
+	void PushTimestamp(const MYSQL_TIME* param) { CommonBindForInput((void*)param, sizeof(MYSQL_TIME), false, MYSQL_TYPE_TIMESTAMP); }
+
 	//===================================================================
 public:
 	enum ReadTypes
@@ -451,7 +457,8 @@ public:
 		MYSQLRT_LONGLONG = 3,
 		MYSQLRT_FLOAT = 4,
 		MYSQLRT_DOUBLE = 5,
-		MYSQLRT_STRING = 6
+		MYSQLRT_STRING = 6,
+		MYSQLRT_TIME = 7,
 	};
 
 	/* get total count
@@ -750,6 +757,41 @@ public:
 		return result;
 	}
 
+	MYSQL_TIME ReadTime()
+	{
+		if (m_col_index >= m_col_count)
+		{
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			return {0};
+		}
+		if (m_row_index >= m_row_count)
+		{
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			return {0};
+		}
+
+		MysqlBind& data = m_bind_outputs[m_row_index][m_col_index];
+
+		MYSQL_TIME result = { 0 };
+		if (data.value_length < sizeof(result))
+		{
+			CARP_ERROR("field length is too small:" << data.value_length);
+			return { 0 };
+		}
+		if (data.buffer_type != MYSQL_TYPE_TIME
+			&& data.buffer_type != MYSQL_TYPE_DATE
+			&& data.buffer_type != MYSQL_TYPE_DATETIME
+			&& data.buffer_type != MYSQL_TYPE_TIMESTAMP)
+		{
+			CARP_ERROR("field type is not MYSQL_TIME type, is:" << data.buffer_type);
+			return { 0 };
+		}
+		memcpy(&result, data.buffer.data(), sizeof(result));
+		++m_col_index;
+		if (m_col_index >= m_col_count) Next();
+		return result;
+	}
+
 	const char* ReadString()
 	{
 		if (m_col_index >= m_col_count)
@@ -804,6 +846,11 @@ public:
 		if (data.buffer_type == MYSQL_TYPE_LONGLONG) return MYSQLRT_LONGLONG;
 		if (data.buffer_type == MYSQL_TYPE_FLOAT) return MYSQLRT_FLOAT;
 		if (data.buffer_type == MYSQL_TYPE_DOUBLE) return MYSQLRT_DOUBLE;
+		if (data.buffer_type == MYSQL_TYPE_STRING) return MYSQLRT_STRING;
+		if (data.buffer_type == MYSQL_TYPE_TIME
+			|| data.buffer_type == MYSQL_TYPE_DATE
+			|| data.buffer_type == MYSQL_TYPE_DATETIME
+			|| data.buffer_type == MYSQL_TYPE_TIMESTAMP) return MYSQLRT_TIME;
 		return MYSQLRT_STRING;
 	}
 

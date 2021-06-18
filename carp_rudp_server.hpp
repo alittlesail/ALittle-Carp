@@ -5,7 +5,6 @@
 #include <memory>
 #include <unordered_map>
 #include <functional>
-#include <random>
 
 #include "carp_log.hpp"
 #include "carp_message.hpp"
@@ -335,9 +334,7 @@ class CarpRudpServerImpl : public CarpRudpServer
 public:
 	CarpRudpServerImpl()
 	{
-		// 创建随机种子
-		std::random_device rd;
-		m_random_gen = std::make_unique<std::default_random_engine>(rd());
+		srand(static_cast<unsigned int>(time(nullptr)));
 	}
 	
 	virtual ~CarpRudpServerImpl() { Close(true); }
@@ -499,8 +496,7 @@ private:
 			// 获取新的conv
 			conv = m_conv_creator.CreateID();
 			// 生成一个session
-			const std::uniform_int_distribution<> dis(0, std::numeric_limits<int>::max());
-			session = dis(*m_random_gen);
+			session = rand();
 
 			// 发送连接应答
 			{
@@ -615,7 +611,6 @@ private:
 	CarpUSocketPtr m_socket;
 	char m_udp_buffer[CARP_UDP_SERVER_BUFFER_SIZE] = {};
 	asio::ip::udp::endpoint m_receiver;			// 接收消息源
-	std::unique_ptr<std::default_random_engine> m_random_gen;
 
 private:
 	struct PocketInfo { int memory_size = 0; void* memory = nullptr; asio::ip::udp::endpoint endpoint; };

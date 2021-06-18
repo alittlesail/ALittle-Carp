@@ -1,11 +1,19 @@
-#ifndef CARP_SDL_RWOPS_HPP_INCLUDED
-#define CARP_SDL_RWOPS_HPP_INCLUDED
+#ifndef CARP_RWOPS_HPP_INCLUDED
+#define CARP_RWOPS_HPP_INCLUDED
 
+#ifdef HAS_SDL
 #include <SDL.h>
+#endif
 #include <string>
 #include <vector>
 
 #include "carp_crypto.hpp"
+
+#ifndef HAS_SDL
+#define SDL_RWclose fclose
+#define SDL_RWread(file, buffer, e_size, e_count) fread(buffer, e_size, e_count, file)
+#define SDL_RWwrite(file, buffer, e_size, e_count) fwrite(buffer, e_size, e_count, file)
+#endif
 
 class CarpRWops
 {
@@ -51,7 +59,7 @@ public:
 	// 计算文件的md5
 	static std::string FileMd5(const char* file_path)
 	{
-		SDL_RWops* file = OpenFile(file_path, "rb", false);
+		auto* file = OpenFile(file_path, "rb", false);
 		if (file == nullptr) return "";
 
 		CarpCrypto::MD5_HASH digest;
@@ -73,10 +81,23 @@ public:
 	}
 
 	// 打开文件
+#ifdef HAS_SDL
 	static SDL_RWops* OpenFile(const std::string& path, const char* mode, bool only_assets=false)
 	{
 		return SDL_RWFromFile(path.c_str(), mode, only_assets ? SDL_TRUE : SDL_FALSE);
 	}
+#else
+	static FILE* OpenFile(const std::string& path, const char* mode, bool only_assets = false)
+	{
+		FILE* file = nullptr;
+#ifdef _WIN32
+		fopen_s(&file, path.c_str(), mode);
+#else
+		file = fopen(path.c_str(), mode);
+#endif
+		return file;
+	}
+#endif
 
 	// 复制文件
 	static bool CpFile(const char* src_path, const char* dest_path, bool only_asset)
@@ -84,11 +105,11 @@ public:
 		if (src_path == nullptr || dest_path == nullptr) return false;
 
 		// open src file
-		SDL_RWops* src_file = OpenFile(src_path, "rb", only_asset);
+		auto* src_file = OpenFile(src_path, "rb", only_asset);
 		if (src_file == nullptr) return false;
 
 		// open dest file
-		SDL_RWops* dest_file = OpenFile(dest_path, "wb", false);
+		auto* dest_file = OpenFile(dest_path, "wb", false);
 		if (dest_file == nullptr)
 		{
 			SDL_RWclose(src_file);
@@ -116,11 +137,17 @@ public:
 	static bool LoadFile(const std::string& path, bool only_asset, std::vector<char>& memory)
 	{
 		// open src file
-		SDL_RWops* file = OpenFile(path, "rb", only_asset);
+		auto* file = OpenFile(path, "rb", only_asset);
 		if (file == nullptr) return false;
 
 		// get file size
-		const int size = static_cast<unsigned int>(SDL_RWsize(file));
+#ifdef HAS_SDL
+		const int size = static_cast<int>(SDL_RWsize(file));
+#else
+		fseek(file, 0, SEEK_END);
+		const int size = static_cast<int>(ftell(file));
+		fseek(file, 0, SEEK_SET);
+#endif
 		memory.resize(size, 0);
 
 		// read from memory
@@ -136,7 +163,7 @@ public:
 	{
 		if (content == nullptr) return false;
 
-		SDL_RWops* file = OpenFile(target_path, "wb", false);
+		auto* file = OpenFile(target_path, "wb", false);
 		if (file == nullptr) return false;
 
 		if (size <= 0) size = static_cast<int>(strlen(content));
@@ -174,12 +201,18 @@ public:
 		ClearMemory();
 
 		// open file from local directory first
-		SDL_RWops* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
+		auto* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
 		// check exist or not
 		if (!src_file) return false;
 
 		// get file size
+#ifdef HAS_SDL
 		m_size = static_cast<unsigned int>(SDL_RWsize(src_file));
+#else
+		fseek(src_file, 0, SEEK_END);
+		m_size = static_cast<unsigned int>(ftell(src_file));
+		fseek(src_file, 0, SEEK_SET);
+#endif
 
 		// malloc memory
 		m_memory = static_cast<char*>(malloc(m_size + 1));
@@ -308,7 +341,11 @@ private:
 
 private:
 	int m_cur_offset = 0;
+#ifdef HAS_SDL
 	SDL_RWops* m_read_rwops = nullptr;
+#else
+	FILE* m_read_rwops = nullptr;
+#endif
 };
 
 #endif

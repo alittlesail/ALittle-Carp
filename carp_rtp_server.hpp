@@ -9,12 +9,6 @@
 #include "carp_udp_server.hpp"
 #include "carp_schedule.hpp"
 
-typedef unsigned int CARP_RTP_CLIENT_ID;
-typedef unsigned char CARP_RTP_CMD_TYPE;
-typedef unsigned char CARP_RTP_PAYLOAD_TYPE;
-typedef unsigned short CARP_RTP_SEQUENCE_NUMBER;
-typedef unsigned int CARP_RTP_TIMESTAMP;
-
 class CarpRtpServer;
 typedef std::shared_ptr<CarpRtpServer> CarpRtpServerPtr;
 typedef std::weak_ptr<CarpRtpServer> CarpRtpServerWeakPtr;
@@ -280,7 +274,7 @@ public:
 	}
 
 	// 启动一个电话媒体包
-	bool Start(const std::string& call_id, unsigned int client_id, unsigned int ssrc)
+	bool Start(const std::string& call_id, unsigned int client_ssrc, unsigned int server_ssrc)
 	{
 		// 打印正在使用的警告
 		if (m_in_using) CARP_ERROR("m_call_id(" << m_call_id << "), m_client_rtp_port(" << m_client_rtp_port << "), already in used!");
@@ -299,8 +293,8 @@ public:
 		m_has_client_rtp_endpoint = false;
 		m_has_remote_rtp_endpoint = false;
 		m_has_inner_rtp_endpoint = false;
-		m_ssrc = ssrc;
-		m_client_id = client_id;
+		m_client_ssrc = client_ssrc;
+		m_server_ssrc = server_ssrc;
 		m_call_id = call_id;
 		return true;
 	}
@@ -323,7 +317,7 @@ public:
 	// 设置内部转发媒体包的ip和端口，以及语音编码
 	void SetInnerRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
-		CARP_INFO("===================Set Inner RTP======================");
+		CARP_INFO("===================Set Inner RTP======================:(ip)" << rtp_ip << " (port)" << rtp_port << " " << m_call_id);
 		m_inner_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_inner_rtp_endpoint = true;
 	}
@@ -331,16 +325,16 @@ public:
 	// 设置和线路方互发RTP包的ip和端口
 	void SetRemoteRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
-		CARP_INFO("======Set Remote RTP======:(ip)" << rtp_ip << " (port)" << rtp_port << " " << m_call_id);
+		CARP_INFO("===================Set Remote RTP======================:(ip)" << rtp_ip << " (port)" << rtp_port << " " << m_call_id);
 		m_remote_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_remote_rtp_endpoint = true;
 	}
 
 	// 转移到客户端
-	bool ChangeClient(unsigned int client_id)
+	bool ChangeClient(unsigned int client_ssrc)
 	{
 		if (!m_udp_self_rtp) return false;
-		m_client_id = client_id;
+		m_client_ssrc = client_ssrc;
 		m_has_client_rtp_endpoint = false;
 		m_udp_client_rtp = CarpUdpServerPtr();
 		return true;
@@ -372,31 +366,37 @@ private:
 	std::map<std::string, CarpUdpServerPtr> m_udp_client_rtp_map;
 	// 实际正在使用的udp服务器
 	CarpUdpServerPtr m_udp_client_rtp;
-	unsigned int m_client_rtp_port = 0;
+	// 客户端RTP的端口
+    unsigned int m_client_rtp_port = 0;
+	// 是否已接入客户端
 	bool m_has_client_rtp_endpoint = false;	// client talk
+	// 客户端的endpoint
 	asio::ip::udp::endpoint m_client_rtp_endpoint;
 
 	// 与线路方互发rtp的udp
 	CarpUdpServerPtr m_udp_self_rtp;
 	std::string m_self_rtp_ip;
 	unsigned int m_self_rtp_port = 0;
+	// 是否已接入线路方
 	bool m_has_remote_rtp_endpoint = false;	// phone system talk
+	// 线路方的endpoint
 	asio::ip::udp::endpoint m_remote_rtp_endpoint;
 
 	// 内部转发的udp
 	CarpUdpServerPtr m_udp_inner_rtp;
 	unsigned int m_inner_rtp_port = 0;
+	// 是否已接入内部转发
 	bool m_has_inner_rtp_endpoint = false; // inner rtp
+	// 内部转发的endpoint
 	asio::ip::udp::endpoint m_inner_rtp_endpoint;
 
 	// 与线路方识别媒体包的序列号
-	unsigned int m_ssrc = 0;
+	unsigned int m_server_ssrc = 0;
 	// 与客户端识别媒体包的序列号
-	CARP_RTP_CLIENT_ID m_client_id = 0;
+	unsigned int m_client_ssrc = 0;
 
 private:
 	std::string m_call_id;		// SIP呼叫ID
-	time_t m_last_receive_time = 0;	// 最后收到客户端数据包的时间
 	std::vector<uint8_t> m_rtp_buffer; // 用于发送rtp的缓冲区
 
 private:
@@ -426,35 +426,26 @@ private:
 		if (self_ptr->m_has_client_rtp_endpoint)
 		{
 			// 解包
-			CarpRtpPacket pocket = { 0 };
-			if (!CarpRtpPacketDeserialize(&pocket, info.memory, info.memory_size))
+			CarpRtpPacket receive_pocket = { 0 };
+			if (!CarpRtpPacketDeserialize(&receive_pocket, info.memory, info.memory_size))
 			{
 				CARP_ERROR("rtp_packet_deserialize failed!");
 				return;
 			}
 
-			CARP_RTP_CMD_TYPE cmd_type = 'd'; // rtp 媒体数据
-			CARP_RTP_PAYLOAD_TYPE payload_type = pocket.rtp.pt;
-			CARP_RTP_SEQUENCE_NUMBER sequence_number = pocket.rtp.seq;
-			CARP_RTP_TIMESTAMP timestamp = pocket.rtp.timestamp;
+			// 封包
+			CarpRtpPacket send_pocket = receive_pocket;
+			send_pocket.rtp.ssrc = self_ptr->m_client_ssrc;
+			if (!CarpRtpPacketSerialize(&send_pocket, self_ptr->m_rtp_buffer))
+			{
+				CARP_ERROR("rtp_packet_serialize failed!");
+				return;
+			}
 
-			// 创建客户端的rtp包。client_id,
-			const size_t new_memory_size = sizeof(CARP_RTP_CLIENT_ID)
-				+ sizeof(CARP_RTP_CMD_TYPE)
-				+ sizeof(CARP_RTP_PAYLOAD_TYPE)
-				+ sizeof(CARP_RTP_SEQUENCE_NUMBER)
-				+ sizeof(CARP_RTP_TIMESTAMP)
-				+ pocket.payloadlen;
-
-			char* new_memory = static_cast<char*>(malloc(new_memory_size));
-			char* body_memory = new_memory;
-			memcpy(body_memory, &(self_ptr->m_client_id), sizeof(CARP_RTP_CLIENT_ID)); body_memory += sizeof(CARP_RTP_CLIENT_ID);
-			memcpy(body_memory, &cmd_type, sizeof(CARP_RTP_CMD_TYPE)); body_memory += sizeof(CARP_RTP_CMD_TYPE);
-			memcpy(body_memory, &payload_type, sizeof(CARP_RTP_PAYLOAD_TYPE)); body_memory += sizeof(CARP_RTP_PAYLOAD_TYPE);
-			memcpy(body_memory, &sequence_number, sizeof(CARP_RTP_SEQUENCE_NUMBER)); body_memory += sizeof(CARP_RTP_SEQUENCE_NUMBER);
-			memcpy(body_memory, &timestamp, sizeof(CARP_RTP_TIMESTAMP)); body_memory += sizeof(CARP_RTP_TIMESTAMP);
-			memcpy(body_memory, pocket.payload, pocket.payloadlen);
-			self_ptr->m_udp_client_rtp->Send(new_memory, new_memory_size, self_ptr->m_client_rtp_endpoint);
+			// 申请内存，然后发送
+			void* new_memory = malloc(self_ptr->m_rtp_buffer.size());
+			memcpy(new_memory, self_ptr->m_rtp_buffer.data(), self_ptr->m_rtp_buffer.size());
+			self_ptr->m_udp_client_rtp->Send(new_memory, self_ptr->m_rtp_buffer.size(), self_ptr->m_client_rtp_endpoint);
 		}
 	}
 	static void HandleClientRtp(CarpUdpServer::HandleInfo& info, CarpRtpServerWeakPtr self, CarpUdpServerWeakPtr real_udp)
@@ -466,122 +457,39 @@ private:
 		// 检查是否正在使用
 		if (self_ptr->m_in_using == false) return;
 
-		// 解析数据包
-		const char* rtp_memory = info.memory;
-		size_t check_len = info.memory_size;
-
-		if (check_len < sizeof(CARP_RTP_CLIENT_ID))
+		// 解包
+		CarpRtpPacket receive_pocket = { 0 };
+		if (!CarpRtpPacketDeserialize(&receive_pocket, info.memory, info.memory_size))
 		{
-			CARP_ERROR("rtp package len error1:" << check_len);
+			CARP_ERROR("rtp_packet_deserialize failed!");
 			return;
 		}
-		CARP_RTP_CLIENT_ID client_id;
-		memcpy(&client_id, rtp_memory, sizeof(client_id));
-		rtp_memory += sizeof(client_id);
-		check_len -= sizeof(client_id);
 
-		if (check_len < sizeof(CARP_RTP_CMD_TYPE))
+		// 设置客户端
+		if (self_ptr->m_has_client_rtp_endpoint == false && self_ptr->m_client_ssrc == receive_pocket.rtp.ssrc)
 		{
-			CARP_ERROR("rtp package len error2:" << check_len);
+			self_ptr->m_client_rtp_endpoint = info.end_point;
+			self_ptr->m_has_client_rtp_endpoint = true;
+			self_ptr->m_udp_client_rtp = real_udp.lock();
+			CARP_INFO("!!!!!!carp rtp!!!!!!:" << self_ptr->m_call_id);
+		}
+
+		// 如果没有线路，直接返回
+		if (self_ptr->m_has_remote_rtp_endpoint == false) return;
+
+		// 封包
+		CarpRtpPacket send_pocket = receive_pocket;
+		send_pocket.rtp.ssrc = self_ptr->m_server_ssrc;
+		if (!CarpRtpPacketSerialize(&send_pocket, self_ptr->m_rtp_buffer))
+		{
+			CARP_ERROR("rtp_packet_serialize failed!");
 			return;
 		}
-		CARP_RTP_CMD_TYPE cmd_type = *rtp_memory;
-		rtp_memory += sizeof(cmd_type);
-		check_len -= sizeof(cmd_type);
 
-		// 处理rtp媒体包
-		if (cmd_type == 'd')
-		{
-			// 设置客户端
-			if (self_ptr->m_has_client_rtp_endpoint == false && self_ptr->m_client_id == client_id)
-			{
-				self_ptr->m_client_rtp_endpoint = info.end_point;
-				self_ptr->m_has_client_rtp_endpoint = true;
-				self_ptr->m_udp_client_rtp = real_udp.lock();
-				CARP_INFO("!!!!!!carp rtp!!!!!!:" << self_ptr->m_call_id);
-			}
-
-			// 间隔5秒发送一次数据包，用于反馈服务器有收到客户端的数据包
-			// 因为有的客户端所在的网络和服务器的网络不连通，所以需要这个来检查
-			time_t cur_time = time(nullptr);
-			if (self_ptr->m_has_client_rtp_endpoint && cur_time - self_ptr->m_last_receive_time > 5)
-			{
-				self_ptr->m_last_receive_time = cur_time;
-
-				const CARP_RTP_CMD_TYPE e_cmd_type = 'e'; // 控制信息
-
-				// 发送反馈包
-				size_t memory_size = sizeof(CARP_RTP_CLIENT_ID) + sizeof(CARP_RTP_CMD_TYPE) + sizeof(CARP_RTP_TIMESTAMP);
-				char* memory = static_cast<char*>(malloc(memory_size));
-				char* new_memory = memory;
-				memcpy(new_memory, &(self_ptr->m_client_id), sizeof(CARP_RTP_CLIENT_ID)); new_memory += sizeof(CARP_RTP_CLIENT_ID);
-				memcpy(new_memory, &e_cmd_type, sizeof(e_cmd_type)); new_memory += sizeof(e_cmd_type);
-				memcpy(new_memory, &cur_time, sizeof(cur_time)); new_memory += sizeof(cur_time);
-				self_ptr->m_udp_client_rtp->Send(memory, memory_size, self_ptr->m_client_rtp_endpoint);
-			}
-
-			// 如果没有线路，直接返回
-			if (self_ptr->m_has_remote_rtp_endpoint == false) return;
-
-			// get payload type
-			if (check_len < sizeof(CARP_RTP_PAYLOAD_TYPE))
-			{
-				CARP_ERROR("rtp package len error3:" << check_len);
-				return;
-			}
-			CARP_RTP_PAYLOAD_TYPE payload_type = 0;
-			memcpy(&payload_type, rtp_memory, sizeof(payload_type));
-			rtp_memory += sizeof(payload_type);
-			check_len -= sizeof(payload_type);
-
-			// get sequence number
-			if (check_len < sizeof(CARP_RTP_SEQUENCE_NUMBER))
-			{
-				CARP_ERROR("rtp package len error4:" << check_len);
-				return;
-			}
-			CARP_RTP_SEQUENCE_NUMBER sequence_number = 0;
-			memcpy(&sequence_number, rtp_memory, sizeof(sequence_number));
-			rtp_memory += sizeof(sequence_number);
-			check_len -= sizeof(sequence_number);
-
-			// get timestamp
-			if (check_len < sizeof(CARP_RTP_TIMESTAMP))
-			{
-				CARP_ERROR("rtp package len error5:" << check_len);
-				return;
-			}
-			CARP_RTP_TIMESTAMP timestamp = 0;
-			memcpy(&timestamp, rtp_memory, sizeof(timestamp));
-			rtp_memory += sizeof(timestamp);
-			check_len -= sizeof(timestamp);
-
-			// last len
-			if (check_len <= 0)
-			{
-				CARP_ERROR("rtp package len error6:" << check_len);
-				return;
-			}
-
-			CarpRtpPacket pocket = { 0 };
-			pocket.payload = rtp_memory;
-			pocket.payloadlen = static_cast<int>(check_len);
-			pocket.rtp.v = CARP_RTP_VERSION;
-			pocket.rtp.pt = payload_type;
-			pocket.rtp.seq = sequence_number;
-			pocket.rtp.timestamp = timestamp;
-			pocket.rtp.ssrc = self_ptr->m_ssrc;
-			if (!CarpRtpPacketSerialize(&pocket, self_ptr->m_rtp_buffer))
-			{
-				CARP_ERROR("CarpRtpPacketSerialize failed check_len:" << check_len);
-				return;
-			}
-
-			// 发送
-			void* new_memory = malloc(self_ptr->m_rtp_buffer.size());
-			memcpy(new_memory, self_ptr->m_rtp_buffer.data(), self_ptr->m_rtp_buffer.size());
-			self_ptr->m_udp_self_rtp->Send(new_memory, self_ptr->m_rtp_buffer.size(), self_ptr->m_remote_rtp_endpoint);
-		}
+		// 发送
+		void* new_memory = malloc(self_ptr->m_rtp_buffer.size());
+		memcpy(new_memory, self_ptr->m_rtp_buffer.data(), self_ptr->m_rtp_buffer.size());
+		self_ptr->m_udp_self_rtp->Send(new_memory, self_ptr->m_rtp_buffer.size(), self_ptr->m_remote_rtp_endpoint);
 	}
 	static void HandleInnerRtp(CarpUdpServer::HandleInfo& info, CarpRtpServerWeakPtr self)
 	{

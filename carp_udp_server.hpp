@@ -74,6 +74,9 @@ public:
 		CARP_INFO("udp System stop succeed:" << m_ip << ", " << m_port);
 	}
 
+	const std::string& GetIp() const { return m_ip; }
+	unsigned int GetPort() const { return m_port; }
+
 	//register callback///////////////////////////////////////////////////////////////////////////
 public:
 	/* handler function define

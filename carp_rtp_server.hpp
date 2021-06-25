@@ -248,7 +248,7 @@ public:
 		{
 			auto udp_server = std::make_shared<CarpUdpServer>(schedule->GetIOService());
 			CarpUdpServerWeakPtr udp_ptr = udp_server;
-			udp_server->RegisterUdpHandle(std::bind(HandleFromRtp, std::placeholders::_1, self_weak_ptr, udp_ptr));
+			udp_server->RegisterUdpHandle(std::bind(HandleToRtp, std::placeholders::_1, self_weak_ptr, udp_ptr));
 			if (!udp_server->Start(to_rtp_ip, to_rtp_port))
 			{
 				Close();

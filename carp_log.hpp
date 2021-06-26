@@ -159,7 +159,12 @@ protected:
 			std::string file_path;
 			file_path.append(m_file_path).append(m_file_name).append("_").append(YMD).append("_").append(HMS).append(".log");
 #ifdef _WIN32
-			fopen_s(&m_file, UTF82ANSI(file_path).c_str(), "a");
+			// 这里特意不使用fopen_s，因为这个函数会独占文件。
+			// 日志文件不关闭的时候，无法打开查看，也无法复制
+#pragma warning(push)  
+#pragma warning(disable:4996)
+			m_file = fopen(UTF82ANSI(file_path).c_str(), "a");
+#pragma warning(pop)
 #else
 			m_file = fopen(file_path.c_str(), "a");
 #endif

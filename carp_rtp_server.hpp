@@ -209,24 +209,16 @@ public:
 		// 获取弱引用
 		CarpRtpServerWeakPtr self_weak_ptr = this->shared_from_this();
 
-		// 如果已经创建了，那么就直接返回true
-		if (m_udp_from_rtp || m_udp_to_rtp)
+		// 检查ip和端口是否对的上，对不上就关闭，然后重新创建
+		if (m_udp_from_rtp && (m_udp_from_rtp->GetIp() != from_rtp_ip || m_udp_from_rtp->GetPort() != from_rtp_port))
 		{
-			if (m_udp_from_rtp)
-			{
-				if (m_udp_from_rtp->GetIp() != from_rtp_ip)
-					CARP_ERROR("error cur from rtp ip(" << m_udp_from_rtp->GetIp() << ") != from_rtp_ip(" << from_rtp_ip << ")");
-				if (m_udp_from_rtp->GetPort() != from_rtp_port)
-					CARP_ERROR("error cur from rtp port(" << m_udp_from_rtp->GetPort() << ") != from_rtp_port(" << from_rtp_port << ")");
-			}
-			if (m_udp_to_rtp)
-			{
-				if (m_udp_to_rtp->GetIp() != to_rtp_ip)
-					CARP_ERROR("error cur to rtp ip(" << m_udp_to_rtp->GetIp() << ") != to_rtp_ip(" << to_rtp_ip << ")");
-				if (m_udp_to_rtp->GetPort() != to_rtp_port)
-					CARP_ERROR("error cur to rtp port(" << m_udp_to_rtp->GetPort() << ") != to_rtp_port(" << to_rtp_port << ")");
-			}
-			return true;
+			m_udp_from_rtp->Close();
+			m_udp_from_rtp = nullptr;
+		}
+		if (m_udp_to_rtp && (m_udp_to_rtp->GetIp() != to_rtp_ip || m_udp_to_rtp->GetPort() != to_rtp_port))
+		{
+			m_udp_to_rtp->Close();
+			m_udp_to_rtp = nullptr;
 		}
 
 		// 创建与呼叫方互发媒体包的rtp

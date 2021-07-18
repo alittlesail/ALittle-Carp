@@ -29,6 +29,15 @@ public:
         m_thread = new std::thread(&CarpConsole::Run, this);
         m_title = CarpString::UTF82Unicode(title);
 #ifdef _WIN32
+        auto* const std_in = GetStdHandle(STD_INPUT_HANDLE);
+        if (std_in != INVALID_HANDLE_VALUE && std_in != nullptr)
+        {
+            DWORD mode, old_mode;
+            ::GetConsoleMode(std_in, &old_mode);
+            mode = (mode & ~ENABLE_QUICK_EDIT_MODE);  //移除快速编辑模式
+            SetConsoleMode(std_in, mode);
+        }
+
         ::SetConsoleTitleW(m_title.c_str());
 #endif
         m_handle = func;

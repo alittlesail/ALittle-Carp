@@ -274,11 +274,6 @@ public:
 		// 标记为正在使用
 		m_in_using = true;
 
-		// 打印日志
-		CARP_INFO("CarpRtpServer Start: call_id:" << call_id
-			<< ", from_rtp_port:" << m_from_rtp_port
-			<< ", to_rtp_port:" << m_to_rtp_port);
-
 		// 初始化相关数据
 		m_has_from_rtp_endpoint = false;
 		m_has_to_rtp_endpoint = false;
@@ -291,11 +286,6 @@ public:
 	// 停止一个电话媒体包
 	void Stop()
 	{
-		// 打印日志
-		CARP_INFO("CarpRtpServer Stop: call_id:" << m_call_id
-			<< ", from_rtp_port:" << m_from_rtp_port
-			<< ", to_rtp_port:" << m_to_rtp_port);
-
 		// 标记为不在使用
 		m_in_using = false;
 
@@ -306,7 +296,6 @@ public:
 	// 设置和呼叫方互发RTP包的ip和端口
 	void SetFromRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
-		CARP_INFO("===================Set From RTP======================:(ip)" << rtp_ip << " (port)" << rtp_port << " " << m_call_id);
 		m_from_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_from_rtp_endpoint = true;
 	}
@@ -314,7 +303,6 @@ public:
 	// 设置和被呼叫方互发RTP包的ip和端口
 	void SetToRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
-		CARP_INFO("===================Set To RTP======================:(ip)" << rtp_ip << " (port)" << rtp_port << " " << m_call_id);
 		m_to_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_to_rtp_endpoint = true;
 	}

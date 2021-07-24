@@ -91,7 +91,10 @@ public:
 	{
 		FILE* file = nullptr;
 #ifdef _WIN32
-		fopen_s(&file, path.c_str(), mode);
+#pragma warning(push)  
+#pragma warning(disable:4996)
+		file = fopen(path.c_str(), mode);
+#pragma warning(pop)
 #else
 		file = fopen(path.c_str(), mode);
 #endif

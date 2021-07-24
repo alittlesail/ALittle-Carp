@@ -24,7 +24,6 @@ public:
 	 * @param type type of content. ie text/xml. text/html application/json
 	 * @param file_path: write content of response to file(if file_path is not empry, then string of callback is empty£©
 	 * @param func: callback function, bool:succeed or not, string:content of response, string:head of response, string:error
-	 * @param is_ssl: is ssl
 	 */
 	void SendRequest(const std::string& url
 		, bool get_or_post, const std::string& type, const char* content, size_t content_len
@@ -41,6 +40,7 @@ public:
 		if (!result)
 		{
 			m_error = "can't find domain and port in url:" + url;
+			m_completed = true;
 			complete_func(false, "", m_response_head, m_error);
 			return;
 		}
@@ -64,6 +64,7 @@ public:
 		if (!GenerateRequestHead(domain, add_header))
 		{
 			m_error = "generate post request failed: " + url;
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -84,8 +85,15 @@ public:
 
 	void Stop()
 	{
+		if (m_completed) return;
+		if (m_stopped) return;
+
 		m_stopped = true;
+		if (m_resolver) m_resolver->cancel();
+		if (m_socket) CARPHTTPSOCKET_Close(m_socket);
 	}
+
+	const std::string& GetUrl() const { return m_url; }
 
 private:
 	void HandleQueryIPByDomain(const asio::error_code& ec, asio::ip::tcp::resolver::iterator endpoint_iterator
@@ -110,6 +118,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -125,6 +134,7 @@ private:
 		if (ec)
 		{
 			m_error = "query ip by domain failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -132,6 +142,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -165,6 +176,7 @@ private:
 		else
 		{
 			m_error = "connect domain failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 		}
 	}
@@ -174,6 +186,7 @@ private:
 		if (ec)
 		{
 			m_error = "ssl hand shake failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -181,6 +194,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -243,6 +257,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request file end failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -250,6 +265,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -273,6 +289,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request file end failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -280,6 +297,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -294,6 +312,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -301,6 +320,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -326,6 +346,7 @@ private:
 			if (!CarpHttp::CalcStatusFromHttp(m_response_head, m_status))
 			{
 				m_error = "http status calc failed:" + m_response;
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -334,6 +355,7 @@ private:
 	// 		if (status != "200")
 	// 		{
 	// 			ALITTLE_ERROR("http status error:" << m_response);
+	//			m_completed = true;
 	// 			m_complete_callback(false, "", m_response_head);
 	// 			return;
 	// 		}
@@ -343,6 +365,7 @@ private:
 			if (!CarpHttp::CalcFileSizeFromHttp(m_response_head, m_response_size, m_response_type))
 			{
 				m_error = "http file size calc failed:" + m_response;
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -367,6 +390,7 @@ private:
 				if (!m_file)
 				{
 					m_error = "file create failed!" + m_file_path;
+					m_completed = true;
 					m_complete_callback(false, "", m_response_head, m_error);
 					return;
 				}
@@ -395,6 +419,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -402,6 +427,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -421,6 +447,7 @@ private:
 				m_file.close();
 				const bool result = m_status == "200";
 				if (!result) m_error = "status(" + m_status + ") != 200";
+				m_completed = true;
 				m_complete_callback(result, "", m_response_head, m_error);
 				return;
 			}
@@ -433,6 +460,7 @@ private:
 			{
 				const bool result = m_status == "200";
 				if (!result) m_error = "status(" + m_status + ") != 200";
+				m_completed = true;
 				m_complete_callback(result, m_response, m_response_head, m_error);
 				return;
 			}
@@ -447,6 +475,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -454,6 +483,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -474,6 +504,7 @@ private:
 				if (m_chunk_size.size() >= CARP_NET_HTTP_HEAD_BUFFER_SIZE)
 				{
 					m_error = "read response failed: chunk size is too large! " + std::to_string(m_chunk_size.size());
+					m_completed = true;
 					m_complete_callback(false, "", m_response_head, m_error);
 					return;
 				}
@@ -504,6 +535,7 @@ private:
 			if (chunk_pos == 0 || CarpHttp::String2HexNumber(response_size, number) == false)
 			{
 				m_error = "read chunk size calc failed:" + std::to_string(m_chunk_size.size());
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -517,12 +549,14 @@ private:
 					m_file.close();
 					const auto result = m_status == "200";
 					if (!result) m_error = "status(" + m_status + ") != 200";
+					m_completed = true;
 					m_complete_callback(result, "", m_response_head, m_error);
 				}
 				else
 				{
 					const auto result = m_status == "200";
 					if (!result) m_error = "status(" + m_status + ") != 200";
+					m_completed = true;
 					m_complete_callback(result, m_response, m_response_head, m_error);
 				}
 				return;
@@ -572,12 +606,14 @@ private:
 				m_file.close();
 				const auto result = m_status == "200";
 				if (!result) m_error = "status(" + m_status + ") != 200";
+				m_completed = true;
 				m_complete_callback(result, "", m_response_head, m_error);
 			}
 			else
 			{
 				const auto result = m_status == "200";
 				if (!result) m_error = "status(" + m_status + ") != 200";
+				m_completed = true;
 				m_complete_callback(result, m_response, m_response_head, m_error);
 			}
 			return;
@@ -586,6 +622,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -621,6 +658,7 @@ private:
 
 	std::function<void(bool, const std::string&, const std::string&, const std::string&)> m_complete_callback; // callback
 	std::function<void(int, int)> m_progress_callback; // callback
+	bool m_completed = false;
 	std::string m_file_path;		// file path to write
 	int m_start_size = 0;
 	std::ofstream m_file;			// file object
@@ -668,6 +706,7 @@ public:
 		if (!result)
 		{
 			m_error = "can't find domain and port in url:" + url;
+			m_completed = true;
 			complete_func(false, "", m_response_head, m_error);
 			return;
 		}
@@ -688,6 +727,7 @@ public:
 		if (!GeneratePostRequest(domain, add_header))
 		{
 			m_error = "generate post request failed: " + url;
+			m_completed = true;
 			complete_func(false, "", m_response_head, m_error);
 			return;
 		}
@@ -709,7 +749,12 @@ public:
 
 	void Stop()
 	{
+		if (m_completed) return;
+		if (m_stopped) return;
+
 		m_stopped = true;
+		if (m_resolver) m_resolver->cancel();
+		if (m_socket) CARPHTTPSOCKET_Close(m_socket);
 	}
 
 private:
@@ -735,6 +780,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -752,6 +798,7 @@ private:
 		if (ec)
 		{
 			m_error = "query ip by domain failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -759,6 +806,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -794,6 +842,7 @@ private:
 		else
 		{
 			m_error = "connect domain failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 		}
 	}
@@ -803,6 +852,7 @@ private:
 		if (ec)
 		{
 			m_error = "ssl hand shake failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -810,6 +860,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -946,6 +997,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request head failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -953,6 +1005,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -979,6 +1032,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request param failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -986,6 +1040,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1008,6 +1063,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request file begin failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1015,6 +1071,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1022,6 +1079,7 @@ private:
 		if (m_file == nullptr)
 		{
 			m_error = "why m_file is null";
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1048,6 +1106,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request file failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1055,6 +1114,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1062,6 +1122,7 @@ private:
 		if (m_file == nullptr)
 		{
 			m_error = "why m_file is null";
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1091,6 +1152,7 @@ private:
 		if (ec)
 		{
 			m_error = "socket send post request file end failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1098,6 +1160,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1112,6 +1175,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1119,6 +1183,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1144,6 +1209,7 @@ private:
 			if (!CarpHttp::CalcStatusFromHttp(m_response_head, status))
 			{
 				m_error = "http status calc failed:" + m_response;
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -1152,6 +1218,7 @@ private:
 			if (status != "200")
 			{
 				m_error = "http status error:" + status;
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -1161,6 +1228,7 @@ private:
 			if (!CarpHttp::CalcFileSizeFromHttp(m_response_head, m_response_size, m_response_type))
 			{
 				m_error = "http file size calc failed:" + m_response;
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -1195,6 +1263,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1202,6 +1271,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1213,6 +1283,7 @@ private:
 
 		if (m_response_size <= 0)
 		{
+			m_completed = true;
 			m_complete_callback(true, m_response, m_response_head, m_error);
 			return;
 		}
@@ -1226,6 +1297,7 @@ private:
 		if (ec)
 		{
 			m_error = "read response failed:"; m_error += std::to_string(ec.value());
+			m_completed = true;
 			m_complete_callback(false, "", m_response_head, m_error);
 			return;
 		}
@@ -1233,6 +1305,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1253,6 +1326,7 @@ private:
 				if (m_chunk_size.size() >= CARP_NET_HTTP_HEAD_BUFFER_SIZE)
 				{
 					m_error = "read response failed: chunk size is too large! " + std::to_string(m_chunk_size.size());
+					m_completed = true;
 					m_complete_callback(false, "", m_response_head, m_error);
 					return;
 				}
@@ -1283,6 +1357,7 @@ private:
 			if (chunk_pos == 0 || CarpHttp::String2HexNumber(result, number) == false)
 			{
 				m_error = "read chunk size calc failed:" + std::to_string(m_chunk_size.size());
+				m_completed = true;
 				m_complete_callback(false, "", m_response_head, m_error);
 				return;
 			}
@@ -1291,6 +1366,7 @@ private:
 			// receive complete
 			if (m_response_size == 0)
 			{
+				m_completed = true;
 				m_complete_callback(true, m_response, m_response_head, m_error);
 				return;
 			}
@@ -1329,6 +1405,7 @@ private:
 	{
 		if (ec)
 		{
+			m_completed = true;
 			m_complete_callback(true, m_response, m_response_head, m_error);
 			return;
 		}
@@ -1336,6 +1413,7 @@ private:
 		if (m_stopped)
 		{
 			m_error = "stopped";
+			m_completed = true;
 			m_complete_callback(false, "", "", m_error);
 			return;
 		}
@@ -1368,6 +1446,7 @@ private:
 
 	std::function<void(bool, const std::string&, const std::string&, const std::string&)> m_complete_callback; // callback
 	std::function<void(int, int)> m_progress_callback;
+	bool m_completed = false;
 	std::string m_file_path;			// the path of file to upload
 	int m_start_size = 0;
 	std::string m_file_name;			// rename the file to upload

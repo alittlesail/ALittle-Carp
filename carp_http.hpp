@@ -446,7 +446,7 @@ public:
 do { \
 	if (self->ntv_socket) \
 		self->ntv_socket->connect(*it, ec); \
-	else \
+	else if (self->ssl_socket) \
 		asio::connect(self->ssl_socket->lowest_layer(), it, ec); \
 } while (0)
 
@@ -454,7 +454,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		result = self->ntv_socket->is_open(); \
-	else \
+	else if (self->ssl_socket) \
 		result = self->ssl_socket->lowest_layer().is_open(); \
 } while (0)
 
@@ -462,7 +462,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		self->ntv_socket->set_option(asio::ip::tcp::no_delay(true)); \
-	else \
+	else if (self->ssl_socket) \
 		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 } while (0)
 
@@ -472,7 +472,7 @@ do { \
 	{ \
 		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 	} \
-	else \
+	else if (self->ssl_socket) \
 	{ \
 		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 		asio::error_code ec; \
@@ -486,7 +486,7 @@ do { \
 	{ \
 		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 	} \
-	else \
+	else if (self->ssl_socket) \
 	{ \
 		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 	} \
@@ -497,15 +497,18 @@ do { \
 	asio::error_code ec; \
 	if (self->ntv_socket) \
 		self->ntv_socket->close(ec); \
-	else \
-		self->ssl_socket->shutdown(ec); \
+	else if (self->ssl_socket) \
+	{ \
+		self->ssl_socket->lowest_layer().close(ec); \
+		self->ssl_socket->async_shutdown([](const asio::error_code&) {}); \
+	} \
 } while (0)
 
 #define CARPHTTPSOCKET_Write(self, content, size, ec) \
 do { \
 	if (self->ntv_socket) \
 		asio::write(*self->ntv_socket, asio::buffer(content, size), ec); \
-	else \
+	else if (self->ssl_socket) \
 		asio::write(*self->ssl_socket, asio::buffer(content, size), ec); \
 } while (0)
 
@@ -513,7 +516,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		result = self->ntv_socket->read_some(asio::buffer(content, size), ec); \
-	else \
+	else if (self->ssl_socket) \
 		result = self->ssl_socket->read_some(asio::buffer(content, size), ec); \
 } while (0)
 
@@ -521,7 +524,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		self->ntv_socket->async_connect(*it, callback); \
-	else \
+	else if (self->ssl_socket) \
 		asio::async_connect(self->ssl_socket->lowest_layer(), it, callback); \
 } while(0)
 
@@ -529,7 +532,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		asio::async_write(*self->ntv_socket, asio::buffer(content, size), callback); \
-	else \
+	else if (self->ssl_socket) \
 		asio::async_write(*self->ssl_socket, asio::buffer(content, size), callback); \
 } while(0)
 
@@ -537,7 +540,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		self->ntv_socket->async_read_some(asio::buffer(content, size), callback); \
-	else \
+	else if (self->ssl_socket) \
 		self->ssl_socket->async_read_some(asio::buffer(content, size), callback); \
 } while(0)
 
@@ -545,7 +548,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		acceptor->async_accept(*self->ntv_socket, callback); \
-	else \
+	else if (self->ssl_socket) \
 		acceptor->async_accept(self->ssl_socket->lowest_layer(), callback); \
 } while(0)
 
@@ -553,7 +556,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		result = self->ntv_socket->remote_endpoint().address().to_string(); \
-	else \
+	else if (self->ssl_socket) \
 		result = self->ssl_socket->lowest_layer().remote_endpoint().address().to_string(); \
 } while(0)
 
@@ -561,7 +564,7 @@ do { \
 do { \
 	if (self->ntv_socket) \
 		result = self->ntv_socket->remote_endpoint().port(); \
-	else \
+	else if (self->ssl_socket) \
 		result = self->ssl_socket->lowest_layer().remote_endpoint().port(); \
 } while(0)
 #else

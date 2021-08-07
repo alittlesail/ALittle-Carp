@@ -396,6 +396,13 @@ private:
 				}
 				if (m_start_size > 0) m_file.seekp(m_start_size);
 			}
+			else
+			{
+				if (m_response_size < 10 * 1024 * 1024)
+					m_response.reserve(m_response_size);
+				else
+					m_response.reserve(10 * 1024 * 1024);
+			}
 
 			// split handle
 			if (m_response_type == CarpHttp::ResponseType::RESPONSE_TYPE_CONTENT_LENGTH)

@@ -483,13 +483,9 @@ do { \
 #define CARPHTTPSOCKET_AfterAsyncConnect(self) \
 do { \
 	if (self->ntv_socket) \
-	{ \
 		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
-	} \
 	else if (self->ssl_socket) \
-	{ \
 		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
-	} \
 } while (0)
 
 #define CARPHTTPSOCKET_Close(self) \
@@ -499,8 +495,8 @@ do { \
 		self->ntv_socket->close(ec); \
 	else if (self->ssl_socket) \
 	{ \
+		self->ssl_socket->shutdown(ec); \
 		self->ssl_socket->lowest_layer().close(ec); \
-		self->ssl_socket->async_shutdown([](const asio::error_code&) {}); \
 	} \
 } while (0)
 

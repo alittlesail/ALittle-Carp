@@ -460,32 +460,35 @@ do { \
 
 #define CARPHTTPSOCKET_SetNoDelay(self) \
 do { \
+	asio::error_code ec; \
 	if (self->ntv_socket) \
-		self->ntv_socket->set_option(asio::ip::tcp::no_delay(true)); \
+		self->ntv_socket->set_option(asio::ip::tcp::no_delay(true), ec); \
 	else if (self->ssl_socket) \
-		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 } while (0)
 
 #define CARPHTTPSOCKET_AfterConnect(self) \
 do { \
 	if (self->ntv_socket) \
 	{ \
-		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+		asio::error_code ec; \
+		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 	} \
 	else if (self->ssl_socket) \
 	{ \
-		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
 		asio::error_code ec; \
+		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 		self->ssl_socket->handshake(asio::ssl::stream<asio::ip::tcp::socket>::client, ec); \
 	} \
 } while (0)
 
 #define CARPHTTPSOCKET_AfterAsyncConnect(self) \
 do { \
+	asio::error_code ec; \
 	if (self->ntv_socket) \
-		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+		self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 	else if (self->ssl_socket) \
-		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+		self->ssl_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 } while (0)
 
 #define CARPHTTPSOCKET_Close(self) \
@@ -593,17 +596,20 @@ do { \
 
 #define CARPHTTPSOCKET_SetNoDelay(self) \
 do { \
-	self->ntv_socket->set_option(asio::ip::tcp::no_delay(true)); \
+	asio::error_code ec; \
+	self->ntv_socket->set_option(asio::ip::tcp::no_delay(true), ec); \
 } while (0)
 
 #define CARPHTTPSOCKET_AfterConnect(self) \
 do { \
-	self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+	asio::error_code ec; \
+	self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 } while (0)
 
 #define CARPHTTPSOCKET_AfterAsyncConnect(self) \
 do { \
-	self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true)); \
+	asio::error_code ec; \
+	self->ntv_socket->lowest_layer().set_option(asio::ip::tcp::no_delay(true), ec); \
 } while (0)
 
 #define CARPHTTPSOCKET_Close(self) \

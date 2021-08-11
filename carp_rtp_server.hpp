@@ -73,7 +73,7 @@ public:
 		// 保存相关数据
 		m_from_rtp_port = from_rtp_port;
 		m_to_rtp_port = to_rtp_port;
-
+		m_schedule = schedule;
 		return true;
 	}
 
@@ -91,6 +91,22 @@ public:
 		m_has_from_rtp_endpoint = false;
 		m_has_to_rtp_endpoint = false;
 		m_call_id = call_id;
+
+		m_from_rtp_password = "";
+		m_to_rtp_password = "";
+
+		if (m_from_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_from_rtp_auth_timer->cancel(ec);
+			m_from_rtp_auth_timer = nullptr;
+		}
+		if (m_to_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_to_rtp_auth_timer->cancel(ec);
+			m_to_rtp_auth_timer = nullptr;
+		}
 		return true;
 	}
 
@@ -102,6 +118,22 @@ public:
 
 		// 更新空闲时间
 		m_idle_time = time(nullptr);
+
+		m_from_rtp_password = "";
+		m_to_rtp_password = "";
+
+		if (m_from_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_from_rtp_auth_timer->cancel(ec);
+			m_from_rtp_auth_timer = nullptr;
+		}
+		if (m_to_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_to_rtp_auth_timer->cancel(ec);
+			m_to_rtp_auth_timer = nullptr;
+		}
 	}
 
 	// 设置和呼叫方互发RTP包的ip和端口
@@ -111,11 +143,45 @@ public:
 		m_has_from_rtp_endpoint = true;
 	}
 
+	// 发送和呼叫方的鉴权
+	void SetFromAuth(const std::string& password)
+	{
+		m_from_rtp_password = password;
+
+		// 获取弱引用
+		CarpRtpServerWeakPtr self_weak_ptr = this->shared_from_this();
+
+		if (m_from_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_from_rtp_auth_timer->cancel(ec);
+		}
+		m_from_rtp_auth_timer = std::make_shared<CarpAsioTimer>(m_schedule->GetIOService(), std::chrono::seconds(10));
+		m_from_rtp_auth_timer->async_wait(std::bind(&CarpRtpServer::TimerSendFromAuth, std::placeholders::_1, self_weak_ptr));
+	}
+
 	// 设置和被呼叫方互发RTP包的ip和端口
 	void SetToRtp(const std::string& rtp_ip, unsigned int rtp_port)
 	{
 		m_to_rtp_endpoint = asio::ip::udp::endpoint(asio::ip::address::from_string(rtp_ip), rtp_port);
 		m_has_to_rtp_endpoint = true;
+	}
+
+	// 发送和被叫方的鉴权
+	void SetToAuth(const std::string& password)
+	{
+		m_to_rtp_password = password;
+
+		// 获取弱引用
+		CarpRtpServerWeakPtr self_weak_ptr = this->shared_from_this();
+
+		if (m_to_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_to_rtp_auth_timer->cancel(ec);
+		}
+		m_to_rtp_auth_timer = std::make_shared<CarpAsioTimer>(m_schedule->GetIOService(), std::chrono::seconds(10));
+		m_to_rtp_auth_timer->async_wait(std::bind(&CarpRtpServer::TimerSendToAuth, std::placeholders::_1, self_weak_ptr));
 	}
 
 	// 关闭rtp
@@ -125,6 +191,19 @@ public:
 		m_udp_from_rtp = nullptr;
 		if (m_udp_to_rtp) m_udp_to_rtp->Close();
 		m_udp_to_rtp = nullptr;
+
+		if (m_from_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_from_rtp_auth_timer->cancel(ec);
+			m_from_rtp_auth_timer = nullptr;
+		}
+		if (m_to_rtp_auth_timer)
+		{
+			asio::error_code ec;
+			m_to_rtp_auth_timer->cancel(ec);
+			m_to_rtp_auth_timer = nullptr;
+		}
 	}
 
 public:
@@ -141,22 +220,78 @@ private:
 	CarpUdpServerPtr m_udp_from_rtp;
     unsigned int m_from_rtp_port = 0;
 	// 是否已接入呼叫发起方
-	bool m_has_from_rtp_endpoint = false;	// client talk
+	bool m_has_from_rtp_endpoint = false;
 	// 呼叫发起方的endpoint
 	asio::ip::udp::endpoint m_from_rtp_endpoint;
+
+	// 呼叫方的鉴权密码
+	std::string m_from_rtp_password;
+	// 鉴权信息发送定时器
+	CarpAsioTimerPtr m_from_rtp_auth_timer;
 
 	// 所有用于被呼叫放互发的udp
 	CarpUdpServerPtr m_udp_to_rtp;
 	unsigned int m_to_rtp_port = 0;
 	// 是否已接入被呼叫方
-	bool m_has_to_rtp_endpoint = false;	// client talk
+	bool m_has_to_rtp_endpoint = false;
 	// 被呼叫方的endpoint
 	asio::ip::udp::endpoint m_to_rtp_endpoint;
+	// 被叫的鉴权密码
+	std::string m_to_rtp_password;
+	// 鉴权信息发送定时器
+	CarpAsioTimerPtr m_to_rtp_auth_timer;
 
 private:
 	std::string m_call_id;		// SIP呼叫ID
+	CarpSchedule* m_schedule = nullptr;
 
 private:
+	// 处理主叫方的媒体包
+	static void TimerSendFromAuth(const asio::error_code& ec, CarpRtpServerWeakPtr self)
+	{
+		if (ec) return;
+
+		CarpRtpServerPtr self_ptr = self.lock();
+		if (!self_ptr) return;
+
+		// 发送鉴权消息
+		if (self_ptr->m_has_from_rtp_endpoint)
+		{
+			std::string content = "carp_nat_auth:" + self_ptr->m_from_rtp_password;
+			// 发送
+			void* new_memory = malloc(content.size());
+			memcpy(new_memory, content.c_str(), content.size());
+			self_ptr->m_udp_from_rtp->Send(new_memory, content.size(), self_ptr->m_from_rtp_endpoint);
+		}
+
+		if (!self_ptr->m_from_rtp_auth_timer) return;
+		self_ptr->m_from_rtp_auth_timer->expires_after(std::chrono::seconds(10));
+		self_ptr->m_from_rtp_auth_timer->async_wait(std::bind(&CarpRtpServer::TimerSendFromAuth, std::placeholders::_1, self));
+	}
+
+	// 处理被叫方的媒体包
+	static void TimerSendToAuth(const asio::error_code& ec, CarpRtpServerWeakPtr self)
+	{
+		if (ec) return;
+
+		CarpRtpServerPtr self_ptr = self.lock();
+		if (!self_ptr) return;
+
+		// 发送鉴权消息
+		if (self_ptr->m_has_to_rtp_endpoint)
+		{
+			std::string content = "carp_nat_auth:" + self_ptr->m_to_rtp_password;
+			// 发送
+			void* new_memory = malloc(content.size());
+			memcpy(new_memory, content.c_str(), content.size());
+			self_ptr->m_udp_to_rtp->Send(new_memory, content.size(), self_ptr->m_to_rtp_endpoint);
+		}
+
+		if (!self_ptr->m_to_rtp_auth_timer) return;
+		self_ptr->m_to_rtp_auth_timer->expires_after(std::chrono::seconds(10));
+		self_ptr->m_to_rtp_auth_timer->async_wait(std::bind(&CarpRtpServer::TimerSendToAuth, std::placeholders::_1, self));
+	}
+
 	// 处理被呼叫方的媒体包
 	static void HandleToRtp(CarpUdpServer::HandleInfo& info, CarpRtpServerWeakPtr self, CarpUdpServerWeakPtr real_udp)
 	{
@@ -166,16 +301,6 @@ private:
 
 		// 检查是否正在使用
 		if (self_ptr->m_in_using == false) return;
-
-		// 当没有强制调用SetToRtp时，使用ssrc来判定是否是正确的数据包
-		/*
-		if (self_ptr->m_has_to_rtp_endpoint == false && self_ptr->m_to_ssrc == receive_pocket.rtp.ssrc)
-		{
-			self_ptr->m_to_rtp_endpoint = info.end_point;
-			self_ptr->m_has_to_rtp_endpoint = true;
-			CARP_INFO("===================Receive To RTP======================:(ip)" << self_ptr->m_call_id);
-		}
-		*/
 
 		// 如果没有线路，直接返回
 		if (self_ptr->m_has_from_rtp_endpoint == false) return;
@@ -195,16 +320,6 @@ private:
 		// 检查是否正在使用
 		if (self_ptr->m_in_using == false) return;
 
-		// 当没有强制调用SetFromRtp时，使用ssrc来判定是否是正确的数据包
-		/*
-		if (self_ptr->m_has_from_rtp_endpoint == false && self_ptr->m_from_ssrc == receive_pocket.rtp.ssrc)
-		{
-			self_ptr->m_from_rtp_endpoint = info.end_point;
-			self_ptr->m_has_from_rtp_endpoint = true;
-			CARP_INFO("===================Receive From RTP======================:(ip)" << self_ptr->m_call_id);
-		}
-		*/
-
 		// 如果没有线路，直接返回
 		if (self_ptr->m_has_to_rtp_endpoint == false) return;
 
@@ -214,6 +329,5 @@ private:
 		self_ptr->m_udp_to_rtp->Send(new_memory, info.memory_size, self_ptr->m_to_rtp_endpoint);
 	}
 };
-
 
 #endif

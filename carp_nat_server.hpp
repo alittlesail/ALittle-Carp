@@ -40,7 +40,7 @@ public:
 		{
 			auto udp_server = std::make_shared<CarpUdpServer>(schedule->GetIOService());
 			CarpUdpServerWeakPtr udp_ptr = udp_server;
-			udp_server->RegisterUdpHandle(std::bind(HandleNatRtp, std::placeholders::_1, self_weak_ptr, udp_ptr));
+			udp_server->RegisterUdpHandle(std::bind(HandleNatData, std::placeholders::_1, self_weak_ptr, udp_ptr));
 			if (!udp_server->Start(nat_ip, nat_port))
 			{
 				Close();
@@ -131,7 +131,7 @@ private:
 	asio::ip::udp::endpoint m_target_endpoint;
 
 private:
-	static void HandleNatRtp(CarpUdpServer::HandleInfo& info, CarpNatServerWeakPtr self, CarpUdpServerWeakPtr real_udp)
+	static void HandleNatData(CarpUdpServer::HandleInfo& info, CarpNatServerWeakPtr self, CarpUdpServerWeakPtr real_udp)
 	{
 		// ªÒ»°Transfer
 		CarpNatServerPtr self_ptr = self.lock();

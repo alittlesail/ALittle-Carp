@@ -178,6 +178,17 @@ private:
 
 			return;
 		}
+
+		/* 测试代码，没有就注释掉
+		if (self_ptr->m_has_client_endpoint)
+		{
+			self_ptr->m_has_target_endpoint = true;
+			self_ptr->m_target_endpoint = info.end_point;
+			void* new_memory = malloc(info.memory_size);
+			memcpy(new_memory, info.memory, info.memory_size);
+			self_ptr->m_nat_udp->Send(new_memory, info.memory_size, self_ptr->m_client_endpoint);
+		}
+		*/
 	}
 };
 

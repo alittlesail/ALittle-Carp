@@ -84,7 +84,7 @@ public:
 #ifdef HAS_SDL
 	static SDL_RWops* OpenFile(const std::string& path, const char* mode)
 	{
-		return SDL_RWFromFile(path.c_str(), mode, SDL_FALSE);
+		return SDL_RWFromFile(path.c_str(), mode);
 	}
 #else
 	static FILE* OpenFile(const std::string& path, const char* mode)

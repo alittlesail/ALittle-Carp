@@ -221,7 +221,7 @@ public:
 		m_script_set.insert(lua_path);
 
 		std::vector<char> content;
-		if (!CarpRWops::LoadFile(lua_path.c_str(), false, content))
+		if (!CarpRWops::LoadFile(lua_path.c_str(), content))
 		{
 			CARP_ERROR("can't find lua file:" << lua_path);
 			return false;

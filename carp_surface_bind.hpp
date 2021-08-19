@@ -69,7 +69,7 @@ public:
 	{
 		CarpLocalFile file;
 		file.SetPath(file_path);
-		if (!file.Load(false)) return nullptr;
+		if (!file.Load()) return nullptr;
 		return LoadSurface(file);
 	}
 

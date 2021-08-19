@@ -19,6 +19,8 @@ typedef std::shared_ptr<asio::ip::tcp::resolver> CarpHttpResolverPtr;
 class CarpHttpClientText : public std::enable_shared_from_this<CarpHttpClientText>
 {
 public:
+	~CarpHttpClientText() { Stop(); }
+
 	/* send request
 	 * @param get_or_post: true: get method, false: post method
 	 * @param type type of content. ie text/xml. text/html application/json
@@ -686,7 +688,7 @@ typedef std::shared_ptr<CarpHttpClientPost> CarpHttpClientPostPtr;
 class CarpHttpClientPost : public std::enable_shared_from_this<CarpHttpClientPost>
 {
 public:
-	~CarpHttpClientPost() { if (m_file) { fclose(m_file); m_file = nullptr; } }
+	~CarpHttpClientPost() { Stop(); if (m_file) { fclose(m_file); m_file = nullptr; } }
 
 public:
 	/* send request

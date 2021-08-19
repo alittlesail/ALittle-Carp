@@ -59,7 +59,7 @@ public:
 	// 计算文件的md5
 	static std::string FileMd5(const char* file_path)
 	{
-		auto* file = OpenFile(file_path, "rb", false);
+		auto* file = OpenFile(file_path, "rb");
 		if (file == nullptr) return "";
 
 		CarpCrypto::MD5_HASH digest;
@@ -82,12 +82,12 @@ public:
 
 	// 打开文件
 #ifdef HAS_SDL
-	static SDL_RWops* OpenFile(const std::string& path, const char* mode, bool only_assets=false)
+	static SDL_RWops* OpenFile(const std::string& path, const char* mode)
 	{
-		return SDL_RWFromFile(path.c_str(), mode, only_assets ? SDL_TRUE : SDL_FALSE);
+		return SDL_RWFromFile(path.c_str(), mode, SDL_FALSE);
 	}
 #else
-	static FILE* OpenFile(const std::string& path, const char* mode, bool only_assets = false)
+	static FILE* OpenFile(const std::string& path, const char* mode)
 	{
 		FILE* file = nullptr;
 #ifdef _WIN32
@@ -103,16 +103,16 @@ public:
 #endif
 
 	// 复制文件
-	static bool CpFile(const char* src_path, const char* dest_path, bool only_asset)
+	static bool CpFile(const char* src_path, const char* dest_path)
 	{
 		if (src_path == nullptr || dest_path == nullptr) return false;
 
 		// open src file
-		auto* src_file = OpenFile(src_path, "rb", only_asset);
+		auto* src_file = OpenFile(src_path, "rb");
 		if (src_file == nullptr) return false;
 
 		// open dest file
-		auto* dest_file = OpenFile(dest_path, "wb", false);
+		auto* dest_file = OpenFile(dest_path, "wb");
 		if (dest_file == nullptr)
 		{
 			SDL_RWclose(src_file);
@@ -137,10 +137,10 @@ public:
 	}
 
 	// 加载文件
-	static bool LoadFile(const std::string& path, bool only_asset, std::vector<char>& memory)
+	static bool LoadFile(const std::string& path, std::vector<char>& memory)
 	{
 		// open src file
-		auto* file = OpenFile(path, "rb", only_asset);
+		auto* file = OpenFile(path, "rb");
 		if (file == nullptr) return false;
 
 		// get file size
@@ -166,7 +166,7 @@ public:
 	{
 		if (content == nullptr) return false;
 
-		auto* file = OpenFile(target_path, "wb", false);
+		auto* file = OpenFile(target_path, "wb");
 		if (file == nullptr) return false;
 
 		if (size <= 0) size = static_cast<int>(strlen(content));
@@ -199,12 +199,12 @@ public:
 	* load from normal dir, if not exist then load from asset dir
 	* @return succeed or not
 	*/
-	bool Load(bool only_assets)
+	bool Load()
 	{
 		ClearMemory();
 
 		// open file from local directory first
-		auto* src_file = CarpRWops::OpenFile(m_path, "rb", only_assets);
+		auto* src_file = CarpRWops::OpenFile(m_path, "rb");
 		// check exist or not
 		if (!src_file) return false;
 

@@ -47,7 +47,7 @@ public:
 	{
 		// ╪стьнд╪Ч
 		std::vector<char> content;
-		if (!CarpRWops::LoadFile(lua_path, false, content))
+		if (!CarpRWops::LoadFile(lua_path, content))
 		{
 			CARP_ERROR("can't find lua file:" << lua_path);
 			return false;

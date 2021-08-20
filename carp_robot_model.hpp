@@ -3,20 +3,13 @@
 
 #include "carp_robot.hpp"
 
-class CarpRobotDnn
+class CarpRobotLinear
 {
 public:
-	typedef CarpRobotExpression(*ActiveFunction)(const CarpRobotExpression&);
-
-public:
-	CarpRobotDnn(CarpRobotParameterCollection* model, int input_dim, int output_dim, ActiveFunction active)
+	CarpRobotLinear(CarpRobotParameterCollection* model, int input_dim, int output_dim)
 	{
-		m_input_dim = input_dim;
-		m_output_dim = output_dim;
-		m_active = active;
-
-		m_w = model->AddParameters(CarpRobotDim(m_output_dim, m_input_dim), "FC-w");
-		m_b = model->AddParameters(CarpRobotDim(m_output_dim), "FC-b");
+		m_w = model->AddParameters(CarpRobotDim(output_dim, input_dim), "FC-w");
+		m_b = model->AddParameters(CarpRobotDim(output_dim), "FC-b");
 	}
 
 public:
@@ -25,12 +18,10 @@ public:
 		m_W = graph->AddParameters(m_w);
 		m_B = graph->AddParameters(m_b);
 	}
-	CarpRobotExpression Calc(CarpRobotExpression& input)
+
+	CarpRobotExpression Forward(CarpRobotExpression& input)
 	{
-		if (m_active)
-			return m_active(m_W * input + m_B);
-		else
-			return m_W * input + m_B;
+		return m_W * input + m_B;
 	}
 
 public:
@@ -60,12 +51,6 @@ private:
 	CarpRobotParameter* m_b = nullptr;
 	CarpRobotExpression m_W;
 	CarpRobotExpression m_B;
-	int m_input_dim = 0;
-	int m_output_dim = 0;
-	ActiveFunction m_active = nullptr;
-
-private:
-	std::string m_tmp;
 };
 
 

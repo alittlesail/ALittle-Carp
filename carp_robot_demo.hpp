@@ -51,42 +51,118 @@ public:
 	void Demo2()
 	{
 		std::default_random_engine rng;
-		std::mt19937 gen(rng());
 		std::normal_distribution<float> normal(-0.1f, 1.0f);
 
+		// 固定一个x点
+		float x = -1 + 2.0f / 100;
 		std::vector<float> xs;
 		std::vector<float> ys;
 		for (int i = 0; i < 100; ++i) {
-			float x = i + 2.0f / 100;
+			// 然后随机y = 2x附近随机几个点
 			float y = 2 * x + normal(rng) * 0.33f;
+
+			// 作为数据点添加进去
 			xs.push_back(x);
 			ys.push_back(y);
 		}
 
 		CarpRobotParameterCollection model;
 		auto* pW = model.AddParameters({ 1 });
-		pW->GetValue().RandomizeUniform(gen, -0.1f, 0.1f);
-		auto* pB = model.AddParameters({ 1 });
-		pB->GetValue().RandomizeUniform(gen, -0.1f, 0.1f);
 
 		CarpRobotSimpleSGDTrainer trainer(&model, 0.1f);
-
 		CarpRobotComputationGraph cg;
-		auto W = cg.AddParameters(pW);
-		auto B = cg.AddParameters(pB);
-		CARP_INFO("learn before:" << W.GetValue().AsScalar() << ", " << B.GetValue().AsScalar());
 
-		for (unsigned i = 0; i < xs.size(); ++i) {
-			auto pred = W * xs[i] + B;
+		for (size_t i = 0; i < xs.size(); ++i) {
+			auto W = cg.AddParameters(pW);
+			auto pred = W * xs[i];
 			auto loss = (pred - ys[i]).Square();
 			cg.Forward();
 			CARP_INFO("loss:" << loss.GetValue().AsScalar());
 			cg.Backward();
 			trainer.Update();
-			CARP_INFO("learnling:" << W.GetValue().AsScalar() << ", " << B.GetValue().AsScalar());
+			cg.Clear();
+		}
+		// 最后训练的结果应该是和2相近的一个数
+		CARP_INFO("w:" << pW->GetValue().AsScalar());
+	}
+
+	// XOR
+	void Demo3()
+	{
+		CarpRobotParameterCollection model;
+		CarpRobotLinear linear_1(&model, 2, 8);
+		CarpRobotLinear linear_2(&model, 8, 1);
+
+		CarpRobotSimpleSGDTrainer trainer(&model, 0.1f);
+		CarpRobotComputationGraph cg;
+
+		std::vector<float> x_value = { 0, 0 };
+		float y_value = 0;
+
+		linear_1.Build(&cg);
+		linear_2.Build(&cg);
+		auto x = cg.AddInput(CarpRobotDim(2), &x_value);
+		auto y = cg.AddInput(&y_value);
+		auto out_1 = linear_1.Forward(x);
+		out_1 = out_1.Sigmoid();
+		auto out_2 = linear_2.Forward(out_1);
+		auto loss = (out_2 - y).Square();
+
+		for (int aa = 0; aa < 1000; ++aa) {
+			x_value[0] = 0;
+			x_value[1] = 0;
+			y_value = 0;
+
+			cg.Backward();
+			trainer.Update();
+			cg.Invalidate();
+
+			x_value[0] = 0;
+			x_value[1] = 1;
+			y_value = 1;
+
+			cg.Backward();
+			trainer.Update();
+			cg.Invalidate();
+
+			x_value[0] = 1;
+			x_value[1] = 0;
+			y_value = 1;
+
+			cg.Backward();
+			trainer.Update();
+			cg.Invalidate();
+
+			x_value[0] = 1;
+			x_value[1] = 1;
+			y_value = 0;
+
+			cg.Backward();
+			trainer.Update();
+			cg.Invalidate();
 		}
 
-		CARP_INFO("learn after:" << W.GetValue().AsScalar() << ", " << B.GetValue().AsScalar());
+		{
+			x_value[0] = 0;
+			x_value[1] = 0;
+			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			cg.Invalidate();
+
+			x_value[0] = 0;
+			x_value[1] = 1;
+			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			cg.Invalidate();
+
+			x_value[0] = 1;
+			x_value[1] = 0;
+			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			cg.Invalidate();
+
+			x_value[0] = 1;
+			x_value[1] = 1;
+			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			cg.Invalidate();
+		}
 	}
 };
 

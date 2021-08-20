@@ -137,6 +137,22 @@ public:
 	// 重载!=符号
 	bool operator != (const CarpRobotDim& right) const { return !((*this) == right); }
 
+	// 非强制相等
+	bool SoftEqual(const CarpRobotDim& right) const
+	{
+		auto max_nd = std::max(nd, right.nd);
+		for (unsigned int i = 0; i < max_nd; ++i)
+		{
+			if (d[i] == right.d[i]) continue;
+			if (d[i] == 0 && right.d[i] == 1) continue;
+			if (d[i] == 1 && right.d[i] == 0) continue;
+
+			return false;
+		}
+
+		return true;
+	}
+
 public:
 	// 复制一个Dim，并截断尾部为1的维度
 	CarpRobotDim Truncate() const { CarpRobotDim r = *this; unsigned int m = nd; while (m > 1 && d[m - 1] == 1) --m; r.Resize(m); return r; }
@@ -671,7 +687,7 @@ public:
 class CarpRobotParameterCollection : public CarpRobotParameterCollectionBase
 {
 public:
-	CarpRobotParameterCollection() { }
+	CarpRobotParameterCollection() : m_gen(m_rd()) { }
 	virtual ~CarpRobotParameterCollection()
 	{
 		for (unsigned int i = 0; i < m_all_params.size(); ++i)
@@ -683,6 +699,7 @@ public:
 	{
 		auto* p = new CarpRobotParameter(d, name);
 		p->m_owner = this;
+		p->GetValue().RandomizeUniform(m_gen, -0.1f, 0.1f);
 		m_all_params.push_back(p);
 		m_params.push_back(p);
 
@@ -761,6 +778,8 @@ private:
 	CarpRobotL2WeightDecay m_weight_decay;						// 权重衰减
 
 	std::string m_name;									// 收集器名字
+	std::random_device m_rd;
+	std::mt19937 m_gen;
 
 private:
 	std::vector<cr_real> m_project_scratch;
@@ -958,7 +977,7 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotCwiseSumNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->d == xs[1]->d, u8"CarpRobotCwiseSumNode 两个张量的维度必须一致, xs[0]:" << xs[0]->d.ToString() << " != xs[1]:" << xs[1]->d.ToString());
+		CARP_ROBOT_ASSERT(xs[0]->d.SoftEqual(xs[1]->d), u8"CarpRobotCwiseSumNode 两个张量的维度必须一致, xs[0]:" << xs[0]->d.ToString() << " != xs[1]:" << xs[1]->d.ToString());
 
 		fx.SetDim(xs[0]->d);
 		fx.tvec() = xs[0]->tvec() + xs[1]->tvec();
@@ -1126,7 +1145,7 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotCwiseQuotientNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->d == xs[1]->d, u8"CarpRobotCwiseQuotientNode 两个张量的维度必须一致, xs[0]:" << xs[0]->d.ToString() << " != xs[1]:" << xs[1]->d.ToString());
+		CARP_ROBOT_ASSERT(xs[0]->d.SoftEqual(xs[1]->d), u8"CarpRobotCwiseQuotientNode 两个张量的维度必须一致, xs[0]:" << xs[0]->d.ToString() << " != xs[1]:" << xs[1]->d.ToString());
 
 		fx.SetDim(xs[0]->d);
 
@@ -1295,6 +1314,7 @@ public:
 	const CarpRobotTensor& GetValue() const { return pg->GetValue(i); }
 	const CarpRobotTensor& GetGradient() const { return pg->GetGradient(i); }
 	CarpRobotExpression Square() { std::vector<int> args; args.push_back(i); return CarpRobotExpression(pg, pg->AddNode(new CarpRobotSquareNode(args))); }
+	CarpRobotExpression Sigmoid() { std::vector<int> args; args.push_back(i); return CarpRobotExpression(pg, pg->AddNode(new CarpRobotLogisticSigmoidNode(args))); }
 
 public:
 	CarpRobotComputationGraphBase* pg = nullptr;
@@ -1380,8 +1400,6 @@ public:
 	// 拓扑结构不变，从头开始算
 	void Invalidate()
 	{
-		m_nfxs.resize(0);
-		m_ndEdfs.resize(0);
 		m_evaluated_index = 0;
 	}
 
@@ -1394,6 +1412,9 @@ public:
 	{
 		CARP_ROBOT_ASSERT(m_nodes.size() > 0, u8"当前没有节点，无法向前计算");
 
+		// 定义在外面，避免频繁构造
+		std::vector<const CarpRobotTensor*> xs;
+
 		// 从当前节点向前计算，直到最后
 		while (m_evaluated_index < (int)m_nodes.size())
 		{
@@ -1401,7 +1422,6 @@ public:
 			auto* node = m_nodes[m_evaluated_index];
 
 			// 定义输入数组，并且获取输入参数
-			std::vector<const CarpRobotTensor*> xs;
 			xs.resize(node->m_args.size());
 			for (unsigned int i = 0; i < node->m_args.size(); ++i)
 				xs[i] = &m_nfxs[node->m_args[i]];

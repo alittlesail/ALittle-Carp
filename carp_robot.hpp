@@ -1338,17 +1338,23 @@ public:
 		for (size_t i = 0; i < parameters.size(); ++i)
 		{
 			// 按照gscale更新这个参数
-			UpdateParameter(parameters[i]);
+			UpdateParameter((int)i, parameters[i]);
 			// 将梯度值清零
 			parameters[i]->Clear();
 		}
+
+		++m_updates;
 	}
 
 	// 重置训练器的缓存数据
-	virtual void Restart() {}
+	virtual void Restart()
+	{
+		m_updates = 0;
+	}
 
 protected:
 	cr_real m_learning_rate = 0.1f;	// 学习率
+	int m_updates = 0;
 	CarpRobotParameterCollection* m_model = nullptr;		// ParameterCollection对象
 
 protected:
@@ -1356,7 +1362,7 @@ protected:
 	CarpRobotTrainer() {}
 
 	// 更新参数
-	virtual void UpdateParameter(CarpRobotParameter* parameter) = 0;
+	virtual void UpdateParameter(int index, CarpRobotParameter* parameter) = 0;
 };
 
 class CarpRobotSGDTrainer : public CarpRobotTrainer
@@ -1364,7 +1370,60 @@ class CarpRobotSGDTrainer : public CarpRobotTrainer
 public:
 	CarpRobotSGDTrainer(CarpRobotParameterCollection& model, cr_real learning_rate) : CarpRobotTrainer(model, learning_rate) {}
 protected:
-	void UpdateParameter(CarpRobotParameter* parameter) override { parameter->GetValue().tvec() -= parameter->GetGradient().tvec() * m_learning_rate; }
+	void UpdateParameter(int index, CarpRobotParameter* parameter) override { parameter->GetValue().tvec() -= parameter->GetGradient().tvec() * m_learning_rate; }
+};
+
+
+class CarpRobotAdamTrainer : public CarpRobotTrainer
+{
+public:
+	CarpRobotAdamTrainer(CarpRobotParameterCollection& model, float learning_rate = 0.001, float beta_1 = 0.9, float beta_2 = 0.999, float eps = 1e-8) :
+		CarpRobotTrainer(model, learning_rate), m_beta_1(beta_1), m_beta_2(beta_2), m_epsilon(eps) {}
+	~CarpRobotAdamTrainer() {}
+
+	void Restart()
+	{
+		for (size_t i = 0; i < m_m.size(); ++i)
+			m_m[i].Zero();
+
+		for (size_t i = 0; i < m_v.size(); ++i)
+			m_v[i].Zero();
+
+		m_updates = 0;
+	}
+
+protected:
+	void AllocateShadowParameters(CarpRobotParameterCollection& model, std::vector<CarpRobotTensor>& list)
+	{
+		const auto& parameters = model.GetParameters();
+		if (list.size() == parameters.size()) return;
+
+		list.resize(parameters.size());
+		for (size_t i = 0; i < parameters.size(); ++i)
+			list[i].SetDim(parameters[i]->GetValue().GetDim(), true);
+	}
+
+	void UpdateParameter(int index, CarpRobotParameter* parameter) override
+	{
+		AllocateShadowParameters(*m_model, m_m);
+		AllocateShadowParameters(*m_model, m_v);
+
+		auto& m = m_m[index];
+		auto& v = m_v[index];
+
+		m.tvec() = m.tvec() * m_beta_1 + parameter->GetGradient().tvec() * (1.f - m_beta_1);
+		v.tvec() = v.tvec() * m_beta_2 + parameter->GetGradient().tvec().square() * (1.f - m_beta_2);
+		float lr_t = m_learning_rate * sqrt(1 - pow(m_beta_2, m_updates + 1)) / (1 - pow(m_beta_1, m_updates + 1));
+		parameter->GetValue().tvec() -= m.tvec() / (v.tvec().sqrt() + m_epsilon) * lr_t;
+	}
+
+private:
+	float m_beta_1 = 0;
+	float m_beta_2 = 0;
+	float m_epsilon = 0;
+
+	std::vector<CarpRobotTensor> m_m; // History of gradients
+	std::vector<CarpRobotTensor> m_v; // History of deltas
 };
 
 #endif

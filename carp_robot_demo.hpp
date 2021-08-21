@@ -93,7 +93,7 @@ public:
 		CarpRobotLinear linear_1(model, 2, 8);
 		CarpRobotLinear linear_2(model, 8, 1);
 
-		CarpRobotSGDTrainer trainer(model, 0.1f);
+		CarpRobotAdamTrainer trainer(model, 0.1f);
 		CarpRobotComputationGraph cg;
 
 		std::vector<float> x_value = { 0, 0 };

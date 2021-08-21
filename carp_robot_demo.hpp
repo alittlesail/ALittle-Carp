@@ -14,15 +14,15 @@ public:
 		CarpRobotComputationGraph g;
 
 		std::vector<float> data_a = { 1, 2, 3, 4, 5, 6 };
-		CarpRobotDim dim_a(2, 3);
+		CarpRobotDim dim_a({ 2, 3 });
 		auto a = g.AddInput(dim_a, data_a);
 		
 		std::vector<float> data_b = { 1, 2, 3, 4, 5, 6 };
-		CarpRobotDim dim_b(2, 3);
+		CarpRobotDim dim_b({ 2, 3 });
 		auto b = g.AddInput(dim_b, data_b);
 
 		std::vector<float> data_c = { 1, 2, 3, 4, 5, 6 };
-		CarpRobotDim dim_c(3, 2);
+		CarpRobotDim dim_c({ 3, 2 });
 		auto c = g.AddInput(dim_c, data_c);
 
 		auto negate = -a;
@@ -67,9 +67,9 @@ public:
 		}
 
 		CarpRobotParameterCollection model;
-		auto* pW = model.AddParameters({ 1 });
+		auto* pW = model.AddParameters(CarpRobotDim({ 1 }));
 
-		CarpRobotSimpleSGDTrainer trainer(&model, 0.1f);
+		CarpRobotSGDTrainer trainer(model, 0.1f);
 		CarpRobotComputationGraph cg;
 
 		for (size_t i = 0; i < xs.size(); ++i) {
@@ -90,18 +90,18 @@ public:
 	void Demo3()
 	{
 		CarpRobotParameterCollection model;
-		CarpRobotLinear linear_1(&model, 2, 8);
-		CarpRobotLinear linear_2(&model, 8, 1);
+		CarpRobotLinear linear_1(model, 2, 8);
+		CarpRobotLinear linear_2(model, 8, 1);
 
-		CarpRobotSimpleSGDTrainer trainer(&model, 0.1f);
+		CarpRobotSGDTrainer trainer(model, 0.1f);
 		CarpRobotComputationGraph cg;
 
 		std::vector<float> x_value = { 0, 0 };
 		float y_value = 0;
 
-		linear_1.Build(&cg);
-		linear_2.Build(&cg);
-		auto x = cg.AddInput(CarpRobotDim(2), &x_value);
+		linear_1.Build(cg);
+		linear_2.Build(cg);
+		auto x = cg.AddInput(CarpRobotDim({ 2 }), &x_value);
 		auto y = cg.AddInput(&y_value);
 		auto out_1 = linear_1.Forward(x);
 		out_1 = out_1.Sigmoid();
@@ -145,22 +145,30 @@ public:
 		{
 			x_value[0] = 0;
 			x_value[1] = 0;
-			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			auto result = out_2.GetValue().AsScalar();
+			std::string check = std::abs(result - 0) < 0.000001 ? "yes" : "no";
+			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 0;
 			x_value[1] = 1;
-			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			result = out_2.GetValue().AsScalar();
+			check = std::abs(result - 1) < 0.000001 ? "yes" : "no";
+			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 1;
 			x_value[1] = 0;
-			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			result = out_2.GetValue().AsScalar();
+			check = std::abs(result - 1) < 0.000001 ? "yes" : "no";
+			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 1;
 			x_value[1] = 1;
-			CARP_INFO(x_value[0] << ", " << x_value[1] << "=" << out_2.GetValue().AsScalar());
+			result = out_2.GetValue().AsScalar();
+			check = std::abs(result - 0) < 0.000001 ? "yes" : "no";
+			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 		}
 	}

@@ -6,17 +6,17 @@
 class CarpRobotLinear
 {
 public:
-	CarpRobotLinear(CarpRobotParameterCollection* model, int input_dim, int output_dim)
+	CarpRobotLinear(CarpRobotParameterCollection& model, int input_dim, int output_dim)
 	{
-		m_w = model->AddParameters(CarpRobotDim(output_dim, input_dim), "FC-w");
-		m_b = model->AddParameters(CarpRobotDim(output_dim), "FC-b");
+		m_w = model.AddParameters(CarpRobotDim({ output_dim, input_dim }), "FC-w");
+		m_b = model.AddParameters(CarpRobotDim({ output_dim }), "FC-b");
 	}
 
 public:
-	void Build(CarpRobotComputationGraph* graph)
+	void Build(CarpRobotComputationGraph& graph)
 	{
-		m_W = graph->AddParameters(m_w);
-		m_B = graph->AddParameters(m_b);
+		m_W = graph.AddParameters(m_w);
+		m_B = graph.AddParameters(m_b);
 	}
 
 	CarpRobotExpression Forward(CarpRobotExpression& input)

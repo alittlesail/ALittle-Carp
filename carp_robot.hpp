@@ -234,6 +234,7 @@ public:
 	// 构造一个张量
 	CarpRobotTensor() { }
 	CarpRobotTensor(const CarpRobotDim& d, bool init_zero=false) { SetDim(d, init_zero); }
+	CarpRobotTensor(const CarpRobotDim& d, cr_real* value) { m_dim = d; m_value = value; m_shared = true; }
 	CarpRobotTensor(const CarpRobotTensor& t) { Copy(t); }
 	~CarpRobotTensor() { ReleaseMemory(); }
 	void operator = (const CarpRobotTensor& t) { Copy(t); }
@@ -256,6 +257,9 @@ public:
 		m_value = value;
 		m_shared = true;
 	}
+
+	// 获取内存
+	cr_real* GetValue() const { return m_value; }
 
 	// 复制
 	void Copy(const CarpRobotTensor& t)
@@ -368,6 +372,32 @@ public:
 		std::generate(m_value, m_value + m_dim.GetTotalSize(), b);
 	}
 
+	void Logsumexp(CarpRobotTensor& m, CarpRobotTensor& z, int axis=0) const
+	{
+		CARP_ROBOT_ASSERT(m_dim.Count() <= 2, u8"TensorTools::logsumexp 目前只支持向量或者矩阵");
+
+		int other_axis = axis ^ 1;
+		if (m_dim[other_axis] == 1)
+		{
+			m.t<0>() = tvec().maximum();
+			cr_real mval = m.AsScalar();
+			// This needs to be split into two lines to prevent memory allocation
+			z.t<0>() = (tvec() - mval).exp().sum();
+			z.t<0>() = z.t<0>().log() + mval;
+		}
+		else
+		{
+			Eigen::array<int, 1> red_axis; red_axis[0] = axis;
+			m.t<1>() = t<2>().maximum(red_axis);
+
+			auto miter = m.GetValue();
+			for (size_t i = 0; i < m_dim[1]; ++i, ++miter)
+			{
+				// z.t<1>().chip<1>(0).chip<0>(i) = (t<2>().chip<2>(0).chip(i, other_axis) - *miter).exp().sum();
+				// z.t<1>().chip<1>(0).chip<0>(i) = z.t<1>().chip<1>(0).chip<0>(i).log() + *miter;
+			}
+		}
+	}
 public:
 	// 获取创建二维矩阵对象
 	Eigen::Map<Eigen::MatrixXf> m() { return Eigen::Map<Eigen::MatrixXf>(m_value, m_dim.Rows(), m_dim.Cols()); }
@@ -568,6 +598,19 @@ public:
 		}
 
 		return result;
+	}
+
+	// 序列化
+	void Serialize(CarpRobotModelSerializer& file)
+	{
+		for (size_t i = 0; i < m_params.size(); ++i)
+			m_params[i]->Serialize(file, nullptr);
+	}
+	// 反序列化
+	void Deserialize(CarpRobotModelDeserializer& file)
+	{
+		for (size_t i = 0; i < m_params.size(); ++i)
+			m_params[i]->Deserialize(file, nullptr);
 	}
 
 private:
@@ -1019,6 +1062,143 @@ protected:
 	}
 };
 
+// z = \sum_j \exp (x_i)_j
+// y_i = (x_1)_i / z
+class CarpRobotSoftmaxNode : public CarpRobotNode
+{
+public:
+	CarpRobotSoftmaxNode(const std::vector<int>& a) : CarpRobotNode(a) {}
+	~CarpRobotSoftmaxNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
+		fx.SetDim(xs[0]->GetDim());
+
+		CarpRobotTensor z(CarpRobotDim({ 1 }));
+		CarpRobotTensor m(CarpRobotDim({ 1 }));
+
+		int size = xs[0]->GetDim()[0];
+		int num_cols = xs[0]->GetDim()[1];
+
+		cr_real* col_x_value = xs[0]->GetValue();
+		cr_real* col_fx_value = fx.GetValue();
+		CarpRobotDim col_dim = CarpRobotDim({ xs[0]->GetDim()[0] });
+		for (size_t col = 0; col < num_cols; ++col)
+		{
+			CarpRobotTensor col_x(col_dim, col_x_value);
+			CarpRobotTensor col_fx(col_dim, col_fx_value);
+			m.t<0>() = col_x.tvec().maximum();
+			col_fx.tvec() = (col_x.tvec() - m.GetValue()[0]).exp();
+			z.t<0>() = col_fx.tvec().sum();
+			col_fx.tvec() = col_fx.tvec() / z.GetValue()[0];
+			col_x_value += size;
+			col_fx_value += size;
+		}
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		CarpRobotTensor z(CarpRobotDim({ fx.GetDim().Cols() }));
+		Eigen::array<ptrdiff_t, 1> red_axis = { 0 };
+		z.t<1>() = (fx.t<2>() * dEdf.t<2>()).sum(red_axis);
+
+		int size = xs[0]->GetDim()[0];
+		int num_cols = xs[0]->GetDim()[1];
+
+		cr_real* col_fx_value = fx.GetValue();
+		cr_real* col_dEdf_value = dEdf.GetValue();
+		cr_real* col_dEdxi_value = dEdxi.GetValue();
+		CarpRobotDim col_dim = CarpRobotDim({ xs[0]->GetDim()[0] });
+
+		for (size_t col = 0; col < num_cols; ++col)
+		{
+			CarpRobotTensor col_fx(col_dim, col_fx_value);
+			CarpRobotTensor col_dEdf(col_dim, col_dEdf_value);
+			CarpRobotTensor col_dEdxi(col_dim, col_dEdxi_value);
+			col_dEdxi.tvec() += (col_dEdf.tvec() - z.GetValue()[col]) * col_fx.tvec();
+			col_fx_value += size;
+			col_dEdf_value += size;
+			col_dEdxi_value += size;
+		}
+	}
+};
+
+// z = \sum_j \exp (x_i)_j
+// y_i = (x_1)_i - \log z
+class CarpRobotLogSoftmaxNode : public CarpRobotNode
+{
+public:
+	CarpRobotLogSoftmaxNode(const std::vector<int>& a) : CarpRobotNode(a) {}
+	~CarpRobotLogSoftmaxNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
+		fx.SetDim(xs[0]->GetDim());
+
+		CarpRobotTensor z(CarpRobotDim({ xs[0]->GetDim().Cols() }));
+		CarpRobotTensor m(CarpRobotDim({ xs[0]->GetDim().Cols() }));
+		xs[0]->Logsumexp(m, z);
+		if (fx.GetDim().GetTotalSize() == fx.GetDim().Rows())
+		{
+			fx.t<1>() = xs[0]->t<1>() - z.AsScalar();
+		}
+		else
+		{
+			int size = xs[0]->GetDim()[0];
+			int num_cols = xs[0]->GetDim()[1];
+
+			auto col_fx_value = fx.GetValue();
+			auto col_x_value = xs[0]->GetValue();
+			auto col_dim = CarpRobotDim({ xs[0]->GetDim()[0] });
+			for (size_t col = 0; col < num_cols; ++col)
+			{
+				CarpRobotTensor col_fx(col_dim, col_fx_value);
+				CarpRobotTensor col_x(col_dim, col_x_value);
+				col_fx.tvec() = col_x.tvec() - z.GetValue()[col];
+				col_x_value += size;
+				col_fx_value += size;
+			}
+		}
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		CarpRobotTensor z(CarpRobotDim({ xs[0]->GetDim().Cols() }));
+		Eigen::array<ptrdiff_t, 1> red_axis = { 0 };
+		z.t<1>() = dEdf.t<2>().sum(red_axis);
+
+		int size = xs[0]->GetDim()[0];
+		int num_cols = xs[0]->GetDim()[1];
+
+		cr_real* col_fx_value = fx.GetValue();
+		cr_real* col_dEdf_value = dEdf.GetValue();
+		cr_real* col_dEdxi_value = dEdxi.GetValue();
+		CarpRobotDim col_dim = CarpRobotDim({ xs[0]->GetDim()[0] });
+
+		for (size_t col = 0; col < num_cols; ++col)
+		{
+			CarpRobotTensor col_fx(col_dim, col_fx_value);
+			CarpRobotTensor col_dEdf(col_dim, col_dEdf_value);
+			CarpRobotTensor col_dEdxi(col_dim, col_dEdxi_value);
+
+			col_dEdxi.tvec() += (col_fx.tvec().exp() * -z.GetValue()[col]) + col_dEdf.tvec();
+			col_fx_value += size;
+			col_dEdf_value += size;
+			col_dEdxi_value += size;
+		}
+	}
+};
+
 // y = dropout(x,p) where p specifies the dropout probability
 class CarpRobotDropoutNode : public CarpRobotNode
 {
@@ -1065,7 +1245,6 @@ public:
 protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotConv2DNode 必须是一个输入");
 		{
 			CARP_ROBOT_ASSERT(xs.size() == 2 || xs.size() == 3, u8"Conv2D requires either two or three inputs");
 			CARP_ROBOT_ASSERT((xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3) && (xs[1]->GetDim().Count() == 4 && xs[1]->GetDim()[2] == xs[0]->GetDim()[2]), u8"Conv2D requires either two or three inputs");
@@ -1386,6 +1565,80 @@ protected:
 	}
 };
 
+// z = \sum_j \exp (x_i)_j
+// y = (x_1)_element - \log z
+class CarpRobotPickNegLogSoftmaxNode : public CarpRobotNode
+{
+public:
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, int v) : CarpRobotNode(a), m_val(v), m_pval(&m_val), m_vals(), m_pvals() {}
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, const std::vector<int>& v) : CarpRobotNode(a), m_val(), m_pval(), m_vals(v), m_pvals(&m_vals) {}
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, const int* pv) : CarpRobotNode(a), m_val(), m_pval(pv), m_vals(), m_pvals() {}
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, const std::vector<int>* pv) : CarpRobotNode(a), m_val(), m_pval(), m_vals(), m_pvals(pv) {}
+	~CarpRobotPickNegLogSoftmaxNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是两个输入");
+
+		CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() == 1, u8"输入的维度信息错误");
+		
+		m_z.SetDim(CarpRobotDim({ 1 }), true);
+		m_m.SetDim(CarpRobotDim({ 1 }), true);
+
+		m_ids_dev.resize(1);
+
+		fx.SetDim(CarpRobotDim({ 1 }));
+		if (xs[0]->GetDim().Cols() == 1)
+		{
+			unsigned int* ids_host = &(m_ids_dev[0]);
+			if (m_pval)
+			{
+				*ids_host = *m_pval;
+			}
+			else
+			{
+				CARP_ROBOT_ASSERT(m_pvals, "Neither single nor vector of elements available in PickNegLogSoftmax::forward");
+				ids_host[0] = (*m_pvals)[0];
+			}
+			xs[0]->Logsumexp(m_m, m_z);
+			fx.GetValue()[0] = xs[0]->GetValue()[m_ids_dev[0]];
+			fx.tvec() = m_z.tvec() - fx.tvec();
+		}
+		else
+		{
+			CARP_ROBOT_ASSERT(0, "PickNegLogSoftmax::forward not yet implemented for multiple columns");
+		}
+	}
+
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi) override
+	{
+		if (xs[0]->GetDim().Cols() == 1)
+		{
+			dEdxi.t<1>().chip<1>(0) += (xs[0]->t<1>().chip<1>(0) - m_z.GetValue()[0]).exp() * dEdf.GetValue()[0];
+			dEdxi.GetValue()[m_ids_dev[0]] -= dEdf.GetValue()[0];
+		}
+		else
+		{
+			CARP_ROBOT_ASSERT(0, "PickNegLogSoftmax::backward not yet implemented for multiple columns");
+		}
+	}
+public:
+	int m_val = 0;
+	const int* m_pval = nullptr;
+	std::vector<int> m_vals;
+	const std::vector<int>* m_pvals = nullptr;
+
+private:
+	CarpRobotTensor m_z;
+	CarpRobotTensor m_m;
+	std::vector<unsigned int> m_ids_dev;
+};
+
 class ICarpRobotComputationGraph
 {
 public:
@@ -1410,9 +1663,18 @@ public:
 	int GetIndex() const { return m_index; }
 
 public:
+	// 损失函数
 	CarpRobotExpression Square() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotSquareNode(args))); }
+	CarpRobotExpression PickNegLogSoftmax(int v) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickNegLogSoftmaxNode(args, v))); }
+	CarpRobotExpression BinaryLogLoss() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotBinaryLogLossNode(args))); }
+
+	// 激活函数
 	CarpRobotExpression Sigmoid() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotLogisticSigmoidNode(args))); }
 	CarpRobotExpression Rectify() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotRectifyNode(args))); }
+	CarpRobotExpression Softmax() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotSoftmaxNode(args))); }
+	CarpRobotExpression LogSoftmax() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotLogSoftmaxNode(args))); }
+
+	// 功能函数
 	CarpRobotExpression Dropout(cr_real rate) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate))); }
 	CarpRobotExpression Conv2D(const std::vector<int>& stride, const bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride, padding_type))); }
 	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
@@ -1421,6 +1683,18 @@ private:
 	ICarpRobotComputationGraph* m_graph = nullptr;
 	int m_index = 0;
 };
+
+// 表达式的四则运算
+CarpRobotExpression operator-(const CarpRobotExpression& x) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotNegateNode({ x.GetIndex() }))); }
+CarpRobotExpression operator+(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotCwiseSumNode({ x.GetIndex(), y.GetIndex() }))); }
+CarpRobotExpression operator+(cr_real x, const CarpRobotExpression& y) { return CarpRobotExpression(y.GetGraph(), y.GetGraph()->AddNode(new CarpRobotConstantPlusXNode({ y.GetIndex() }, x))); }
+CarpRobotExpression operator+(const CarpRobotExpression& x, cr_real y) { return y + x; }
+CarpRobotExpression operator-(const CarpRobotExpression& x, const CarpRobotExpression& y) { return x + (-y); }
+CarpRobotExpression operator-(cr_real x, const CarpRobotExpression& y) { return CarpRobotExpression(y.GetGraph(), y.GetGraph()->AddNode(new CarpRobotConstantMinusXNode({ y.GetIndex() }, x))); }
+CarpRobotExpression operator-(const CarpRobotExpression& x, cr_real y) { return -(y - x); }
+CarpRobotExpression operator*(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotMatrixMultiplyNode({ x.GetIndex(), y.GetIndex() }))); }
+CarpRobotExpression operator*(const CarpRobotExpression& x, cr_real y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotConstScalarMultiplyNode({ x.GetIndex() }, y))); }
+CarpRobotExpression operator/(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotCwiseQuotientNode({ x.GetIndex(), y.GetIndex() }))); }
 
 // 1. 计算图，保存所有节点的拓扑结构
 // 2. 前向计算，反向传播
@@ -1632,17 +1906,6 @@ private:
 	int m_evaluated_index = 0;				// 记录当前计算到那个节点
 	bool m_immediate_compute = false;			// 是否立即计算
 };
-
-CarpRobotExpression operator-(const CarpRobotExpression& x) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode( new CarpRobotNegateNode({ x.GetIndex() }))); }
-CarpRobotExpression operator+(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotCwiseSumNode({ x.GetIndex(), y.GetIndex() }))); }
-CarpRobotExpression operator+(cr_real x, const CarpRobotExpression& y) { return CarpRobotExpression(y.GetGraph(), y.GetGraph()->AddNode(new CarpRobotConstantPlusXNode({ y.GetIndex() }, x))); }
-CarpRobotExpression operator+(const CarpRobotExpression& x, cr_real y) { return y + x; }
-CarpRobotExpression operator-(const CarpRobotExpression& x, const CarpRobotExpression& y) { return x + (-y); }
-CarpRobotExpression operator-(cr_real x, const CarpRobotExpression& y) { return CarpRobotExpression(y.GetGraph(), y.GetGraph()->AddNode(new CarpRobotConstantMinusXNode({ y.GetIndex() }, x))); }
-CarpRobotExpression operator-(const CarpRobotExpression& x, cr_real y) { return -(y - x); }
-CarpRobotExpression operator*(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotMatrixMultiplyNode({ x.GetIndex(), y.GetIndex() }))); }
-CarpRobotExpression operator*(const CarpRobotExpression& x, cr_real y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotConstScalarMultiplyNode({ x.GetIndex() }, y))); }
-CarpRobotExpression operator/(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotCwiseQuotientNode({ x.GetIndex(), y.GetIndex() }))); }
 
 class CarpRobotTrainer
 {

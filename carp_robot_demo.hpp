@@ -146,28 +146,28 @@ public:
 			x_value[0] = 0;
 			x_value[1] = 0;
 			auto result = out_2.GetValue().AsScalar();
-			std::string check = std::abs(result - 0) < 0.000001 ? "yes" : "no";
+			std::string check = std::abs(result - 0) < 0.0001 ? "yes" : "no";
 			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 0;
 			x_value[1] = 1;
 			result = out_2.GetValue().AsScalar();
-			check = std::abs(result - 1) < 0.000001 ? "yes" : "no";
+			check = std::abs(result - 1) < 0.0001 ? "yes" : "no";
 			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 1;
 			x_value[1] = 0;
 			result = out_2.GetValue().AsScalar();
-			check = std::abs(result - 1) < 0.000001 ? "yes" : "no";
+			check = std::abs(result - 1) < 0.0001 ? "yes" : "no";
 			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 
 			x_value[0] = 1;
 			x_value[1] = 1;
 			result = out_2.GetValue().AsScalar();
-			check = std::abs(result - 0) < 0.000001 ? "yes" : "no";
+			check = std::abs(result - 0) < 0.0001 ? "yes" : "no";
 			CARP_INFO(check << "\t" << x_value[0] << ", " << x_value[1] << "=" << result);
 			cg.Invalidate();
 		}

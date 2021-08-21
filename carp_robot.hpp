@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <random>
 
 // 定义异常宏
 #define CARP_ROBOT_ASSERT(e, text) \
@@ -133,6 +134,18 @@ private:
 	std::vector<char> m_string;
 };
 
+// 随机数
+class CarpRandom
+{
+public:
+	static std::mt19937& GetGen()
+	{
+		static std::random_device rd;
+		static std::mt19937 gen(rd());
+		return gen;
+	}
+};
+
 // 用来存储表达式的数据维度相关信息
 class CarpRobotDim
 {
@@ -209,8 +222,11 @@ private:
 	int m_total = 0;
 };
 
-#include <Eigen/Eigen/Eigen>
-#include <Eigen/unsupported/Eigen/CXX11/Tensor>
+#include <eigen/Eigen/Eigen>
+#include <eigen/unsupported/Eigen/CXX11/Tensor>
+#include <eigen_third_party/eigen_spatial_convolutions.h>
+#include <eigen_third_party/eigen_backward_spatial_convolutions.h>
+#include <eigen_third_party/eigen_pooling.h>
 
 class CarpRobotTensor
 {
@@ -338,10 +354,17 @@ public:
 	// 全部设置为0
 	void Zero() { Constant(0); }
 	// 随机数
-	void RandomizeUniform(std::mt19937& gen, cr_real left=0.0f, cr_real right=1.0f)
+	void RandomizeUniform(cr_real left=0.0f, cr_real right=1.0f)
 	{
 		std::uniform_real_distribution<cr_real> distribution(left, right);
-		auto b = [&] { return distribution(gen); };
+		auto b = [&] { return distribution(CarpRandom::GetGen()); };
+		std::generate(m_value, m_value + m_dim.GetTotalSize(), b);
+	}
+	// 随机数
+	void RandomizeBernoulli(cr_real p, cr_real scale)
+	{
+		std::bernoulli_distribution distribution(p);
+		auto b = [&] {return distribution(CarpRandom::GetGen()) * scale; };
 		std::generate(m_value, m_value + m_dim.GetTotalSize(), b);
 	}
 
@@ -349,6 +372,9 @@ public:
 	// 获取创建二维矩阵对象
 	Eigen::Map<Eigen::MatrixXf> m() { return Eigen::Map<Eigen::MatrixXf>(m_value, m_dim.Rows(), m_dim.Cols()); }
 	const Eigen::Map<Eigen::MatrixXf> m() const { return Eigen::Map<Eigen::MatrixXf>(m_value, m_dim.Rows(), m_dim.Cols()); }
+
+	Eigen::Map<Eigen::VectorXf> vec() { return Eigen::Map<Eigen::VectorXf>(m_value, m_dim.GetTotalSize()); }
+	const Eigen::Map<Eigen::VectorXf> vec() const { return Eigen::Map<Eigen::VectorXf>(m_value, m_dim.GetTotalSize()); }
 
 	// 使用当前数据，创建一个只有一维的Tensor
 	Eigen::TensorMap<Eigen::Tensor<cr_real, 1>> tvec() { return Eigen::TensorMap<Eigen::Tensor<cr_real, 1>>(m_value, m_dim.GetTotalSize()); }
@@ -510,7 +536,7 @@ private:
 class CarpRobotParameterCollection
 {
 public:
-	CarpRobotParameterCollection() : m_gen(m_rd()) { }
+	CarpRobotParameterCollection() { }
 	virtual ~CarpRobotParameterCollection()
 	{
 		for (size_t i = 0; i < m_params.size(); ++i)
@@ -521,7 +547,7 @@ public:
 	virtual CarpRobotParameter* AddParameters(const CarpRobotDim& d, const std::string& name = "")
 	{
 		auto* p = new CarpRobotParameter(d, name);
-		p->GetValue().RandomizeUniform(m_gen);
+		p->GetValue().RandomizeUniform();
 		m_params.push_back(p);
 		return p;
 	}
@@ -549,8 +575,6 @@ private:
 	
 private:
 	std::string m_name;									// 收集器名字
-	std::random_device m_rd;
-	std::mt19937 m_gen;
 };
 
 // 运算节点
@@ -971,6 +995,303 @@ protected:
 	}
 };
 
+// y = max(0,x)
+class CarpRobotRectifyNode : public CarpRobotNode
+{
+public:
+	CarpRobotRectifyNode(const std::vector<int>& a) : CarpRobotNode(a) {}
+	~CarpRobotRectifyNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
+		fx.SetDim(xs[0]->GetDim());
+		fx.tvec() = xs[0]->tvec().cwiseMax(0.f);
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		dEdxi.tvec() += fx.tvec().cast<bool>().cast<float>() * dEdf.tvec();
+	}
+};
+
+// y = dropout(x,p) where p specifies the dropout probability
+class CarpRobotDropoutNode : public CarpRobotNode
+{
+public:
+	CarpRobotDropoutNode(const std::vector<int>& a, cr_real v) : CarpRobotNode(a), m_value(v) {}
+	~CarpRobotDropoutNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotDropoutNode 必须是一个输入");
+		fx.SetDim(xs[0]->GetDim());
+		m_aux_mem.SetDim(fx.GetDim());
+		m_aux_mem.RandomizeBernoulli((1.f - m_value), 1.f / (1.f - m_value));
+		fx.tvec() = xs[0]->tvec() * m_aux_mem.tvec();
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		dEdxi.tvec() += dEdf.tvec() * m_aux_mem.tvec();
+	}
+
+private:
+	cr_real m_value;
+	CarpRobotTensor m_aux_mem;
+};
+
+// conv2d 
+// y = x_1 *conv2d x_2
+// x_1 \in R^{H x W x Ci x N} (input)
+// x_2 \in R^{H x W x Ci x Co} (filter)
+// stride[0] corresponds to H
+// stride[1] corresponds to W
+// padding_type: true for 'VALID' and false for 'SAME'
+class CarpRobotConv2DNode : public CarpRobotNode
+{
+public:
+	CarpRobotConv2DNode(const std::vector<int>& a, const std::vector<int>& stride, bool padding_type = true) : CarpRobotNode(a), m_stride(stride), m_padding_type(padding_type) {}
+	~CarpRobotConv2DNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotConv2DNode 必须是一个输入");
+		{
+			CARP_ROBOT_ASSERT(xs.size() == 2 || xs.size() == 3, u8"Conv2D requires either two or three inputs");
+			CARP_ROBOT_ASSERT((xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3) && (xs[1]->GetDim().Count() == 4 && xs[1]->GetDim()[2] == xs[0]->GetDim()[2]), u8"Conv2D requires either two or three inputs");
+			CARP_ROBOT_ASSERT(!m_padding_type || (xs[0]->GetDim()[0] >= xs[1]->GetDim()[0] && xs[0]->GetDim()[1] >= xs[1]->GetDim()[1]), u8"Bad input dimensions in Conv2D: in VALID convolution, the filter size must not be greater than the feature map size");
+			if (xs.size() == 3) //has bias term
+				CARP_ROBOT_ASSERT(xs[2]->GetDim()[0] == xs[1]->GetDim()[3] && xs[2]->GetDim().Count() == 1, u8"Bad input dimensions in Conv2D");
+
+			std::vector<int> output_shape(3);
+			output_shape[2] = xs[1]->GetDim()[3];
+			for (unsigned i = 0; i < 2; ++i)
+			{
+				float input_dim = static_cast<float>(xs[0]->GetDim()[i]);
+				float kernel_dim = static_cast<float>(xs[1]->GetDim()[i]);
+				float s = static_cast<float>(m_stride[i]);
+				if (m_padding_type)
+					output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
+				else
+					output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
+			}
+			fx.SetDim(CarpRobotDim(output_shape));
+		}
+
+		Eigen::PaddingType padding_type = m_padding_type ? Eigen::PADDING_VALID : Eigen::PADDING_SAME;
+		
+		std::vector<cr_real> CHWN_x_mem;
+		CHWN_x_mem.resize(xs[0]->GetDim().GetTotalSize());
+		CarpRobotTensor CHWN_x(CarpRobotDim({ xs[0]->GetDim()[2], xs[0]->GetDim()[0], xs[0]->GetDim()[1] }), CHWN_x_mem.data());
+		Eigen::array<ptrdiff_t, 4> shuffles;
+		shuffles[0] = 2; shuffles[1] = 0; shuffles[2] = 1; shuffles[3] = 3;
+		CHWN_x.t<3>() = xs[0]->t<3>().shuffle(shuffles);
+		
+		std::vector<cr_real> NCHW_f_mem;
+		NCHW_f_mem.resize(xs[1]->GetDim().GetTotalSize());
+		CarpRobotTensor NCHW_f(CarpRobotDim({ xs[1]->GetDim()[3], xs[1]->GetDim()[2], xs[1]->GetDim()[0], xs[1]->GetDim()[1] }), NCHW_f_mem.data());
+		shuffles[0] = 3; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 1;
+		NCHW_f.t<4>() = xs[1]->t<4>().shuffle(shuffles);
+
+		std::vector<cr_real> CHWN_y_mem;
+		CHWN_y_mem.resize(fx.GetDim().GetTotalSize());
+		CarpRobotTensor CHWN_y(CarpRobotDim({ fx.GetDim()[2], fx.GetDim()[0], fx.GetDim()[1] }), CHWN_y_mem.data());
+		CHWN_y.t<3>() = Eigen::SpatialConvolution(CHWN_x.t<3>(), NCHW_f.t<4>(), m_stride[0], m_stride[1], padding_type);
+		shuffles[0] = 1; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 3;
+		fx.t<3>() = CHWN_y.t<3>().shuffle(shuffles);
+		if (xs.size() == 3)
+		{
+			CarpRobotTensor bias(CarpRobotDim({ fx.GetDim()[0], fx.GetDim()[1] }), CHWN_x_mem.data());
+			for (int i = 0; i < fx.GetDim()[2]; ++i)
+			{
+				bias.Constant(xs[2]->vec()(i));
+				fx.t<3>().chip<2>(i) += bias.t<3>();
+			}
+		}
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		//void* CHWN_dy_mem = aux_mem_pool.allocate(dEdf.d.size() * sizeof(float));
+		std::vector<cr_real> CHWN_dy_mem;
+		CHWN_dy_mem.resize(dEdf.GetDim().GetTotalSize());
+		CarpRobotTensor CHWN_dy(CarpRobotDim({ dEdf.GetDim()[2], dEdf.GetDim()[0], dEdf.GetDim()[1] }), CHWN_dy_mem.data());
+		Eigen::array<ptrdiff_t, 4> shuffles;
+		shuffles[0] = 2; shuffles[1] = 0; shuffles[2] = 1; shuffles[3] = 3;
+		CHWN_dy.t<3>() = dEdf.t<3>().shuffle(shuffles);
+		if (xs_i == 0) // backward w.r.t the input
+		{
+			std::vector<cr_real> NCHW_f_mem;
+			NCHW_f_mem.resize(xs[1]->GetDim().GetTotalSize());
+			CarpRobotTensor NCHW_f(CarpRobotDim({ xs[1]->GetDim()[3], xs[1]->GetDim()[2], xs[1]->GetDim()[0], xs[1]->GetDim()[1] }), NCHW_f_mem.data());
+			shuffles[0] = 3; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 1;
+			NCHW_f.t<4>() = xs[1]->t<4>().shuffle(shuffles);
+			
+			std::vector<cr_real> CHWN_dEdxi_mem;
+			CHWN_dEdxi_mem.resize(xs[0]->GetDim().GetTotalSize());
+			CarpRobotTensor CHWN_dEdxi(CarpRobotDim({ xs[0]->GetDim()[2], xs[0]->GetDim()[0], xs[0]->GetDim()[1] }), CHWN_dEdxi_mem.data());
+			CHWN_dEdxi.t<3>() = Eigen::SpatialConvolutionBackwardInput(NCHW_f.t<4>(), CHWN_dy.t<3>(), xs[0]->GetDim()[0], xs[0]->GetDim()[1], m_stride[0], m_stride[1]);
+			
+			std::vector<cr_real> HWCN_dEdxi_mem;
+			HWCN_dEdxi_mem.resize(xs[0]->GetDim().GetTotalSize());
+			CarpRobotTensor HWCN_dEdxi(xs[0]->GetDim(), HWCN_dEdxi_mem.data());
+			shuffles[0] = 1; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 3;
+			HWCN_dEdxi.t<3>() = CHWN_dEdxi.t<3>().shuffle(shuffles);
+			dEdxi.t<3>() += HWCN_dEdxi.t<3>();
+		}
+		else if (xs_i == 1) //backward w.r.t the kernel
+		{
+			std::vector<cr_real> CHWN_x_mem;
+			CHWN_x_mem.resize(xs[0]->GetDim().GetTotalSize());
+			CarpRobotTensor CHWN_x(CarpRobotDim({ xs[0]->GetDim()[2], xs[0]->GetDim()[0], xs[0]->GetDim()[1] }), CHWN_x_mem.data());
+			shuffles[0] = 2; shuffles[1] = 0; shuffles[2] = 1; shuffles[3] = 3;
+			CHWN_x.t<3>() = xs[0]->t<3>().shuffle(shuffles);
+			
+			std::vector<cr_real> NCHW_dEdxi_mem;
+			NCHW_dEdxi_mem.resize(xs[1]->GetDim().GetTotalSize());
+			CarpRobotTensor NCHW_dEdxi(CarpRobotDim({ xs[1]->GetDim()[3], xs[1]->GetDim()[2], xs[1]->GetDim()[0], xs[1]->GetDim()[1] }), NCHW_dEdxi_mem.data());
+			NCHW_dEdxi.t<4>() = Eigen::SpatialConvolutionBackwardKernel(CHWN_x.t<3>(), CHWN_dy.t<3>(), xs[1]->GetDim()[0], xs[1]->GetDim()[1], m_stride[0], m_stride[1], m_padding_type);
+			
+			std::vector<cr_real> HWCN_dEdxi_mem;
+			HWCN_dEdxi_mem.resize(xs[1]->GetDim().GetTotalSize());
+			CarpRobotTensor HWCN_dEdxi(xs[1]->GetDim(), HWCN_dEdxi_mem.data());
+			shuffles[0] = 2; shuffles[1] = 3; shuffles[2] = 1; shuffles[3] = 0;
+			HWCN_dEdxi.t<4>() = NCHW_dEdxi.t<4>().shuffle(shuffles);
+			dEdxi.t<4>() += HWCN_dEdxi.t<4>();
+		}
+		else //backward w.r.t the bias
+		{ 
+			Eigen::array<ptrdiff_t, 3> red_axis = { 0, 1, 3 };
+			dEdxi.t<1>() += dEdf.t<3>().sum(red_axis);
+		}
+	}
+
+private:
+	std::vector<int> m_stride;
+	bool m_padding_type = true;
+};
+
+// maxpooling2d
+// y = x_1 * maxpooling2d
+// x_1 \in R^{H x W x Ci x N} (input)
+// ksize[0] corresponds to H
+// ksize[1] corresponds to W
+// stride[0] corresponds to H
+// stride[1] corresponds to W
+// padding_type: true for 'VALID' and false for 'SAME'
+class CarpRobotMaxPooling2DNode : public CarpRobotNode
+{
+public:
+	CarpRobotMaxPooling2DNode(const std::vector<int>& a, const std::vector<int>& ksize, const std::vector<int>& stride, bool padding_type = true) : CarpRobotNode(a), m_ksize(ksize), m_stride(stride), m_padding_type(padding_type) {}
+	~CarpRobotMaxPooling2DNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotMaxPooling2DNode 必须是一个输入");
+		{
+			CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3, u8"Bad input dimensions in MaxPooling2D, expected 2 or 3 dimensions");
+			CARP_ROBOT_ASSERT(!m_padding_type || (xs[0]->GetDim()[0] >= m_ksize[0] && xs[0]->GetDim()[1] >= m_ksize[1]), u8"Bad input dimensions in MaxPooling2D: in VALID mode, the kernel size cannot be greater than the feature map size");
+
+			std::vector<int> output_shape(xs[0]->GetDim().Count());
+			if (xs[0]->GetDim().Count() == 3)
+				output_shape[2] = xs[0]->GetDim()[2];
+			
+			for (unsigned i = 0; i < 2; ++i)
+			{
+				float input_dim = static_cast<float>(xs[0]->GetDim()[i]);
+				float kernel_dim = static_cast<float>(m_ksize[i]);
+				float s = static_cast<float>(m_stride[i]);
+				if (m_padding_type)
+					output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
+				else
+					output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
+			}
+			fx.SetDim(CarpRobotDim(output_shape));
+		}
+
+		Eigen::PaddingType padding_type = m_padding_type ? Eigen::PADDING_VALID : Eigen::PADDING_SAME;
+
+		// convert x from HWCN to CHWN
+		std::vector<cr_real> CHWN_x_mem;
+		CHWN_x_mem.resize(xs[0]->GetDim().GetTotalSize());
+		CarpRobotTensor CHWN_x(CarpRobotDim({ xs[0]->GetDim()[2], xs[0]->GetDim()[0], xs[0]->GetDim()[1] }), CHWN_x_mem.data());
+		Eigen::array<ptrdiff_t, 4> shuffles;
+		shuffles[0] = 2; shuffles[1] = 0; shuffles[2] = 1; shuffles[3] = 3;
+		CHWN_x.t<3>() = xs[0]->t<3>().shuffle(shuffles);
+
+		// allocate temp memory and compute
+		std::vector<cr_real> CHWN_y_mem;
+		CHWN_y_mem.resize(fx.GetDim().GetTotalSize());
+		CarpRobotTensor CHWN_y(CarpRobotDim({ fx.GetDim()[2], fx.GetDim()[0], fx.GetDim()[1] }), CHWN_y_mem.data());
+		CHWN_y.t<3>() = Eigen::SpatialMaxPooling(CHWN_x.t<4>(), m_ksize[0], m_ksize[1], m_stride[0], m_stride[1], padding_type);
+		// convert y from CHWN to HWCN
+		shuffles[0] = 1; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 3;
+		fx.t<3>() = CHWN_y.t<3>().shuffle(shuffles);
+	}
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi)
+	{
+		int pad_along_height = (fx.GetDim()[0] - 1) * m_stride[0] + m_ksize[0] - xs[0]->GetDim()[0];
+		int pad_along_width = ((fx.GetDim()[1] - 1) * m_stride[1] + m_ksize[1] - xs[0]->GetDim()[1]);
+		int pad_top = m_padding_type ? 0 : pad_along_height / 2;
+		int pad_left = m_padding_type ? 0 : pad_along_width / 2;
+
+		for (int i = 0; i < fx.GetDim()[0]; ++i)
+		{
+			for (int j = 0; j < fx.GetDim()[1]; ++j)
+			{
+				for (int ch = 0; ch < fx.GetDim()[2]; ++ch)
+				{
+					int max_r = 0, max_c = 0;
+					float max_val;
+					bool is_feasible = false;
+					for (int r = 0; r < m_ksize[0]; ++r)
+					{
+						for (int c = 0; c < m_ksize[1]; ++c)
+						{
+							int row = m_stride[0] * i + r - pad_top;
+							int col = m_stride[1] * j + c - pad_left;
+							if (((col < xs[0]->GetDim()[1]) && (row < xs[0]->GetDim()[0]))) {
+								if (!is_feasible) {
+									max_val = xs[0]->t<3>()(row, col, ch);
+									max_r = row; max_c = col; is_feasible = true;
+								}
+								else if (xs[0]->t<3>()(row, col, ch) > max_val) {
+									max_val = xs[0]->t<3>()(row, col, ch);
+									max_r = row; max_c = col;
+								}
+							}
+						}
+					}
+					(dEdxi.t<3>())(max_r, max_c, ch) += (dEdf.t<3>())(i, j, ch);
+				}
+			}
+		}
+	}
+
+private:
+	std::vector<int> m_ksize;
+	std::vector<int> m_stride;
+	bool m_padding_type = true;;
+};
+
 // y = x_1 \odot x_1
 class CarpRobotSquareNode : public CarpRobotNode
 {
@@ -1091,6 +1412,10 @@ public:
 public:
 	CarpRobotExpression Square() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotSquareNode(args))); }
 	CarpRobotExpression Sigmoid() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotLogisticSigmoidNode(args))); }
+	CarpRobotExpression Rectify() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotRectifyNode(args))); }
+	CarpRobotExpression Dropout(cr_real rate) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate))); }
+	CarpRobotExpression Conv2D(const std::vector<int>& stride, const bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride, padding_type))); }
+	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
 
 private:
 	ICarpRobotComputationGraph* m_graph = nullptr;
@@ -1413,8 +1738,8 @@ protected:
 
 		m.tvec() = m.tvec() * m_beta_1 + parameter->GetGradient().tvec() * (1.f - m_beta_1);
 		v.tvec() = v.tvec() * m_beta_2 + parameter->GetGradient().tvec().square() * (1.f - m_beta_2);
-		float lr_t = m_learning_rate * sqrt(1 - pow(m_beta_2, m_updates + 1)) / (1 - pow(m_beta_1, m_updates + 1));
-		parameter->GetValue().tvec() -= m.tvec() / (v.tvec().sqrt() + m_epsilon) * lr_t;
+		auto lr_t = m_learning_rate * sqrt(1 - pow(m_beta_2, m_updates + 1)) / (1 - pow(m_beta_1, m_updates + 1));
+		parameter->GetValue().tvec() -= m.tvec() / (v.tvec().sqrt() + m_epsilon) * static_cast<float>(lr_t);
 	}
 
 private:

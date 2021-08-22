@@ -53,5 +53,59 @@ private:
 	CarpRobotExpression m_B;
 };
 
+class CarpRobotConv2D
+{
+public:
+	CarpRobotConv2D(CarpRobotParameterCollection& model
+		, int input_dim, int output_dim, const std::vector<int>& kernel_size
+		, const std::vector<int>& stride_size, bool padding_type=false)
+		: m_stride_size(stride_size), m_padding_type(padding_type)
+	{
+		std::vector<int> dim;
+		dim.push_back(input_dim);
+		dim.push_back(output_dim);
+		for (size_t i = 0; i < kernel_size.size(); ++i) dim.push_back(kernel_size[i]);
+		m_k = model.AddParameters(CarpRobotDim(dim), "CONV2D-kernel");
+	}
+
+public:
+	void Build(CarpRobotComputationGraph& graph)
+	{
+		m_K = graph.AddParameters(m_k);
+	}
+
+	CarpRobotExpression Forward(CarpRobotExpression& input)
+	{
+		return input.Conv2D(m_K, m_stride_size, m_padding_type);
+	}
+
+public:
+	void Serialize(CarpRobotModelSerializer& file, const char* name)
+	{
+		if (name)
+			file.WriteString(name);
+		else
+			file.WriteString("CONV2D");
+
+		m_k->Serialize(file, "k");
+	}
+	void Deserialize(CarpRobotModelDeserializer& file, const char* name)
+	{
+		std::string name_copy = "CONV2D";
+		if (name) name_copy = name;
+		std::string read_name = file.ReadString();
+		CARP_ROBOT_ASSERT(read_name == name_copy, u8"反序列化名称错误, 当前是:" << read_name << u8"应当是:" << name_copy);
+
+		m_k->Deserialize(file, "k");
+	}
+
+private:
+	CarpRobotParameter* m_k = nullptr;
+	CarpRobotExpression m_K;
+
+private:
+	std::vector<int> m_stride_size;
+	bool m_padding_type = false;
+};
 
 #endif

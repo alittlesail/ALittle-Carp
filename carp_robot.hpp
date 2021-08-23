@@ -186,6 +186,31 @@ public:
 	// 随机存取
 	int operator[](size_t index) const { return index < m_d.size() ? m_d[index] : 1; }
 
+public:
+	// 删除某个维度
+	void Delete(int index)
+	{
+		int nd = (int)m_d.size();
+		if (index >= nd) return;
+
+		if (index == nd - 1)
+		{
+			if (nd == 1)
+				m_d[0] = 1;
+			else
+				m_d.resize(nd - 1);
+		}
+		else
+		{
+			for (; index + 1 < nd; ++index)
+				m_d[index] = m_d[index + 1];
+			m_d.resize(nd - 1);
+		}
+
+		m_total = m_d.empty() ? 0 : 1; for (size_t i = 0; i < m_d.size(); ++i) m_total *= m_d[i];
+	}
+
+public:
 	// 序列化
 	void Serialize(CarpRobotModelSerializer& file)
 	{
@@ -442,13 +467,13 @@ public:
 	template <>
 	Eigen::TensorMap<Eigen::Tensor<cr_real, 1>> t<1>()
 	{
-		CARP_ROBOT_ASSERT(m_dim.Count() <= 1, u8"非法维度信息 t<1>(): dim=" << m_dim.ToString());
+		CARP_ROBOT_ASSERT(m_dim.GetTotalSize() == m_dim.Rows(), u8"非法维度信息 t<1>(): dim=" << m_dim.ToString());
 		return Eigen::TensorMap<Eigen::Tensor<cr_real, 1>>(m_value, m_dim[0]);
 	}
 	template <>
 	const Eigen::TensorMap<Eigen::Tensor<cr_real, 1>> t<1>() const
 	{
-		CARP_ROBOT_ASSERT(m_dim.Count() <= 1, u8"非法维度信息 t<1>(): dim=" << m_dim.ToString());
+		CARP_ROBOT_ASSERT(m_dim.GetTotalSize() == m_dim.Rows(), u8"非法维度信息 t<1>(): dim=" << m_dim.ToString());
 		return Eigen::TensorMap<Eigen::Tensor<cr_real, 1>>(m_value, m_dim[0]);
 	}
 
@@ -525,13 +550,13 @@ public:
 	template <>
 	Eigen::TensorMap<Eigen::Tensor<cr_real, 2>> tb<1>()
 	{
-		CARP_ROBOT_ASSERT(m_dim.Count() <= 1, u8"非法维度信息 tb<1>(): dim=" << m_dim.ToString());
+		CARP_ROBOT_ASSERT(m_dim.GetTotalSize() == m_dim.Rows(), u8"非法维度信息 tb<1>(): dim=" << m_dim.ToString());
 		return Eigen::TensorMap<Eigen::Tensor<cr_real, 2>>(m_value, m_dim[0], 1);
 	}
 	template <>
 	const Eigen::TensorMap<Eigen::Tensor<cr_real, 2>> tb<1>() const
 	{
-		CARP_ROBOT_ASSERT(m_dim.Count() <= 1, u8"非法维度信息 tb<1>(): dim=" << m_dim.ToString());
+		CARP_ROBOT_ASSERT(m_dim.GetTotalSize() == m_dim.Rows(), u8"非法维度信息 tb<1>(): dim=" << m_dim.ToString());
 		return Eigen::TensorMap<Eigen::Tensor<cr_real, 2>>(m_value, m_dim[0], 1);
 	}
 
@@ -599,9 +624,13 @@ public:
 				max_value = m_value[i];
 			}
 		}
+
 		return index;
 	}
-	
+
+	// 当做向量，并且返回向量中数值最大的那个值
+	cr_real AsVectorAndMaxValue() const { return m_value[AsVectorAndArgmax()]; }
+
 public:
 	void Serialize(CarpRobotModelSerializer& file) { m_dim.Serialize(file); file.WriteRealArray(m_value, m_dim.GetTotalSize()); }
 	void Deserialize(CarpRobotModelDeserializer& file) { CarpRobotDim tmp; tmp.Deserialize(file); SetDim(tmp); file.ReadRealArray(m_value, m_dim.GetTotalSize()); }
@@ -1271,7 +1300,7 @@ protected:
 		xs[0]->Logsumexp(m, z);
 		if (fx.GetDim().GetTotalSize() == fx.GetDim().Rows())
 		{
-			fx.t<1>() = xs[0]->t<1>() - z.AsScalar();
+			fx.tvec() = xs[0]->tvec() - z.AsScalar();
 		}
 		else
 		{
@@ -1363,7 +1392,7 @@ private:
 class CarpRobotConv2DNode : public CarpRobotNode
 {
 public:
-	CarpRobotConv2DNode(const std::vector<int>& a, const std::vector<int>& stride, bool padding_type = true) : CarpRobotNode(a), m_stride(stride), m_padding_type(padding_type) {}
+	CarpRobotConv2DNode(const std::vector<int>& a, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) : CarpRobotNode(a), m_stride(stride), m_padding_type(padding_type) {}
 	~CarpRobotConv2DNode() {}
 
 protected:
@@ -1371,7 +1400,7 @@ protected:
 	{
 		{
 			CARP_ROBOT_ASSERT(xs.size() == 2 || xs.size() == 3, u8"Conv2D requires either two or three inputs");
-			CARP_ROBOT_ASSERT((xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3) && (xs[1]->GetDim().Count() == 4 && xs[1]->GetDim()[2] == xs[0]->GetDim()[2]), u8"Conv2D requires either two or three inputs");
+			CARP_ROBOT_ASSERT((xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3) && xs[1]->GetDim().Count() == 4 && xs[1]->GetDim()[2] == xs[0]->GetDim()[2], u8"Conv2D requires either two or three inputs");
 			CARP_ROBOT_ASSERT(!m_padding_type || (xs[0]->GetDim()[0] >= xs[1]->GetDim()[0] && xs[0]->GetDim()[1] >= xs[1]->GetDim()[1]), u8"Bad input dimensions in Conv2D: in VALID convolution, the filter size must not be greater than the feature map size");
 			if (xs.size() == 3) //has bias term
 				CARP_ROBOT_ASSERT(xs[2]->GetDim()[0] == xs[1]->GetDim()[3] && xs[2]->GetDim().Count() == 1, u8"Bad input dimensions in Conv2D");
@@ -1478,7 +1507,7 @@ private:
 class CarpRobotMaxPooling2DNode : public CarpRobotNode
 {
 public:
-	CarpRobotMaxPooling2DNode(const std::vector<int>& a, const std::vector<int>& ksize, const std::vector<int>& stride, bool padding_type = true) : CarpRobotNode(a), m_ksize(ksize), m_stride(stride), m_padding_type(padding_type) {}
+	CarpRobotMaxPooling2DNode(const std::vector<int>& a, const std::vector<int>& ksize, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) : CarpRobotNode(a), m_ksize(ksize), m_stride(stride), m_padding_type(padding_type) {}
 	~CarpRobotMaxPooling2DNode() {}
 
 protected:
@@ -1680,8 +1709,7 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是两个输入");
-
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() == 1, u8"输入的维度信息错误");
+		CARP_ROBOT_ASSERT(xs[0]->GetDim().GetTotalSize() == xs[0]->GetDim().Rows(), u8"输入的维度信息错误");
 		
 		m_z.SetDim(CarpRobotDim({ 1 }), true);
 		m_m.SetDim(CarpRobotDim({ 1 }), true);
@@ -1721,6 +1749,41 @@ public:
 private:
 	CarpRobotTensor m_z;
 	CarpRobotTensor m_m;
+};
+
+// x_1 is a vector
+// y = (x_1)_{*pval}
+class CarpRobotPickElementNode : public CarpRobotNode
+{
+public:
+	CarpRobotPickElementNode(const std::vector<int>& a, int v, int d = 0) : CarpRobotNode(a), m_val(v), m_dim(d) {}
+	~CarpRobotPickElementNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickElementNode 必须是两个输入");
+		CARP_ROBOT_ASSERT(m_val < xs[0]->GetDim()[m_dim], u8"输入的维度信息错误");
+
+		CarpRobotDim dim = xs[0]->GetDim();
+		dim.Delete(m_dim);
+		fx.SetDim(dim);
+
+		fx.tb<3>() = xs[0]->tb<4>().chip(m_val, m_dim);
+	}
+
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi) override
+	{
+		dEdxi.tb<3>().chip(m_val, m_dim) += dEdf.tb<2>();
+	}
+
+public:
+	int m_val = 0;
+	int m_dim = 0;
 };
 
 // y = reshape(x_1, --> to)
@@ -1793,9 +1856,10 @@ public:
 
 	// 功能函数
 	CarpRobotExpression Dropout(cr_real rate) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate))); }
-	CarpRobotExpression Conv2D(const CarpRobotExpression& kernel, const std::vector<int>& stride, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); args.push_back(kernel.GetIndex()); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride, padding_type))); }
-	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
+	CarpRobotExpression Conv2D(const CarpRobotExpression& kernel, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); args.push_back(kernel.GetIndex()); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride, padding_type))); }
+	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
 	CarpRobotExpression Reshape(const CarpRobotDim& dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotReshapeNode(args, dim))); }
+	CarpRobotExpression PickElement(int value, int dim = 0) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickElementNode(args, value, dim))); }
 
 private:
 	ICarpRobotComputationGraph* m_graph = nullptr;

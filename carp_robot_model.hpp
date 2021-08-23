@@ -8,11 +8,19 @@ class CarpRobotLinear
 public:
 	CarpRobotLinear(CarpRobotParameterCollection& model, int input_dim, int output_dim)
 	{
-		m_w = model.AddParameters(CarpRobotDim({ output_dim, input_dim }), "FC-w");
+		m_w = model.AddParameters(CarpRobotDim({ output_dim, input_dim  }), "FC-w");
 		m_b = model.AddParameters(CarpRobotDim({ output_dim }), "FC-b");
 	}
 
 public:
+	void Copy(const CarpRobotLinear& linear)
+	{
+		CARP_ROBOT_ASSERT(m_w->GetValue().GetDim().GetTotalSize() == linear.m_w->GetValue().GetDim().GetTotalSize(), u8"w数据长度不一致");
+		CARP_ROBOT_ASSERT(m_b->GetValue().GetDim().GetTotalSize() == linear.m_b->GetValue().GetDim().GetTotalSize(), u8"b数据长度不一致");
+		memcpy(m_w->GetValue().GetValue(), linear.m_w->GetValue().GetValue(), m_w->GetValue().GetDim().GetTotalSize() * sizeof(cr_real));
+		memcpy(m_b->GetValue().GetValue(), linear.m_b->GetValue().GetValue(), m_b->GetValue().GetDim().GetTotalSize() * sizeof(cr_real));
+	}
+
 	void Build(CarpRobotComputationGraph& graph)
 	{
 		m_W = graph.AddParameters(m_w);
@@ -58,13 +66,13 @@ class CarpRobotConv2D
 public:
 	CarpRobotConv2D(CarpRobotParameterCollection& model
 		, int input_dim, int output_dim, const std::vector<int>& kernel_size
-		, const std::vector<int>& stride_size, bool padding_type=false)
+		, const std::vector<int>& stride_size = { 1, 1 }, bool padding_type=true)
 		: m_stride_size(stride_size), m_padding_type(padding_type)
 	{
 		std::vector<int> dim;
+		for (size_t i = 0; i < kernel_size.size(); ++i) dim.push_back(kernel_size[i]);
 		dim.push_back(input_dim);
 		dim.push_back(output_dim);
-		for (size_t i = 0; i < kernel_size.size(); ++i) dim.push_back(kernel_size[i]);
 		m_k = model.AddParameters(CarpRobotDim(dim), "CONV2D-kernel");
 	}
 
@@ -105,7 +113,7 @@ private:
 
 private:
 	std::vector<int> m_stride_size;
-	bool m_padding_type = false;
+	bool m_padding_type = true;
 };
 
 #endif

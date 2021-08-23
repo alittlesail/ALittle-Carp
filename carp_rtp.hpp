@@ -46,8 +46,17 @@ struct CarpRtpPacket
 class CarpRtp
 {
 public:
-	static uint16_t CarpRtpReadUint16(const uint8_t* ptr) { return (static_cast<uint16_t>(ptr[0]) << 8) | ptr[1]; }
-	static uint32_t CarpRtpReadUint32(const uint8_t* ptr) { return (static_cast<uint32_t>(ptr[0]) << 24) | (static_cast<uint32_t>(ptr[1]) << 16) | (static_cast<uint32_t>(ptr[2]) << 8) | ptr[3]; }
+	static uint16_t CarpRtpReadUint16(const uint8_t* ptr)
+	{
+		std::swap(ptr[0], ptr[1]);
+		return *((uint16_t*)ptr);
+	}
+	static uint32_t CarpRtpReadUint32(const uint8_t* ptr)
+	{
+		std::swap(ptr[0], ptr[3]);
+		std::swap(ptr[1], ptr[2]);
+		return *((uint32_t*)ptr);
+	}
 	static void CarpRtpWriteUint16(uint8_t* ptr, uint16_t val)
 	{
 		ptr[0] = static_cast<uint8_t>(val >> 8);

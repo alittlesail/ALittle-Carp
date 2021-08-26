@@ -77,6 +77,12 @@ public:
 	}
 
 public:
+	void Copy(const CarpRobotConv2D& conv2d)
+	{
+		CARP_ROBOT_ASSERT(m_k->GetValue().GetDim().GetTotalSize() == conv2d.m_k->GetValue().GetDim().GetTotalSize(), u8"w数据长度不一致");
+		memcpy(m_k->GetValue().GetValue(), conv2d.m_k->GetValue().GetValue(), m_k->GetValue().GetDim().GetTotalSize() * sizeof(cr_real));
+	}
+
 	void Build(CarpRobotComputationGraph& graph)
 	{
 		m_K = graph.AddParameters(m_k);

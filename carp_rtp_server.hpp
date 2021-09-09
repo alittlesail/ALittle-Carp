@@ -74,6 +74,8 @@ public:
 		m_from_rtp_port = from_rtp_port;
 		m_to_rtp_port = to_rtp_port;
 		m_schedule = schedule;
+
+		StopRecord();
 		return true;
 	}
 
@@ -107,6 +109,8 @@ public:
 			m_to_rtp_auth_timer->cancel(ec);
 			m_to_rtp_auth_timer = nullptr;
 		}
+
+		StopRecord();
 		return true;
 	}
 
@@ -134,6 +138,8 @@ public:
 			m_to_rtp_auth_timer->cancel(ec);
 			m_to_rtp_auth_timer = nullptr;
 		}
+
+		StopRecord();
 	}
 
 	// 设置和呼叫方互发RTP包的ip和端口
@@ -184,6 +190,29 @@ public:
 		m_to_rtp_auth_timer->async_wait(std::bind(&CarpRtpServer::TimerSendToAuth, std::placeholders::_1, self_weak_ptr));
 	}
 
+	// 开始录音
+	bool StartRecord(const std::string& file_path)
+	{
+		StopRecord();
+
+#ifdef _WIN32
+		fopen_s(&m_record_file, file_path.c_str(), "wb");
+#else
+		m_record_file = fopen(file_path.c_str(), "wb");
+#endif
+		return m_record_file != nullptr;
+	}
+
+	// 停止录音
+	void StopRecord()
+	{
+		if (m_record_file != nullptr)
+		{
+			fclose(m_record_file);
+			m_record_file = nullptr;
+		}
+	}
+
 	// 关闭rtp
 	void Close()
 	{
@@ -204,6 +233,8 @@ public:
 			m_to_rtp_auth_timer->cancel(ec);
 			m_to_rtp_auth_timer = nullptr;
 		}
+
+		StopRecord();
 	}
 
 public:
@@ -240,6 +271,10 @@ private:
 	std::string m_to_rtp_password;
 	// 鉴权信息发送定时器
 	CarpAsioTimerPtr m_to_rtp_auth_timer;
+	
+private:
+	// 呼叫方录音文件
+	FILE* m_record_file = nullptr;
 
 private:
 	std::string m_call_id;		// SIP呼叫ID
@@ -305,6 +340,13 @@ private:
 		// 如果没有线路，直接返回
 		if (self_ptr->m_has_from_rtp_endpoint == false) return;
 
+		// 写入文件
+		if (self_ptr->m_record_file != nullptr)
+		{
+			fwrite(&info.memory_size, 1, sizeof(info.memory_size), self_ptr->m_record_file);
+			fwrite(info.memory, 1, info.memory_size, self_ptr->m_record_file);
+		}
+
 		// 发送
 		void* new_memory = malloc(info.memory_size);
 		memcpy(new_memory, info.memory, info.memory_size);
@@ -322,6 +364,13 @@ private:
 
 		// 如果没有线路，直接返回
 		if (self_ptr->m_has_to_rtp_endpoint == false) return;
+
+		// 写入文件
+		if (self_ptr->m_record_file != nullptr)
+		{
+			fwrite(&info.memory_size, 1, sizeof(info.memory_size), self_ptr->m_record_file);
+			fwrite(info.memory, 1, info.memory_size, self_ptr->m_record_file);
+		}
 
 		// 发送
 		void* new_memory = malloc(info.memory_size);

@@ -214,7 +214,7 @@ public:
 			}
 
 			// 如果有解码出来的语音数据
-			if (sample_data.size() > 0)
+			if (!sample_data.empty())
 			{
 				// 开始编码
 				encoder->Encode(sample_data.data(), (int)sample_data.size(), encode_buffer);

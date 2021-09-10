@@ -48,14 +48,19 @@ class CarpRtp
 public:
 	static uint16_t CarpRtpReadUint16(const uint8_t* ptr)
 	{
-		std::swap(ptr[0], ptr[1]);
-		return *((uint16_t*)ptr);
+		uint8_t value[2];
+		value[0] = ptr[1];
+		value[1] = ptr[0];
+		return *((uint16_t*)value);
 	}
 	static uint32_t CarpRtpReadUint32(const uint8_t* ptr)
 	{
-		std::swap(ptr[0], ptr[3]);
-		std::swap(ptr[1], ptr[2]);
-		return *((uint32_t*)ptr);
+		uint8_t value[4];
+		value[0] = ptr[3];
+		value[1] = ptr[2];
+		value[2] = ptr[1];
+		value[3] = ptr[0];
+		return *((uint32_t*)value);
 	}
 	static void CarpRtpWriteUint16(uint8_t* ptr, uint16_t val)
 	{

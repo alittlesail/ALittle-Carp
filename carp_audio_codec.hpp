@@ -345,7 +345,7 @@ public:
 		t = ((u_val & QUANT_MASK) << 3) + BIAS;
 		t <<= ((unsigned)u_val & SEG_MASK) >> SEG_SHIFT;
 
-		return ((u_val & SIGN_BIT) ? (BIAS - t) : (t - BIAS));
+return ((u_val & SIGN_BIT) ? (BIAS - t) : (t - BIAS));
 	}
 };
 
@@ -368,10 +368,10 @@ public:
 		unsigned char* buffer_ptr = buffer.data();
 
 		int count = sample_count / 80;
+		uint8_t len = 0;
 		for (int i = 0; i < count; ++i)
 		{
-			uint8_t stream_len;
-			bcg729Encoder(m_encoder, sample_data, buffer_ptr, &stream_len);
+			bcg729Encoder(m_encoder, sample_data, buffer_ptr, &len);
 			sample_data += 80;
 			buffer_ptr += 10;
 		}
@@ -392,7 +392,39 @@ public:
 public:
 	bool Decode(unsigned char* buffer, int buffer_len, std::vector<short>& sample_data) override
 	{
-		sample_data.resize((int)ceil(buffer_len / 10.0f) * 80, 0);
+		if (m_remain.empty())
+		{
+			// 直接处理数据
+			sample_data.resize(buffer_len / 10 * 80, 0);
+			short* sample_data_ptr = sample_data.data();
+
+			int count = buffer_len / 10;
+			for (int i = 0; i < count; ++i)
+			{
+				bcg729Decoder(m_decoder, buffer, 10, 0, 0, 0, sample_data_ptr);
+				buffer += 10;
+				sample_data_ptr += 80;
+			}
+
+			// 保存剩下的数据
+			if (buffer_len % 10 > 0)
+			{
+				m_remain.resize(buffer_len % 10);
+				memcpy(m_remain.data(), buffer, buffer_len % 10);
+			}
+
+			return true;
+		}
+
+		size_t old_size = m_remain.size();
+		m_remain.resize(old_size + buffer_len);
+		memcpy(m_remain.data() + old_size, buffer, buffer_len);
+
+		buffer = m_remain.data();
+		buffer_len = m_remain.size();
+
+		// 开始处理数据
+		sample_data.resize(buffer_len / 10 * 80, 0);
 		short* sample_data_ptr = sample_data.data();
 
 		int count = buffer_len / 10;
@@ -403,19 +435,28 @@ public:
 			sample_data_ptr += 80;
 		}
 
-		count = buffer_len % 10;
-		if (count > 0)
-		{
-			unsigned char tmp_bffer[10] = { 0 };
-			memcpy(tmp_bffer, buffer, count);
-			bcg729Decoder(m_decoder, tmp_bffer, 10, 1, 0, 0, sample_data_ptr);
-		}
+		// 移动剩下的数据
+		if (buffer_len % 10 > 0)
+			memmove(m_remain.data(), buffer, buffer_len % 10);
+		m_remain.resize(buffer_len % 10);
 
 		return true;
 	}
 
+	void Flush(std::vector<short>& sample_data) override
+	{
+		sample_data.resize(0);
+		if (m_remain.empty()) return;
+		m_remain.resize(10, 0);
+		sample_data.resize(80);
+
+		bcg729Decoder(m_decoder, m_remain.data(), 10, 1, 0, 0, sample_data.data());
+		m_remain.resize(0);
+	}
+
 private:
 	bcg729DecoderChannelContextStruct* m_decoder = nullptr;
+	std::vector<unsigned char> m_remain;
 };
 
 #include "carp_rtp.hpp"

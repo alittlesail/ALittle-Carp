@@ -194,7 +194,7 @@ public:
 		while (true)
 		{
 			// 读取源文件
-			unsigned char buffer[1024];
+			unsigned char buffer[1020]; // 这里使用10的整数倍，对g729的解码有提速
 			int read_size = (int)fread(buffer, 1, sizeof(buffer), src_file);
 			
 			if (read_size > 0)

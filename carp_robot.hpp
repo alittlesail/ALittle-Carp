@@ -210,6 +210,24 @@ public:
 		m_total = m_d.empty() ? 0 : 1; for (size_t i = 0; i < m_d.size(); ++i) m_total *= m_d[i];
 	}
 
+	// 设置某个维度
+	void Set(int index, int dim)
+	{
+		int nd = (int)m_d.size();
+		if (index >= nd) return;
+
+		m_d[index] = dim;
+		m_total = m_d.empty() ? 0 : 1; for (size_t i = 0; i < m_d.size(); ++i) m_total *= m_d[i];
+	}
+
+	// 添加维度
+	void Add(int dim)
+	{
+		if (dim <= 0) return;
+		m_d.push_back(dim);
+		m_total *= dim;
+	}
+
 public:
 	// 序列化
 	void Serialize(CarpRobotModelSerializer& file)
@@ -965,10 +983,44 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotCwiseSumNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().SoftEqual(xs[1]->GetDim()), u8"CarpRobotCwiseSumNode 两个张量的维度必须一致, xs[0]:" << xs[0]->GetDim().ToString() << " != xs[1]:" << xs[1]->GetDim().ToString());
+		
+		auto& dim_left = xs[0]->GetDim();
+		auto& dim_right = xs[1]->GetDim();
 
-		fx.SetDim(xs[0]->GetDim());
-		fx.tvec() = xs[0]->tvec() + xs[1]->tvec();
+		size_t same_count = 0;
+		while (same_count < dim_left.Count() && dim_left[same_count] == dim_right[same_count])
+			same_count++;
+
+		fx.SetDim(dim_left);
+		if (same_count == dim_left.Count())
+		{
+			fx.tvec() = xs[0]->tvec() + xs[1]->tvec();
+		}
+		else
+		{
+			Eigen::array<ptrdiff_t, 5> bcast_left = { 1,1,1,1,1 }, bcast_right = { 1,1,1,1,1 };
+			bool has_left = false, has_right = false;
+			for (; same_count < dim_left.Count(); ++same_count)
+			{
+				if (dim_left[same_count] > dim_right[same_count])
+				{
+					has_right = true;
+					bcast_right[same_count] = dim_left[same_count];
+				}
+				else if (dim_left[same_count] < dim_right[same_count])
+				{
+					has_left = true;
+					bcast_left[same_count] = dim_right[same_count];
+				}
+			}
+			
+			if (has_right && has_left)
+				fx.tb<4>() = xs[0]->tb<4>().broadcast(bcast_left) + xs[1]->tb<4>().broadcast(bcast_right);
+			else if (has_right)
+				fx.tb<4>() = xs[0]->tb<4>() + xs[1]->tb<4>().broadcast(bcast_right);
+			else
+				fx.tb<4>() = xs[0]->tb<4>().broadcast(bcast_left) + xs[1]->tb<4>();
+		}
 	}
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
@@ -976,8 +1028,45 @@ protected:
 		unsigned int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
-		// 正规要这么写dEdxi.tvec() += dEdf.tvec() * 1; 但是为了减少一个乘法运算，于是写成下面那样
-		dEdxi.tvec() += dEdf.tvec();
+		int n_red = 0;
+		for (int j = 0; j < fx.GetDim().Count(); ++j)
+			n_red += xs[xs_i]->GetDim()[j] != fx.GetDim()[j] ? 1 : 0;
+		if (n_red == 0)
+		{
+			dEdxi.tvec() += dEdf.tvec();
+		}
+		else
+		{
+			CARP_ROBOT_ASSERT(n_red < 5 && n_red > 0, "Unsupported number of reductions check in CwiseSum::backward (+)");
+			if (n_red == 1) BackwardImpl<1>(xs, fx, dEdf, xs_i, dEdxi);
+			else if (n_red == 2) BackwardImpl<2>(xs, fx, dEdf, xs_i, dEdxi);
+			else if (n_red == 3) BackwardImpl<3>(xs, fx, dEdf, xs_i, dEdxi);
+			else if (n_red == 4) BackwardImpl<4>(xs, fx, dEdf, xs_i, dEdxi);
+		}
+	}
+
+	template <int ReductionOrder>
+	void BackwardImpl(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi) const {
+
+		Eigen::array<ptrdiff_t, ReductionOrder> red_axis;
+		if (ReductionOrder > 0) red_axis[ReductionOrder - 1] = 4;
+		int curr_red_axis = 0;
+		Eigen::array<ptrdiff_t, 5> morph = { 1,1,1,1,1 };
+		for (int di = 0; di < fx.GetDim().Count(); di++)
+		{
+			if ((di >= xs[xs_i]->GetDim().Count() && fx.GetDim()[di] > 1) || xs[xs_i]->GetDim()[di] != fx.GetDim()[di])
+			{
+				red_axis[curr_red_axis] = di;
+				curr_red_axis++;
+			}
+			morph[di] = xs[xs_i]->GetDim()[di];
+		}
+
+		dEdxi.tb<4>() += dEdf.tb<4>().sum(red_axis).reshape(morph);
 	}
 };
 
@@ -1708,7 +1797,7 @@ public:
 protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是两个输入");
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是一个输入");
 		CARP_ROBOT_ASSERT(xs[0]->GetDim().GetTotalSize() == xs[0]->GetDim().Rows(), u8"输入的维度信息错误");
 		
 		m_z.SetDim(CarpRobotDim({ 1 }), true);
@@ -1762,7 +1851,7 @@ public:
 protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickElementNode 必须是两个输入");
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickElementNode 必须是一个输入");
 		CARP_ROBOT_ASSERT(m_val < xs[0]->GetDim()[m_dim], u8"输入的维度信息错误");
 
 		CarpRobotDim dim = xs[0]->GetDim();
@@ -1796,7 +1885,7 @@ public:
 protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是两个输入");
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotReshapeNode 必须是一个输入");
 		CARP_ROBOT_ASSERT(xs[0]->GetDim().GetTotalSize() == m_dim.GetTotalSize(), u8"CarpRobotReshapeNode 输入的总大小必须和输出一致");
 
 		// just point to the input memory and change dimensions
@@ -1817,6 +1906,46 @@ protected:
 
 private:
 	CarpRobotDim m_dim;
+};
+
+//y = \sum_i x_i
+class CarpRobotMeanElementsNode : public CarpRobotNode
+{
+public:
+	CarpRobotMeanElementsNode(const std::vector<int>& a, int dim) : CarpRobotNode(a), m_dim(dim) {}
+	~CarpRobotMeanElementsNode() {}
+
+protected:
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpMeanElementsNode 必须是一个输入");
+		CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() <= 3, u8"CarpMeanElementsNode 最多只支持到3个维度");
+
+		CarpRobotDim dim = xs[0]->GetDim();
+		dim.Delete(m_dim);
+		fx.SetDim(dim);
+
+		float n = dim.GetTotalSize();
+		Eigen::array<ptrdiff_t, 1> reduction_axis = { m_dim };
+		fx.tb<2>() = xs[0]->tb<3>().sum(reduction_axis) / n;
+	}
+
+	void Backward(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		unsigned int xs_i,
+		CarpRobotTensor& dEdxi) override
+	{
+		CarpRobotDim dim = xs[0]->GetDim();
+
+		float n = dim.GetTotalSize();
+		Eigen::array<ptrdiff_t, 4> bcast = { 1,1,1,1 }; bcast[m_dim] = dim[m_dim];
+		Eigen::array<ptrdiff_t, 4> morph = { dim[0], dim[1], dim[2], 1 }; morph[m_dim] = 1;
+		dEdxi.tb<3>() += dEdf.tb<2>().reshape(morph).broadcast(bcast) / n;
+	}
+
+private:
+	int m_dim = 0;
 };
 
 class ICarpRobotComputationGraph
@@ -1860,6 +1989,7 @@ public:
 	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
 	CarpRobotExpression Reshape(const CarpRobotDim& dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotReshapeNode(args, dim))); }
 	CarpRobotExpression PickElement(int value, int dim = 0) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickElementNode(args, value, dim))); }
+	CarpRobotExpression MeanElements(int dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMeanElementsNode(args, dim))); }
 
 private:
 	ICarpRobotComputationGraph* m_graph = nullptr;

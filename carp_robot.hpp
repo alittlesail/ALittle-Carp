@@ -140,8 +140,8 @@ class CarpRandom
 public:
 	static std::mt19937& GetGen()
 	{
-		static std::random_device rd;
-		static std::mt19937 gen(rd());
+		thread_local static std::random_device rd;
+		thread_local static std::mt19937 gen(rd());
 		return gen;
 	}
 };
@@ -161,20 +161,6 @@ public:
 public:
 	// 强制相等
 	bool Equal(const CarpRobotDim& right) const { return m_total == right.m_total && m_d == right.m_d; }
-	// 非强制相等
-	bool SoftEqual(const CarpRobotDim& right) const
-	{
-		// 如果总大小不一致，那么肯定不一致了
-		if (m_total != right.m_total) return false;
-		// 取最小的那个，然后遍历，如果不相等肯定就不一致
-		auto min_nd = std::min(m_d.size(), right.m_d.size());
-		for (size_t i = 0; i < min_nd; ++i)
-		{
-			if (m_d[i] != right.m_d[i]) return false;
-		}
-		// 剩下比较大的那个，因为total一致，所以尾部都是1，也算是相等了
-		return true;
-	}
 
 public:
 	// 确认当前是二维时，获取第一个维度的大小
@@ -190,11 +176,15 @@ public:
 	// 删除某个维度
 	void Delete(int index)
 	{
+		// 如果下标超出，那么就不删除
 		int nd = (int)m_d.size();
 		if (index >= nd) return;
 
+		// 如果删除的是最后一个维度
 		if (index == nd - 1)
 		{
+			// 如果当前只有一个维度了，那么把维度设置为1
+			// 否则把最后一个删掉
 			if (nd == 1)
 				m_d[0] = 1;
 			else
@@ -202,30 +192,15 @@ public:
 		}
 		else
 		{
+			// 向前拷贝
 			for (; index + 1 < nd; ++index)
 				m_d[index] = m_d[index + 1];
+			// 然后删除最后一个
 			m_d.resize(nd - 1);
 		}
 
+		// 重新计算
 		m_total = m_d.empty() ? 0 : 1; for (size_t i = 0; i < m_d.size(); ++i) m_total *= m_d[i];
-	}
-
-	// 设置某个维度
-	void Set(int index, int dim)
-	{
-		int nd = (int)m_d.size();
-		if (index >= nd) return;
-
-		m_d[index] = dim;
-		m_total = m_d.empty() ? 0 : 1; for (size_t i = 0; i < m_d.size(); ++i) m_total *= m_d[i];
-	}
-
-	// 添加维度
-	void Add(int dim)
-	{
-		if (dim <= 0) return;
-		m_d.push_back(dim);
-		m_total *= dim;
 	}
 
 public:
@@ -419,25 +394,48 @@ public:
 	{
 		CARP_ROBOT_ASSERT(m_dim.Count() <= 2, u8"TensorTools::logsumexp 目前只支持向量或者矩阵");
 
+		// 如果axis为0，那么other_axis = 1
+		// 如果axis为1，那么other_axis = 0
 		int other_axis = axis ^ 1;
+
+		// 如果另一个维度是1，说明当前张量是一维的，可以当向量运算
 		if (m_dim[other_axis] == 1)
 		{
+			// maximum 表示获取某个维度的最大值
+			// tvec().maximum() 表示当前张量中最大的那个数，这个时候获得的是一个标量
 			m.t<0>() = tvec().maximum();
+			// 取出那个最大值
 			cr_real mval = m.AsScalar();
-			// This needs to be split into two lines to prevent memory allocation
+			// 将张量的所有只减去最大值，然后以e为底逐个元素求指数，然后再求和
 			z.t<0>() = (tvec() - mval).exp().sum();
+			// 最后再求对数，加上原来的最大值
 			z.t<0>() = z.t<0>().log() + mval;
 		}
+		// 另一个维度不是1，这里必然是两个维度
 		else
 		{
 			Eigen::array<int, 1> red_axis; red_axis[0] = axis;
+			// 把当前张量转为(d[0], d[1], bd)，然后沿着axis维度依次取最大值，这个时候获得的是一个(d[other_axis], bd)
 			m.tb<1>() = tb<2>().maximum(red_axis);
+			// 获取数据指针
+			auto* miter = m.GetValue();
 
-			auto miter = m.GetValue();
-			for (size_t i = 0; i < m_dim[1]; ++i, ++miter)
+			// 因为暂时不支持多批次处理，所以这里写死为1个批次
+			for (int b = 0; b < 1; ++b)
 			{
-				z.tb<1>().chip<1>(0).chip<0>(i) = (tb<2>().chip<2>(0).chip(i, other_axis) - *miter).exp().sum();
-				z.tb<1>().chip<1>(0).chip<0>(i) = z.tb<1>().chip<1>(0).chip<0>(i).log() + *miter;
+				for (int i = 0; i < m_dim[other_axis]; ++i, ++miter)
+				{
+					// tb<2>() 维度为 (d[0], d[1], bd)
+					// tb<2>().chip<2>(0) 取编号为2的维度偏移为0，得到维度为(d[0], d[1])
+					// tb<2>().chip<2>(0).chip(i, other_axis) 取编号为other_axis的维度，偏移为i，得到维度为(d[axis])
+					// (tb<2>().chip<2>(b).chip(i, other_axis) - *miter) 统一减去最大值，得到维度为(d[axis])
+
+					// z.tb<1>() 维度为 (d[0], bd)
+					// z.tb<1>().chip<1>(0) 取编号为1的维度偏移为0，得到维度为(d[0])
+					// z.tb<1>().chip<1>(0).chip<0>(i) 取编号为0的维度偏移为i，得到一个标量
+					z.tb<1>().chip<1>(b).chip<0>(i) = (tb<2>().chip<2>(b).chip(i, other_axis) - *miter).exp().sum();
+					z.tb<1>().chip<1>(b).chip<0>(i) = z.tb<1>().chip<1>(b).chip<0>(i).log() + *miter;
+				}
 			}
 		}
 	}
@@ -664,15 +662,17 @@ public:
 	virtual const std::string& GetFullName() const = 0;
 };
 
+// 神经网络参数
 class CarpRobotParameter : public ICarpRobotParameter
 {
 public:
 	CarpRobotParameter(const CarpRobotDim& dim, const std::string& name)
 		: m_name(name)
 	{
+		// 参数值
 		m_values.SetDim(dim, true);
+		// 梯度值
 		m_grad.SetDim(dim, true);
-		m_grad.Zero();
 	}
 	virtual ~CarpRobotParameter() {}
 
@@ -730,31 +730,39 @@ private:
 	bool m_has_grad = false;			// 是否有误差项
 };
 
+// 神经网络参数收集
 class CarpRobotParameterCollection
 {
 public:
 	CarpRobotParameterCollection() { }
 	virtual ~CarpRobotParameterCollection()
 	{
+		// 释放所有参数内存
 		for (size_t i = 0; i < m_params.size(); ++i)
 			delete m_params[i];
 	}
 
 public:
+	// 添加参数
 	virtual CarpRobotParameter* AddParameters(const CarpRobotDim& d, const std::string& name = "")
 	{
+		// 构建参数对象
 		auto* p = new CarpRobotParameter(d, name);
+		// 初始化为随机值
 		p->GetValue().RandomizeUniform();
+		// 添加到列表
 		m_params.push_back(p);
 		return p;
 	}
 
+	// 返回参数列表
 	virtual const std::vector<CarpRobotParameter*>& GetParameters() const { return m_params; }
 
 public:
 	// 获取参数收集器名字
 	const std::string& GetFullName() const { return m_name; }
 
+	// 返回字符串信息
 	std::string ToString() const
 	{
 		std::string result;
@@ -763,7 +771,6 @@ public:
 			result += m_params[i]->GetFullName() + "\n";
 			result += m_params[i]->GetValue().ToString() + "\n";
 		}
-
 		return result;
 	}
 
@@ -792,26 +799,32 @@ class CarpRobotNode
 {
 public:
 	CarpRobotNode() {};
+	// 参数在图中的下标
 	CarpRobotNode(const std::vector<int>& args) : m_args(args) {}
 	virtual ~CarpRobotNode() {}
 
 public:
-	// 获取参数下标
+	// 获取参数下标列表
 	const std::vector<int>& GetArgs() const { return m_args; }
+	// 获取输出的维度信息
+	const CarpRobotDim& GetDim() const { return m_dim_out; }
 
 public:
-	// 执行向前计算，对Batch进行处理，然后调用ForwardImpl
+	virtual void Dim(const std::vector<const CarpRobotDim*>& xs) = 0;
+	// 执行向前计算
 	virtual void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) = 0;
-	// 执行反向计算，对Batch进行处理，然后调用BackwardImpl
-	virtual void Backward(const std::vector<const CarpRobotTensor*>& xs,	// 该节点的输入值
-		const CarpRobotTensor& fx,											// 该节点的输出值
-		const CarpRobotTensor& dEdf,										// 该节点的输出节点的误差项
-		unsigned int xs_i,													// 该节点的输入节点索引
+	// 执行反向计算
+	virtual void Backward(const std::vector<const CarpRobotTensor*>& xs,// 该节点的输入值
+		const CarpRobotTensor& fx,										// 该节点的输出值
+		const CarpRobotTensor& dEdf,									// 该节点的输出节点的误差项
+		int xs_i,														// 该节点的输入节点索引
 		CarpRobotTensor& dEdxi) = 0;									// 输入节点的误差项
 	
-private:
+protected:
 	// 保存输入节点的下标
 	std::vector<int> m_args;
+	// 节点输出的维度信息
+	CarpRobotDim m_dim_out;
 };
 
 // 矩阵输入节点
@@ -824,20 +837,26 @@ public:
 	CarpRobotInputNode(const CarpRobotDim& dim, std::vector<cr_real>* pdata) : m_dim(dim), m_pdata(pdata) {}
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 0, u8"输入节点不能有参数");
+		m_dim_out = m_dim;
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 0, "Failed dimension");
 		// 直接引用内存
 		fx.RefrenceMemory(m_dim, m_pdata->data());
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		// 输入节点，不能反向传播
-		CARP_ROBOT_ASSERT(0, "called backward() on arity 0 node: i = " << xs_i);
+		CARP_ROBOT_ASSERT(0, u8"输入节点不能反向传播: i = " << xs_i);
 	}
 
 public:
@@ -856,20 +875,25 @@ public:
 	CarpRobotScalarInputNode(cr_real* pscalar) : m_pdata(pscalar), m_dim({ 1 }) {}
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 0, u8"输入节点不能有参数");
+		m_dim_out = m_dim;
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 0, "Failed dimension");
 		// 直接引用内存
 		fx.RefrenceMemory(m_dim, m_pdata);
 	}
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		// 输入节点，不能反向传播
-		CARP_ROBOT_ASSERT(0, "called backward() on arity 0 node: i = " << xs_i);
+		CARP_ROBOT_ASSERT(0, u8"输入节点不能反向传播: i = " << xs_i);
 	}
 
 public:
@@ -900,18 +924,24 @@ public:
 	void AccumulateGrad(const CarpRobotTensor& grad) override { m_parameter->AccumulateGrad(grad); }
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 0, u8"参数节点不能有参数");
+		m_dim_out = m_parameter->GetValue().GetDim();
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		fx.SetDim(m_parameter->GetValue().GetDim());
 		fx.tvec() = m_parameter->GetValue().tvec();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
-		CARP_ROBOT_ASSERT(0, "called backward() on arity 0 node: i = " << xs_i);
+		CARP_ROBOT_ASSERT(0, u8"参数节点不能反向传播: i = " << xs_i);
 	}
 
 private:
@@ -925,18 +955,24 @@ public:
 	CarpRobotConstParameterNode(CarpRobotParameter* parameter) : m_parameter(parameter) { }
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 0, u8"参数节点不能有参数");
+		m_dim_out = m_parameter->GetValue().GetDim();
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		fx.SetDim(m_parameter->GetValue().GetDim());
 		fx.tvec() = m_parameter->GetValue().tvec();
 	}
+	
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
-		CARP_ROBOT_ASSERT(0, "called backward() on arity 0 node: i = " << xs_i);
+		CARP_ROBOT_ASSERT(0, u8"参数节点不能反向传播: i = " << xs_i);
 	}
 
 private:
@@ -952,17 +988,22 @@ public:
 	CarpRobotNegateNode(const std::vector<int>& a) : CarpRobotNode(a) {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotNegateNode 必须是一个输入");
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		// v的每个元素取负数
-		fx.SetDim(xs[0]->GetDim());
 		fx.tvec() = -xs[0]->tvec();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		// 正规要这么写dEdxi.tvec() += dEdf.tvec() * -1; 但是为了减少一个乘法运算，于是写成下面那样
@@ -980,6 +1021,33 @@ public:
 	CarpRobotCwiseSumNode(const std::vector<int>& a) : CarpRobotNode(a) {}
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 2, "CarpRobotCwiseSumNode 必须是两个输入");
+		
+		for (int i = 0; i < std::min(xs[0]->Count(), xs[1]->Count()); ++i)
+			CARP_ROBOT_ASSERT((*xs[0])[i] == (*xs[1])[i] || std::min((*xs[0])[i], (*xs[1])[i]) == 1
+				, u8"CwiseSum: 两个参数的维度相等或者是1");
+		
+		std::vector<int> dims;
+		// 遍历维度比较大的
+		for (int i = 0; i < std::max(xs[0]->Count(), xs[1]->Count()); ++i)
+		{
+			// 如果当前下标都小于两个输入维度数量，那么就取最大的那个
+			if (i < std::min(xs[0]->Count(), xs[1]->Count()))
+				dims.push_back(std::max((*xs[0])[i], (*xs[1])[i]));
+			// 如果下标小于xs[0]，那么就取xs[0]对应的维度
+			else if (i < xs[0]->Count())
+				dims.push_back((*xs[0])[i]);
+			// 如果下标小于xs[1]，那么就取xs[1]对应的维度
+			else
+				dims.push_back((*xs[1])[i]);
+		}
+
+		// 设置维度
+		m_dim_out = CarpRobotDim(dims);
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotCwiseSumNode 必须是两个输入");
@@ -987,33 +1055,43 @@ protected:
 		auto& dim_left = xs[0]->GetDim();
 		auto& dim_right = xs[1]->GetDim();
 
-		size_t same_count = 0;
-		while (same_count < dim_left.Count() && dim_left[same_count] == dim_right[same_count])
-			same_count++;
+		// 将i偏移到不相等的位置
+		int i = 0;
+		while (i < fx.GetDim().Count() && dim_left[i] == dim_right[i])
+			i++;
 
-		fx.SetDim(dim_left);
-		if (same_count == dim_left.Count())
+		// 如果到这里，说明是全部相等
+		if (i == fx.GetDim().Count())
 		{
+			// 直接按向量相加即可
 			fx.tvec() = xs[0]->tvec() + xs[1]->tvec();
 		}
 		else
 		{
+			// 定义扩散数组
 			Eigen::array<ptrdiff_t, 5> bcast_left = { 1,1,1,1,1 }, bcast_right = { 1,1,1,1,1 };
+
+			// 标记左边以及右边是否需要扩散
 			bool has_left = false, has_right = false;
-			for (; same_count < dim_left.Count(); ++same_count)
+
+			// 遍历剩下的维度
+			for (; i < fx.GetDim().Count(); ++i)
 			{
-				if (dim_left[same_count] > dim_right[same_count])
+				// 如果左边的维度大于右边，那么右边需要扩散
+				if (dim_left[i] > dim_right[i])
 				{
 					has_right = true;
-					bcast_right[same_count] = dim_left[same_count];
+					bcast_right[i] = dim_left[i];
 				}
-				else if (dim_left[same_count] < dim_right[same_count])
+				// 如果左边的维度小于右边，那么左边需要扩散
+				else if (dim_left[i] < dim_right[i])
 				{
 					has_left = true;
-					bcast_left[same_count] = dim_right[same_count];
+					bcast_left[i] = dim_right[i];
 				}
 			}
-			
+
+			// 处理扩散，并且相加
 			if (has_right && has_left)
 				fx.tb<4>() = xs[0]->tb<4>().broadcast(bcast_left) + xs[1]->tb<4>().broadcast(bcast_right);
 			else if (has_right)
@@ -1022,22 +1100,27 @@ protected:
 				fx.tb<4>() = xs[0]->tb<4>().broadcast(bcast_left) + xs[1]->tb<4>();
 		}
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
+		// 计算输入和输出不相等的维度的数量
 		int n_red = 0;
 		for (int j = 0; j < fx.GetDim().Count(); ++j)
 			n_red += xs[xs_i]->GetDim()[j] != fx.GetDim()[j] ? 1 : 0;
+
+		// 如果完全相等，那么就直接相加
 		if (n_red == 0)
 		{
 			dEdxi.tvec() += dEdf.tvec();
 		}
 		else
 		{
-			CARP_ROBOT_ASSERT(n_red < 5 && n_red > 0, "Unsupported number of reductions check in CwiseSum::backward (+)");
+			CARP_ROBOT_ASSERT(n_red < 5, u8"这里只支持到4个维度");
+			// 根据不相等的维度数量，选择不同的反向传播函数
 			if (n_red == 1) BackwardImpl<1>(xs, fx, dEdf, xs_i, dEdxi);
 			else if (n_red == 2) BackwardImpl<2>(xs, fx, dEdf, xs_i, dEdxi);
 			else if (n_red == 3) BackwardImpl<3>(xs, fx, dEdf, xs_i, dEdxi);
@@ -1049,23 +1132,36 @@ protected:
 	void BackwardImpl(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) const {
 
 		Eigen::array<ptrdiff_t, ReductionOrder> red_axis;
 		if (ReductionOrder > 0) red_axis[ReductionOrder - 1] = 4;
 		int curr_red_axis = 0;
+
+		// morph最后一个1本来是输入的批次数量，
+		// 因为暂时不支持多批次，这里写死1
 		Eigen::array<ptrdiff_t, 5> morph = { 1,1,1,1,1 };
-		for (int di = 0; di < fx.GetDim().Count(); di++)
+		for (int di = 0; di < fx.GetDim().Count(); ++di)
 		{
+			// 如果当前的维度超过输入，或者和输出不一致
+			// 那么把维度下标记录下来，这些维度要进行sum处理
 			if ((di >= xs[xs_i]->GetDim().Count() && fx.GetDim()[di] > 1) || xs[xs_i]->GetDim()[di] != fx.GetDim()[di])
 			{
 				red_axis[curr_red_axis] = di;
 				curr_red_axis++;
 			}
+
+			// 将输入参数的维度设置一下
 			morph[di] = xs[xs_i]->GetDim()[di];
 		}
 
+		// dEdf.tb<4>() 维度为 (d[0], d[1], d[2], d[3], d[4], bd)
+		// dEdf.tb<4>().sum(red_axis) 将red_axis中标记的维度数全部求和
+		// dEdf.tb<4>().sum(red_axis).reshape(morph) 维度为设置为(d[0], d[1], d[2], d[3], d[4], bd)
+
+		// 这里的sum的作用相当于把当时扩散出去的对应值收缩回来作用于扩散的那个维度
+		// 最后使用reshape将值变为输入参数的矩阵格式，然后反向传播
 		dEdxi.tb<4>() += dEdf.tb<4>().sum(red_axis).reshape(morph);
 	}
 };
@@ -1086,11 +1182,14 @@ protected:
 		cr_real v;
 	};
 
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotConstantPlusXNode 必须是一个输入");
-		
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		// unaryExpr表示对xs[0]->tvec()所有元素进行遍历，每个元素都进行ConstAddOp操作
 		fx.tvec() = xs[0]->tvec().unaryExpr(ConstAddOp(m_value));
 	}
@@ -1098,7 +1197,7 @@ protected:
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		// 正规要这么写dEdxi.tvec() += dEdf.tvec() * 1; 但是为了减少一个乘法运算，于是写成下面那样
@@ -1124,18 +1223,22 @@ protected:
 		inline const cr_real operator() (cr_real x) const { return v - x; }
 		cr_real v;
 	};
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotConstantMinusXNode 必须是一个输入");
+		m_dim_out = *xs[0];
+	}
 
-		fx.SetDim(xs[0]->GetDim());
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		// unaryExpr表示对xs[0]->tvec()所有元素进行遍历，每个元素都进行ConstAddOp操作
 		fx.tvec() = xs[0]->tvec().unaryExpr(ConstMinusOp(m_value));
 	}
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		// 正规要这么写dEdxi.tvec() += dEdf.tvec() * -1; 但是为了减少一个乘法运算，于是写成下面那样
@@ -1156,20 +1259,24 @@ public:
 	CarpRobotMatrixMultiplyNode(const std::vector<int>& a) : CarpRobotNode(a) {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, "CarpRobotMatrixMultiplyNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().Cols() == xs[1]->GetDim().Rows(), u8"CarpRobotMatrixMultiplyNode 前项的列必须等于后项的行");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() <= 2 && xs[1]->GetDim().Count() <= 2, "CarpRobotMatrixMultiplyNode 矩阵相乘最多是2维的");
+		CARP_ROBOT_ASSERT(xs[0]->Cols() == xs[1]->Rows(), u8"CarpRobotMatrixMultiplyNode 前项的列必须等于后项的行");
+		CARP_ROBOT_ASSERT(xs[0]->Count() <= 2 && xs[1]->Count() <= 2, "CarpRobotMatrixMultiplyNode 矩阵相乘最多是2维的");
 
-		CarpRobotDim dim({ xs[0]->GetDim().Rows(), xs[1]->GetDim().Cols() });
-		fx.SetDim(dim);
+		m_dim_out = CarpRobotDim({ xs[0]->Rows(), xs[1]->Cols() });
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.m().noalias() = xs[0]->m() * xs[1]->m();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		CARP_ROBOT_ASSERT(xs_i < 2, "CarpRobotMatrixMultiplyNode 必须是两个输入");
@@ -1189,16 +1296,21 @@ public:
 	CarpRobotConstScalarMultiplyNode(const std::vector<int>& a, cr_real v) : CarpRobotNode(a), m_value(v) {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, "CarpRobotConstScalarMultiplyNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tvec() = xs[0]->tvec() * m_value;
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		CARP_ROBOT_ASSERT(xs_i == 0, "CarpRobotConstScalarMultiplyNode 必须是一个输入");
@@ -1219,24 +1331,149 @@ public:
 	CarpRobotCwiseQuotientNode(const std::vector<int>& a) : CarpRobotNode(a) {}
 
 protected:
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
+	{
+		CARP_ROBOT_ASSERT(xs.size() == 2, "CarpRobotCwiseQuotientNode 必须是两个输入");
+
+		for (int i = 0; i < std::min(xs[0]->Count(), xs[1]->Count()); ++i)
+			CARP_ROBOT_ASSERT((*xs[0])[i] == (*xs[1])[i] || (*xs[1])[i] == 1
+				, u8"CwiseQuotient: 两个参数的维度相等或者右参数维度是1");
+
+		std::vector<int> dims;
+		// 遍历维度比较大的
+		for (int i = 0; i < std::max(xs[0]->Count(), xs[1]->Count()); ++i)
+		{
+			// 如果当前下标都小于两个输入维度数量，那么就取最大的那个
+			if (i < std::min(xs[0]->Count(), xs[1]->Count()))
+				dims.push_back(std::max((*xs[0])[i], (*xs[1])[i]));
+			// 如果下标小于xs[0]，那么就取xs[0]对应的维度
+			else if (i < xs[0]->Count())
+				dims.push_back((*xs[0])[i]);
+			// 如果下标小于xs[1]，那么就取xs[1]对应的维度
+			else
+				dims.push_back((*xs[1])[i]);
+		}
+
+		// 设置维度
+		m_dim_out = CarpRobotDim(dims);
+	}
+
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotCwiseQuotientNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().SoftEqual(xs[1]->GetDim()), u8"CarpRobotCwiseQuotientNode 两个张量的维度必须一致, xs[0]:" << xs[0]->GetDim().ToString() << " != xs[1]:" << xs[1]->GetDim().ToString());
-
-		fx.SetDim(xs[0]->GetDim());
-		fx.tb<4>() = xs[0]->tb<4>() / xs[1]->tb<4>();
+		// 如果数据数量总和一致，那么直接除
+		if (xs[0]->GetDim().GetTotalSize() == xs[1]->GetDim().GetTotalSize())
+		{
+			fx.tb<4>() = xs[0]->tb<4>() / xs[1]->tb<4>();
+		}
+		else
+		{
+			// 将右边小的维度标记为扩散
+			Eigen::array<ptrdiff_t, 5> bcast = { 1,1,1,1,1 };
+			for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+			{
+				if (xs[1]->GetDim()[di] == 1)
+					bcast[di] = xs[0]->GetDim()[di];
+			}
+			// 将右边参数扩散之后，然后进行除法
+			fx.tb<4>() = xs[0]->tb<4>() / xs[1]->tb<4>().broadcast(bcast);
+		}
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
+		CARP_ROBOT_ASSERT(xs_i < 2, "CarpRobotCwiseQuotientNode 必须是两个输入");
+
+		// 左边的参数
 		if (xs_i == 0)
-			dEdxi.tb<4>() += dEdf.tb<4>() / xs[1]->tb<4>();
+		{
+			// 如果数据数量总和一致，那么直接除
+			if (xs[0]->GetDim().GetTotalSize() == xs[1]->GetDim().GetTotalSize())
+			{
+				dEdxi.tb<4>() += dEdf.tb<4>() / xs[1]->tb<4>();
+			}
+			else
+			{
+				// 如果右边参数的维度和左边不一致，那么就标记为扩散
+				Eigen::array<ptrdiff_t, 5> bcast = { 1,1,1,1,1 };
+				for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+				{
+					if (xs[0]->GetDim()[di] != xs[1]->GetDim()[di])
+						bcast[di] = xs[0]->GetDim()[di];
+				}
+
+				// 将右边参数扩散之后，然后进行除法
+				dEdxi.tb<4>() += dEdf.tb<4>() / xs[1]->tb<4>().broadcast(bcast);
+			}
+		}
+		// 右边的参数
 		else
-			dEdxi.tb<4>() -= (dEdf.tb<4>() / xs[1]->tb<4>().square() * xs[0]->tb<4>());
+		{
+			if (xs[0]->GetDim().GetTotalSize() == xs[1]->GetDim().GetTotalSize())
+			{
+				dEdxi.tb<4>() -= (dEdf.tb<4>() / xs[1]->tb<4>().square() * xs[0]->tb<4>());
+			}
+			else
+			{
+				// 统计维度不相等的数量
+				int n_red = 0;
+				for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+					if (xs[0]->GetDim()[di] != xs[1]->GetDim()[di]) n_red++;
+				CARP_ROBOT_ASSERT(n_red < 5, u8"这里只支持到4个维度");
+				if (n_red == 0)      BackwardImpl<0>(xs, fx, dEdf, xs_i, dEdxi);
+				else if (n_red == 1) BackwardImpl<1>(xs, fx, dEdf, xs_i, dEdxi);
+				else if (n_red == 2) BackwardImpl<2>(xs, fx, dEdf, xs_i, dEdxi);
+				else if (n_red == 3) BackwardImpl<3>(xs, fx, dEdf, xs_i, dEdxi);
+				else if (n_red == 4) BackwardImpl<4>(xs, fx, dEdf, xs_i, dEdxi);
+			}
+		}
+	}
+
+	template <int ReductionOrder>
+	void BackwardImpl(const std::vector<const CarpRobotTensor*>& xs,
+		const CarpRobotTensor& fx,
+		const CarpRobotTensor& dEdf,
+		int xs_i,
+		CarpRobotTensor& dEdxi) const {
+
+		Eigen::array<ptrdiff_t, ReductionOrder> red_axis;
+		if (ReductionOrder > 0) red_axis[ReductionOrder - 1] = 4;
+
+		// 把不相等的维度下标全部保存下来
+		int curr_red_axis = 0;
+		for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+		{
+			if (xs[0]->GetDim()[di] != xs[1]->GetDim()[di])
+			{
+				red_axis[curr_red_axis] = di;
+				curr_red_axis++;
+			}
+		}
+
+		// morph最后一个1本来是输入的批次数量，
+		// 因为暂时不支持多批次，这里写死1
+		Eigen::array<ptrdiff_t, 5> morph = { 1,1,1,1,1 };
+		for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+		{
+			morph[di] = xs[xs_i]->GetDim()[di];
+		}
+
+		// 计算扩散信息
+		Eigen::array<ptrdiff_t, 5> bcast = { 1,1,1,1,1 };
+		for (int di = 0; di < xs[0]->GetDim().Count(); ++di)
+		{
+			if (xs[0]->GetDim()[di] != xs[1]->GetDim()[di])
+				bcast[di] = xs[0]->GetDim()[di];
+		}
+
+		CarpRobotTensor xs1_squared(xs[1]->GetDim());
+		// 计算xs1的平方
+		xs1_squared.tb<4>() = xs[1]->tb<4>().square();
+		// 反向传播
+		dEdxi.tb<4>() -= (dEdf.tb<4>() / xs1_squared.tb<4>().broadcast(bcast) * xs[0]->tb<4>()).sum(red_axis).reshape(morph);
 	}
 };
 
@@ -1257,17 +1494,22 @@ protected:
 		inline const cr_real operator() (cr_real t, cr_real d) const { return (1.0f - t) * t * d; }
 	};
 
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"LogisticSigmoidNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tvec() = xs[0]->tvec().unaryExpr(ScalarLogisticSigmoidOp());
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tvec() += fx.tvec().binaryExpr(dEdf.tvec(), ScalarLogisticSigmoidBackwardOp());
 	}
@@ -1281,17 +1523,22 @@ public:
 	~CarpRobotRectifyNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tvec() = xs[0]->tvec().cwiseMax(0.f);
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tvec() += fx.tvec().cast<bool>().cast<float>() * dEdf.tvec();
 	}
@@ -1306,11 +1553,14 @@ public:
 	~CarpRobotSoftmaxNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
 
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		CarpRobotTensor z(CarpRobotDim({ 1 }));
 		CarpRobotTensor m(CarpRobotDim({ 1 }));
 
@@ -1339,11 +1589,12 @@ protected:
 			col_fx_value += size;
 		}
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		CarpRobotTensor z(CarpRobotDim({ fx.GetDim().Cols() }));
 		Eigen::array<ptrdiff_t, 1> red_axis = { 0 };
@@ -1379,14 +1630,18 @@ public:
 	~CarpRobotLogSoftmaxNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
-		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotRectifyNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotLogSoftmaxNode 必须是一个输入");
+		m_dim_out = *xs[0];
+	}
 
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		CarpRobotTensor z(CarpRobotDim({ xs[0]->GetDim().Cols() }));
 		CarpRobotTensor m(CarpRobotDim({ xs[0]->GetDim().Cols() }));
 		xs[0]->Logsumexp(m, z);
+
 		if (fx.GetDim().GetTotalSize() == fx.GetDim().Rows())
 		{
 			fx.tvec() = xs[0]->tvec() - z.AsScalar();
@@ -1409,11 +1664,12 @@ protected:
 			}
 		}
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		CarpRobotTensor z(CarpRobotDim({ xs[0]->GetDim().Cols() }));
 		Eigen::array<ptrdiff_t, 1> red_axis = { 0 };
@@ -1449,19 +1705,24 @@ public:
 	~CarpRobotDropoutNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotDropoutNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		m_aux_mem.SetDim(fx.GetDim());
 		m_aux_mem.RandomizeBernoulli((1.f - m_value), 1.f / (1.f - m_value));
 		fx.tvec() = xs[0]->tvec() * m_aux_mem.tvec();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tvec() += dEdf.tvec() * m_aux_mem.tvec();
 	}
@@ -1485,30 +1746,32 @@ public:
 	~CarpRobotConv2DNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
+		CARP_ROBOT_ASSERT(xs.size() == 2 || xs.size() == 3, u8"Conv2D requires either two or three inputs");
+		CARP_ROBOT_ASSERT((xs[0]->Count() == 2 || xs[0]->Count() == 3) && xs[1]->Count() == 4 && (*xs[1])[2] == (*xs[0])[2], u8"Conv2D requires either two or three inputs");
+		CARP_ROBOT_ASSERT(!m_padding_type || ((*xs[0])[0] >= (*xs[1])[0] && (*xs[0])[1] >= (*xs[1])[1]), u8"Bad input dimensions in Conv2D: in VALID convolution, the filter size must not be greater than the feature map size");
+		if (xs.size() == 3) //has bias term
+			CARP_ROBOT_ASSERT((*xs[2])[0] == (*xs[1])[3] && xs[2]->Count() == 1, u8"Bad input dimensions in Conv2D");
+
+		std::vector<int> output_shape(3);
+		output_shape[2] = (*xs[1])[3];
+		for (unsigned i = 0; i < 2; ++i)
 		{
-			CARP_ROBOT_ASSERT(xs.size() == 2 || xs.size() == 3, u8"Conv2D requires either two or three inputs");
-			CARP_ROBOT_ASSERT((xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3) && xs[1]->GetDim().Count() == 4 && xs[1]->GetDim()[2] == xs[0]->GetDim()[2], u8"Conv2D requires either two or three inputs");
-			CARP_ROBOT_ASSERT(!m_padding_type || (xs[0]->GetDim()[0] >= xs[1]->GetDim()[0] && xs[0]->GetDim()[1] >= xs[1]->GetDim()[1]), u8"Bad input dimensions in Conv2D: in VALID convolution, the filter size must not be greater than the feature map size");
-			if (xs.size() == 3) //has bias term
-				CARP_ROBOT_ASSERT(xs[2]->GetDim()[0] == xs[1]->GetDim()[3] && xs[2]->GetDim().Count() == 1, u8"Bad input dimensions in Conv2D");
-
-			std::vector<int> output_shape(3);
-			output_shape[2] = xs[1]->GetDim()[3];
-			for (unsigned i = 0; i < 2; ++i)
-			{
-				float input_dim = static_cast<float>(xs[0]->GetDim()[i]);
-				float kernel_dim = static_cast<float>(xs[1]->GetDim()[i]);
-				float s = static_cast<float>(m_stride[i]);
-				if (m_padding_type)
-					output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
-				else
-					output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
-			}
-			fx.SetDim(CarpRobotDim(output_shape));
+			float input_dim = static_cast<float>((*xs[0])[i]);
+			float kernel_dim = static_cast<float>((*xs[1])[i]);
+			float s = static_cast<float>(m_stride[i]);
+			if (m_padding_type)
+				output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
+			else
+				output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
 		}
+		
+		m_dim_out = CarpRobotDim(output_shape);
+	}
 
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		Eigen::PaddingType padding_type = m_padding_type ? Eigen::PADDING_VALID : Eigen::PADDING_SAME;
 		
 		CarpRobotTensor CHWN_x(CarpRobotDim({ xs[0]->GetDim()[2], xs[0]->GetDim()[0], xs[0]->GetDim()[1] }));
@@ -1537,8 +1800,8 @@ protected:
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		CarpRobotTensor CHWN_dy(CarpRobotDim({ dEdf.GetDim()[2], dEdf.GetDim()[0], dEdf.GetDim()[1] }));
 		Eigen::array<ptrdiff_t, 4> shuffles;
@@ -1600,30 +1863,32 @@ public:
 	~CarpRobotMaxPooling2DNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx)
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotMaxPooling2DNode 必须是一个输入");
+
+		CARP_ROBOT_ASSERT(xs[0]->Count() == 2 || xs[0]->Count() == 3, u8"Bad input dimensions in MaxPooling2D, expected 2 or 3 dimensions");
+		CARP_ROBOT_ASSERT(!m_padding_type || ((*xs[0])[0] >= m_ksize[0] && (*xs[0])[1] >= m_ksize[1]), u8"Bad input dimensions in MaxPooling2D: in VALID mode, the kernel size cannot be greater than the feature map size");
+
+		std::vector<int> output_shape(xs[0]->Count());
+		if (xs[0]->Count() == 3)
+			output_shape[2] = (*xs[0])[2];
+
+		for (unsigned i = 0; i < 2; ++i)
 		{
-			CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() == 2 || xs[0]->GetDim().Count() == 3, u8"Bad input dimensions in MaxPooling2D, expected 2 or 3 dimensions");
-			CARP_ROBOT_ASSERT(!m_padding_type || (xs[0]->GetDim()[0] >= m_ksize[0] && xs[0]->GetDim()[1] >= m_ksize[1]), u8"Bad input dimensions in MaxPooling2D: in VALID mode, the kernel size cannot be greater than the feature map size");
-
-			std::vector<int> output_shape(xs[0]->GetDim().Count());
-			if (xs[0]->GetDim().Count() == 3)
-				output_shape[2] = xs[0]->GetDim()[2];
-			
-			for (unsigned i = 0; i < 2; ++i)
-			{
-				float input_dim = static_cast<float>(xs[0]->GetDim()[i]);
-				float kernel_dim = static_cast<float>(m_ksize[i]);
-				float s = static_cast<float>(m_stride[i]);
-				if (m_padding_type)
-					output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
-				else
-					output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
-			}
-			fx.SetDim(CarpRobotDim(output_shape));
+			float input_dim = static_cast<float>((*xs[0])[i]);
+			float kernel_dim = static_cast<float>(m_ksize[i]);
+			float s = static_cast<float>(m_stride[i]);
+			if (m_padding_type)
+				output_shape[i] = static_cast<int>(std::ceil((input_dim - kernel_dim + 1) / s));
+			else
+				output_shape[i] = static_cast<int>(std::ceil(input_dim / s));
 		}
+		m_dim_out = CarpRobotDim(output_shape);
+	}
 
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		Eigen::PaddingType padding_type = m_padding_type ? Eigen::PADDING_VALID : Eigen::PADDING_SAME;
 
 		// convert x from HWCN to CHWN
@@ -1639,11 +1904,12 @@ protected:
 		shuffles[0] = 1; shuffles[1] = 2; shuffles[2] = 0; shuffles[3] = 3;
 		fx.tb<3>() = CHWN_y.tb<3>().shuffle(shuffles);
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
-		CarpRobotTensor& dEdxi)
+		int xs_i,
+		CarpRobotTensor& dEdxi) override
 	{
 		int pad_along_height = (fx.GetDim()[0] - 1) * m_stride[0] + m_ksize[0] - xs[0]->GetDim()[0];
 		int pad_along_width = ((fx.GetDim()[1] - 1) * m_stride[1] + m_ksize[1] - xs[0]->GetDim()[1]);
@@ -1700,16 +1966,21 @@ public:
 	~CarpRobotSquareNode() {}
 
 public:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotSquareNode 必须是一个输入");
-		fx.SetDim(xs[0]->GetDim());
+		m_dim_out = *xs[0];
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tvec() = xs[0]->tvec().square();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tvec() += dEdf.tvec() * xs[0]->tvec() * 2.f;
@@ -1767,19 +2038,24 @@ protected:
 		cr_real d;
 	};
 
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, u8"CarpRobotBinaryLogLossNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().Rows() == 2 || xs[0]->GetDim().Count() == 1, u8"输入维度信息错误");
-		CARP_ROBOT_ASSERT(xs[1]->GetDim().Rows() == 2 || xs[1]->GetDim().Count() == 1, u8"输入维度信息错误");
+		CARP_ROBOT_ASSERT(xs[0]->Rows() == 2 || xs[0]->Count() == 1, u8"输入维度信息错误");
+		CARP_ROBOT_ASSERT(xs[1]->Rows() == 2 || xs[1]->Count() == 1, u8"输入维度信息错误");
 
-		fx.SetDim(CarpRobotDim({ 1 }));
+		m_dim_out = CarpRobotDim({ 1 });
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.t<0>() = xs[0]->tvec().binaryExpr(xs[1]->tvec(), FBinaryLogLoss()).sum();
 	}
+
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tvec() += xs[xs_i]->tvec().binaryExpr(xs[1 - xs_i]->tvec(), FBinaryLogLossBackward(dEdf.AsScalar()));
@@ -1795,15 +2071,19 @@ public:
 	~CarpRobotPickNegLogSoftmaxNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickNegLogSoftmaxNode 必须是一个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().GetTotalSize() == xs[0]->GetDim().Rows(), u8"输入的维度信息错误");
-		
+		CARP_ROBOT_ASSERT(xs[0]->GetTotalSize() == xs[0]->Rows(), u8"输入的维度信息错误");
+
+		m_dim_out = CarpRobotDim({ 1 });
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		m_z.SetDim(CarpRobotDim({ 1 }), true);
 		m_m.SetDim(CarpRobotDim({ 1 }), true);
 
-		fx.SetDim(CarpRobotDim({ 1 }));
 		if (xs[0]->GetDim().Cols() == 1)
 		{
 			xs[0]->Logsumexp(m_m, m_z);
@@ -1819,7 +2099,7 @@ protected:
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		if (xs[0]->GetDim().Cols() == 1)
@@ -1849,22 +2129,24 @@ public:
 	~CarpRobotPickElementNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickElementNode 必须是一个输入");
-		CARP_ROBOT_ASSERT(m_val < xs[0]->GetDim()[m_dim], u8"输入的维度信息错误");
+		CARP_ROBOT_ASSERT(m_val < (*xs[0])[m_dim], u8"输入的维度信息错误");
 
-		CarpRobotDim dim = xs[0]->GetDim();
-		dim.Delete(m_dim);
-		fx.SetDim(dim);
+		m_dim_out = *xs[0];
+		m_dim_out.Delete(m_dim);
+	}
 
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tb<3>() = xs[0]->tb<4>().chip(m_val, m_dim);
 	}
 
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		dEdxi.tb<3>().chip(m_val, m_dim) += dEdf.tb<2>();
@@ -1883,21 +2165,25 @@ public:
 	~CarpRobotReshapeNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotReshapeNode 必须是一个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().GetTotalSize() == m_dim.GetTotalSize(), u8"CarpRobotReshapeNode 输入的总大小必须和输出一致");
+		CARP_ROBOT_ASSERT(xs[0]->GetTotalSize() == m_dim.GetTotalSize(), u8"CarpRobotReshapeNode 输入的总大小必须和输出一致");
 
 		// just point to the input memory and change dimensions
 		// dimensions are handled by forward_dim
-		fx.SetDim(m_dim);
+		m_dim_out = m_dim;
+	}
+
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
 		fx.tvec() = xs[0]->tvec();
 	}
 
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		CarpRobotTensor reshaped(dEdxi.GetDim(), dEdf.GetValue());
@@ -1916,16 +2202,18 @@ public:
 	~CarpRobotMeanElementsNode() {}
 
 protected:
-	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpMeanElementsNode 必须是一个输入");
-		CARP_ROBOT_ASSERT(xs[0]->GetDim().Count() <= 3, u8"CarpMeanElementsNode 最多只支持到3个维度");
+		CARP_ROBOT_ASSERT(xs[0]->Count() <= 3, u8"CarpMeanElementsNode 最多只支持到3个维度");
 
-		CarpRobotDim dim = xs[0]->GetDim();
-		dim.Delete(m_dim);
-		fx.SetDim(dim);
+		m_dim_out = *xs[0];
+		m_dim_out.Delete(m_dim);
+	}
 
-		float n = dim.GetTotalSize();
+	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
+	{
+		float n = (float)fx.GetDim().GetTotalSize();
 		Eigen::array<ptrdiff_t, 1> reduction_axis = { m_dim };
 		fx.tb<2>() = xs[0]->tb<3>().sum(reduction_axis) / n;
 	}
@@ -1933,12 +2221,12 @@ protected:
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
 		const CarpRobotTensor& dEdf,
-		unsigned int xs_i,
+		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
 		CarpRobotDim dim = xs[0]->GetDim();
 
-		float n = dim.GetTotalSize();
+		float n = (float)dim.GetTotalSize();
 		Eigen::array<ptrdiff_t, 4> bcast = { 1,1,1,1 }; bcast[m_dim] = dim[m_dim];
 		Eigen::array<ptrdiff_t, 4> morph = { dim[0], dim[1], dim[2], 1 }; morph[m_dim] = 1;
 		dEdxi.tb<3>() += dEdf.tb<2>().reshape(morph).broadcast(bcast) / n;
@@ -2040,6 +2328,13 @@ public:
 		m_nodes.push_back(node);
 		// 初始化维度，并且申请内存
 		m_fx_list.emplace_back(CarpRobotTensor());
+
+		// 计算输出节点维度
+		std::vector<const CarpRobotDim*> xs(node->GetArgs().size());
+		for (size_t i = 0; i < node->GetArgs().size(); ++i)
+			xs[i] = &(m_nodes[node->GetArgs()[i]]->GetDim());
+		node->Dim(xs);
+		m_fx_list.back().SetDim(node->GetDim());
 
 		// 如果需要世界计算，那么进行向前计算
 		if (m_immediate_compute) Forward();

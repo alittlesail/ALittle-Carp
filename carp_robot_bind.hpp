@@ -249,14 +249,14 @@ public:
 
 	bool GetImage(int index, CarpRobotInput* input)
 	{
-		if (index < (int)m_images.size()) return false;
+		if (index >= (int)m_images.size()) return false;
 		input->Copy(m_images[index]);
 		return true;
 	}
 
 	int GetLabel(int index)
 	{
-		if (index < (int)m_labels.size()) return 0;
+		if (index >= (int)m_labels.size()) return 0;
 		return m_labels[index];
 	}
 

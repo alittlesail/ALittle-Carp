@@ -787,6 +787,20 @@ public:
 			m_params[i]->Deserialize(file, nullptr);
 	}
 
+	void Load(const char* file_path)
+	{
+		CarpRobotModelDeserializer file;
+		if (!file.Open(file_path)) return;
+		Deserialize(file);
+	}
+
+	void Save(const char* file_path)
+	{
+		CarpRobotModelSerializer file;
+		if (!file.Open(file_path)) return;
+		Serialize(file);
+	}
+
 private:
 	std::vector<CarpRobotParameter*> m_params;					// Parameter参数的集合
 	
@@ -834,7 +848,7 @@ public:
 	// 值拷贝
 	CarpRobotInputNode(const CarpRobotDim& dim, const std::vector<cr_real>& data) : m_dim(dim), m_data(data), m_pdata(&m_data) {}
 	// 地址拷贝
-	CarpRobotInputNode(const CarpRobotDim& dim, std::vector<cr_real>* pdata) : m_dim(dim), m_pdata(pdata) {}
+	CarpRobotInputNode(const CarpRobotDim& dim, const std::vector<cr_real>* pdata) : m_dim(dim), m_pdata(pdata) {}
 
 protected:
 	void Dim(const std::vector<const CarpRobotDim*>& xs) override
@@ -846,7 +860,7 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		// 直接引用内存
-		fx.RefrenceMemory(m_dim, m_pdata->data());
+		fx.RefrenceMemory(m_dim, (cr_real*)m_pdata->data());
 	}
 
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
@@ -862,7 +876,7 @@ protected:
 public:
 	CarpRobotDim m_dim;
 	std::vector<cr_real> m_data;
-	std::vector<cr_real>* m_pdata;
+	const std::vector<cr_real>* m_pdata;
 };
 
 // 标量输入节点
@@ -872,7 +886,7 @@ public:
 	// 值拷贝
 	CarpRobotScalarInputNode(cr_real scalar) : m_data(scalar), m_pdata(&m_data), m_dim({ 1 }) {}
 	// 地址拷贝
-	CarpRobotScalarInputNode(cr_real* pscalar) : m_pdata(pscalar), m_dim({ 1 }) {}
+	CarpRobotScalarInputNode(const cr_real* pscalar) : m_pdata(pscalar), m_dim({ 1 }) {}
 
 protected:
 	void Dim(const std::vector<const CarpRobotDim*>& xs) override
@@ -884,7 +898,7 @@ protected:
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
 		// 直接引用内存
-		fx.RefrenceMemory(m_dim, m_pdata);
+		fx.RefrenceMemory(m_dim, (cr_real*)m_pdata);
 	}
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
 		const CarpRobotTensor& fx,
@@ -899,7 +913,7 @@ protected:
 public:
 	CarpRobotDim m_dim;
 	cr_real m_data = 0;
-	cr_real* m_pdata = nullptr;
+	const cr_real* m_pdata = nullptr;
 };
 
 // 参数节点输入
@@ -1742,7 +1756,7 @@ private:
 class CarpRobotConv2DNode : public CarpRobotNode
 {
 public:
-	CarpRobotConv2DNode(const std::vector<int>& a, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) : CarpRobotNode(a), m_stride(stride), m_padding_type(padding_type) {}
+	CarpRobotConv2DNode(const std::vector<int>& a, int stride_width, int stride_height = 1, bool padding_type = true) : CarpRobotNode(a), m_stride({stride_width, stride_height}), m_padding_type(padding_type) {}
 	~CarpRobotConv2DNode() {}
 
 protected:
@@ -1859,7 +1873,7 @@ private:
 class CarpRobotMaxPooling2DNode : public CarpRobotNode
 {
 public:
-	CarpRobotMaxPooling2DNode(const std::vector<int>& a, const std::vector<int>& ksize, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) : CarpRobotNode(a), m_ksize(ksize), m_stride(stride), m_padding_type(padding_type) {}
+	CarpRobotMaxPooling2DNode(const std::vector<int>& a, int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) : CarpRobotNode(a), m_ksize({kernel_width, kernel_height}), m_stride({ stride_width, stride_height }), m_padding_type(padding_type) {}
 	~CarpRobotMaxPooling2DNode() {}
 
 protected:
@@ -2273,8 +2287,8 @@ public:
 
 	// 功能函数
 	CarpRobotExpression Dropout(cr_real rate) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate))); }
-	CarpRobotExpression Conv2D(const CarpRobotExpression& kernel, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); args.push_back(kernel.GetIndex()); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride, padding_type))); }
-	CarpRobotExpression MaxPooling2D(const std::vector<int>& ksize, const std::vector<int>& stride= { 1, 1 }, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, ksize, stride, padding_type))); }
+	CarpRobotExpression Conv2D(const CarpRobotExpression& kernel, int stride_width = 1, int stride_height = 1, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); args.push_back(kernel.GetIndex()); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride_width, stride_height, padding_type))); }
+	CarpRobotExpression MaxPooling2D(int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, kernel_width, kernel_height, stride_width, stride_height, padding_type))); }
 	CarpRobotExpression Reshape(const CarpRobotDim& dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotReshapeNode(args, dim))); }
 	CarpRobotExpression PickElement(int value, int dim = 0) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickElementNode(args, value, dim))); }
 	CarpRobotExpression MeanElements(int dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMeanElementsNode(args, dim))); }
@@ -2305,20 +2319,68 @@ public:
 	CarpRobotComputationGraph() { }
 	~CarpRobotComputationGraph() { Clear(); }
 
+private:
+	CarpRobotComputationGraph(const CarpRobotComputationGraph&) {}
+	CarpRobotComputationGraph& operator=(const CarpRobotComputationGraph&) {}
+
 public:
 	// 添加一个标量输入节点
 	CarpRobotExpression AddInput(cr_real scalar) { return CarpRobotExpression(this, AddNode(new CarpRobotScalarInputNode(scalar))); }
-	CarpRobotExpression AddInput(cr_real* pscalar) { return CarpRobotExpression(this, AddNode(new CarpRobotScalarInputNode(pscalar))); }
+	CarpRobotExpression AddInput(const cr_real* pscalar) { return CarpRobotExpression(this, AddNode(new CarpRobotScalarInputNode(pscalar))); }
 
 	// 添加指定结构的输入
 	CarpRobotExpression AddInput(const CarpRobotDim& dim, const std::vector<cr_real>& data) { return CarpRobotExpression(this, AddNode(new CarpRobotInputNode(dim, data))); }
-	CarpRobotExpression AddInput(const CarpRobotDim& dim, std::vector<cr_real>* pdata) { return CarpRobotExpression(this, AddNode(new CarpRobotInputNode(dim, pdata))); }
+	CarpRobotExpression AddInput(const CarpRobotDim& dim, const std::vector<cr_real>* pdata) { return CarpRobotExpression(this, AddNode(new CarpRobotInputNode(dim, pdata))); }
 
 public:
 	// 添加一个Parameter参数节点
 	CarpRobotExpression AddParameters(CarpRobotParameter* p) { return CarpRobotExpression(this, AddParameterNode(new CarpRobotParameterNode(p))); }
 	// 添加一个Parameter常量参数节点
 	CarpRobotExpression AddConstParameters(CarpRobotParameter* p) { return CarpRobotExpression(this, AddNode(new CarpRobotConstParameterNode(p))); }
+
+public:
+	// 四则运算
+	int Negate(int index) { return (-CarpRobotExpression(this, index)).GetIndex(); }
+	int Addition(int index1, int index2) { return (CarpRobotExpression(this, index1) + CarpRobotExpression(this, index2)).GetIndex(); }
+	int Plus(int index, cr_real value) { return (CarpRobotExpression(this, index) + value).GetIndex(); }
+	int Subtraction(int index1, int index2) { return (CarpRobotExpression(this, index1) - CarpRobotExpression(this, index2)).GetIndex(); }
+	int Minus(int index, cr_real value) { return (CarpRobotExpression(this, index) - value).GetIndex(); }
+	int Multiplication(int index1, int index2) { return (CarpRobotExpression(this, index1) * CarpRobotExpression(this, index2)).GetIndex(); }
+	int Multiply(int index, cr_real value) { return (CarpRobotExpression(this, index) * value).GetIndex(); }
+	int Division(int index1, int index2) { return (CarpRobotExpression(this, index1) / CarpRobotExpression(this, index2)).GetIndex(); }
+	int Divide(int index, cr_real value) { return (CarpRobotExpression(this, index) / value).GetIndex(); }
+
+	// 损失函数
+	int Square(int index) { return CarpRobotExpression(this, index).Square().GetIndex(); }
+	int PickNegLogSoftmax(int index, int v) { return CarpRobotExpression(this, index).PickNegLogSoftmax(v).GetIndex(); }
+	int BinaryLogLoss(int index) { return CarpRobotExpression(this, index).BinaryLogLoss().GetIndex(); }
+
+	// 激活函数
+	int Sigmoid(int index) { return CarpRobotExpression(this, index).Sigmoid().GetIndex(); }
+	int Rectify(int index) { return CarpRobotExpression(this, index).Rectify().GetIndex(); }
+	int Softmax(int index) { return CarpRobotExpression(this, index).Softmax().GetIndex(); }
+	int LogSoftmax(int index) { return CarpRobotExpression(this, index).LogSoftmax().GetIndex(); }
+
+	// 功能函数
+	int Dropout(int index, cr_real rate) { return CarpRobotExpression(this, index).Dropout(rate).GetIndex(); }
+	int Conv2D(int index, int kernel_expr, int stride_width = 1, int stride_height = 1, bool padding_type = true) { return CarpRobotExpression(this, index).Conv2D(CarpRobotExpression(this, kernel_expr), stride_width, stride_height, padding_type).GetIndex(); }
+	int MaxPooling2D(int index, int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) { return CarpRobotExpression(this, index).MaxPooling2D(kernel_width, kernel_height, stride_width, stride_height, padding_type).GetIndex(); }
+	int Reshape(int index, int dim_0, int dim_1, int dim_2)
+	{
+		std::vector<int> dims;
+		if (dim_0 > 0)
+		{
+			dims.push_back(dim_0);
+			if (dim_1 > 0) 
+			{
+				dims.push_back(dim_1);
+				if (dim_2 > 0) dims.push_back(dim_2);
+			}
+		}
+		return CarpRobotExpression(this, index).Reshape(CarpRobotDim(dims)).GetIndex();
+	}
+	int PickElement(int index, int value, int dim = 0) { return CarpRobotExpression(this, index).PickElement(value, dim).GetIndex(); }
+	int MeanElements(int index, int dim) { return CarpRobotExpression(this, index).MeanElements(dim).GetIndex(); }
 
 public:
 	// 添加一个计算节点
@@ -2364,6 +2426,11 @@ public:
 	{
 		CARP_ROBOT_ASSERT(i < (int)m_dEdf_list.size(), u8"访问越界");
 		return m_dEdf_list[i];
+	}
+
+	cr_real AsScalar(int i)
+	{
+		return GetValue(i).AsScalar();
 	}
 
 public:
@@ -2517,8 +2584,8 @@ private:
 class CarpRobotTrainer
 {
 public:
-	CarpRobotTrainer(CarpRobotParameterCollection& model, cr_real learning_rate)
-		: m_model(&model)
+	CarpRobotTrainer(CarpRobotParameterCollection* model, cr_real learning_rate)
+		: m_model(model)
 		, m_learning_rate(learning_rate)
 	{}
 	virtual ~CarpRobotTrainer() {}
@@ -2563,7 +2630,7 @@ protected:
 class CarpRobotSGDTrainer : public CarpRobotTrainer
 {
 public:
-	CarpRobotSGDTrainer(CarpRobotParameterCollection& model, cr_real learning_rate) : CarpRobotTrainer(model, learning_rate) {}
+	CarpRobotSGDTrainer(CarpRobotParameterCollection* model, cr_real learning_rate) : CarpRobotTrainer(model, learning_rate) {}
 protected:
 	void UpdateParameter(int index, CarpRobotParameter* parameter) override { parameter->GetValue().tvec() -= parameter->GetGradient().tvec() * m_learning_rate; }
 };
@@ -2572,7 +2639,7 @@ protected:
 class CarpRobotAdamTrainer : public CarpRobotTrainer
 {
 public:
-	CarpRobotAdamTrainer(CarpRobotParameterCollection& model, float learning_rate = 0.001, float beta_1 = 0.9, float beta_2 = 0.999, float eps = 1e-8) :
+	CarpRobotAdamTrainer(CarpRobotParameterCollection* model, float learning_rate = 0.001, float beta_1 = 0.9, float beta_2 = 0.999, float eps = 1e-8) :
 		CarpRobotTrainer(model, learning_rate), m_beta_1(beta_1), m_beta_2(beta_2), m_epsilon(eps) {}
 	~CarpRobotAdamTrainer() {}
 

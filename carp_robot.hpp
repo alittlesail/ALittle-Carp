@@ -2081,7 +2081,8 @@ protected:
 class CarpRobotPickNegLogSoftmaxNode : public CarpRobotNode
 {
 public:
-	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, int v) : CarpRobotNode(a), m_val(v) {}
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, int label) : CarpRobotNode(a), m_label(label), m_plabel(&m_label) {}
+	CarpRobotPickNegLogSoftmaxNode(const std::vector<int>& a, const int* plabel) : CarpRobotNode(a), m_label(0), m_plabel(plabel) {}
 	~CarpRobotPickNegLogSoftmaxNode() {}
 
 protected:
@@ -2101,7 +2102,7 @@ protected:
 		if (xs[0]->GetDim().Cols() == 1)
 		{
 			xs[0]->Logsumexp(m_m, m_z);
-			fx.GetValue()[0] = xs[0]->GetValue()[m_val];
+			fx.GetValue()[0] = xs[0]->GetValue()[*m_plabel];
 			fx.tvec() = m_z.tvec() - fx.tvec();
 		}
 		else
@@ -2119,7 +2120,7 @@ protected:
 		if (xs[0]->GetDim().Cols() == 1)
 		{
 			dEdxi.tb<1>().chip<1>(0) += (xs[0]->tb<1>().chip<1>(0) - m_z.GetValue()[0]).exp() * dEdf.GetValue()[0];
-			dEdxi.GetValue()[m_val] -= dEdf.GetValue()[0];
+			dEdxi.GetValue()[*m_plabel] -= dEdf.GetValue()[0];
 		}
 		else
 		{
@@ -2127,7 +2128,8 @@ protected:
 		}
 	}
 public:
-	int m_val = 0;
+	int m_label = 0;
+	const int* m_plabel = nullptr;
 	
 private:
 	CarpRobotTensor m_z;
@@ -2139,14 +2141,15 @@ private:
 class CarpRobotPickElementNode : public CarpRobotNode
 {
 public:
-	CarpRobotPickElementNode(const std::vector<int>& a, int v, int d = 0) : CarpRobotNode(a), m_val(v), m_dim(d) {}
+	CarpRobotPickElementNode(const std::vector<int>& a, int label, int d = 0) : CarpRobotNode(a), m_label(label), m_plabel(&m_label), m_dim(d) {}
+	CarpRobotPickElementNode(const std::vector<int>& a, const int* plabel, int d = 0) : CarpRobotNode(a), m_label(0), m_plabel(plabel), m_dim(d) {}
 	~CarpRobotPickElementNode() {}
 
 protected:
 	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 1, u8"CarpRobotPickElementNode 必须是一个输入");
-		CARP_ROBOT_ASSERT(m_val < (*xs[0])[m_dim], u8"输入的维度信息错误");
+		CARP_ROBOT_ASSERT(*m_plabel < (*xs[0])[m_dim], u8"输入的维度信息错误");
 
 		m_dim_out = *xs[0];
 		m_dim_out.Delete(m_dim);
@@ -2154,7 +2157,7 @@ protected:
 
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		fx.tb<3>() = xs[0]->tb<4>().chip(m_val, m_dim);
+		fx.tb<3>() = xs[0]->tb<4>().chip(*m_plabel, m_dim);
 	}
 
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
@@ -2163,11 +2166,12 @@ protected:
 		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
-		dEdxi.tb<3>().chip(m_val, m_dim) += dEdf.tb<2>();
+		dEdxi.tb<3>().chip(*m_plabel, m_dim) += dEdf.tb<2>();
 	}
 
 public:
-	int m_val = 0;
+	int m_label = 0;
+	const int* m_plabel = nullptr;
 	int m_dim = 0;
 };
 
@@ -2276,7 +2280,8 @@ public:
 public:
 	// 损失函数
 	CarpRobotExpression Square() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotSquareNode(args))); }
-	CarpRobotExpression PickNegLogSoftmax(int v) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickNegLogSoftmaxNode(args, v))); }
+	CarpRobotExpression PickNegLogSoftmax(const int* plabel) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickNegLogSoftmaxNode(args, plabel))); }
+	CarpRobotExpression PickNegLogSoftmax(int label) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickNegLogSoftmaxNode(args, label))); }
 	CarpRobotExpression BinaryLogLoss() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotBinaryLogLossNode(args))); }
 
 	// 激活函数
@@ -2291,6 +2296,7 @@ public:
 	CarpRobotExpression MaxPooling2D(int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, kernel_width, kernel_height, stride_width, stride_height, padding_type))); }
 	CarpRobotExpression Reshape(const CarpRobotDim& dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotReshapeNode(args, dim))); }
 	CarpRobotExpression PickElement(int value, int dim = 0) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickElementNode(args, value, dim))); }
+	CarpRobotExpression PickElement(const int* value, int dim = 0) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotPickElementNode(args, value, dim))); }
 	CarpRobotExpression MeanElements(int dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMeanElementsNode(args, dim))); }
 
 private:
@@ -2309,6 +2315,18 @@ CarpRobotExpression operator-(const CarpRobotExpression& x, cr_real y) { return 
 CarpRobotExpression operator*(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotMatrixMultiplyNode({ x.GetIndex(), y.GetIndex() }))); }
 CarpRobotExpression operator*(const CarpRobotExpression& x, cr_real y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotConstScalarMultiplyNode({ x.GetIndex() }, y))); }
 CarpRobotExpression operator/(const CarpRobotExpression& x, const CarpRobotExpression& y) { return CarpRobotExpression(x.GetGraph(), x.GetGraph()->AddNode(new CarpRobotCwiseQuotientNode({ x.GetIndex(), y.GetIndex() }))); }
+CarpRobotExpression operator/(const CarpRobotExpression& x, cr_real y) { return x * (1.f / y); }
+
+class CarpRobotLabel
+{
+public:
+	void Update(int label) { m_label = label; }
+
+	const int* GetLabel() const { return &m_label; }
+
+private:
+	int m_label = 0;
+};
 
 // 1. 计算图，保存所有节点的拓扑结构
 // 2. 前向计算，反向传播
@@ -2352,7 +2370,7 @@ public:
 
 	// 损失函数
 	int Square(int index) { return CarpRobotExpression(this, index).Square().GetIndex(); }
-	int PickNegLogSoftmax(int index, int v) { return CarpRobotExpression(this, index).PickNegLogSoftmax(v).GetIndex(); }
+	int PickNegLogSoftmax(int index, CarpRobotLabel* v) { return CarpRobotExpression(this, index).PickNegLogSoftmax(v->GetLabel()).GetIndex(); }
 	int BinaryLogLoss(int index) { return CarpRobotExpression(this, index).BinaryLogLoss().GetIndex(); }
 
 	// 激活函数
@@ -2379,7 +2397,7 @@ public:
 		}
 		return CarpRobotExpression(this, index).Reshape(CarpRobotDim(dims)).GetIndex();
 	}
-	int PickElement(int index, int value, int dim = 0) { return CarpRobotExpression(this, index).PickElement(value, dim).GetIndex(); }
+	int PickElement(int index, CarpRobotLabel* v, int dim = 0) { return CarpRobotExpression(this, index).PickElement(v->GetLabel(), dim).GetIndex(); }
 	int MeanElements(int index, int dim) { return CarpRobotExpression(this, index).MeanElements(dim).GetIndex(); }
 
 public:
@@ -2399,7 +2417,7 @@ public:
 		m_fx_list.back().SetDim(node->GetDim());
 
 		// 如果需要世界计算，那么进行向前计算
-		if (m_immediate_compute) Forward();
+		if (m_immediate_compute) Forward((int)m_nodes.size());
 		// 返回索引
 		return (int)m_nodes.size() - 1;
 	}
@@ -2418,7 +2436,7 @@ public:
 public:
 	const CarpRobotTensor& GetValue(int i) override
 	{
-		Forward();
+		Forward(i);
 		CARP_ROBOT_ASSERT(i < (int)m_fx_list.size(), u8"访问越界");
 		return m_fx_list[i];
 	}
@@ -2436,6 +2454,11 @@ public:
 	int AsVectorAndArgmax(int i)
 	{
 		return GetValue(i).AsVectorAndArgmax();
+	}
+
+	cr_real AsVectorAndMaxValue(int i)
+	{
+		return GetValue(i).AsVectorAndMaxValue();
 	}
 
 public:
@@ -2459,7 +2482,7 @@ public:
 
 public:
 	// 向前传播
-	const CarpRobotTensor& Forward()
+	const CarpRobotTensor& Forward(int index)
 	{
 		CARP_ROBOT_ASSERT(m_nodes.size() > 0, u8"当前没有节点，无法向前计算");
 
@@ -2469,6 +2492,8 @@ public:
 		// 从当前节点向前计算，直到最后
 		while (m_evaluated_index < (int)m_nodes.size())
 		{
+			if (m_evaluated_index > index) break;
+
 			// 获取当前计算节点
 			auto* node = m_nodes[m_evaluated_index];
 
@@ -2492,7 +2517,7 @@ public:
 	void Backward()
 	{
 		// 执行向前计算，保证所有节点全部计算完毕
-		Forward();
+		Forward((int)m_nodes.size());
 
 		// 获取当前节点个数
 		int num_nodes = (int)m_nodes.size();

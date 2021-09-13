@@ -63,10 +63,165 @@ public:
 		return 0;
 	}
 
+	void Copy(const std::vector<cr_real>& data)
+	{
+		m_value = data;
+	}
+
 private:
 	std::vector<cr_real> m_value;
 	CarpRobotDim m_dim;
 	CarpRobotExpression m_expression;
+};
+
+class CarpRobotMnist
+{
+public:
+	static unsigned int CarpRtpReadUint32(unsigned int value)
+	{
+		char* ptr = (char*)&value;
+		std::swap(ptr[0], ptr[3]);
+		std::swap(ptr[1], ptr[2]);
+		return value;
+	}
+
+public:
+	bool Load(const char* root_path)
+	{
+		if (root_path == nullptr) return false;
+
+		m_images.clear();
+		m_labels.clear();
+
+		std::string mnist_path = root_path;
+
+		// 读取图片
+		{
+			std::string file_path = mnist_path + "/train-images-idx3-ubyte";
+
+			FILE* file = nullptr;
+#ifdef _WIN32
+			fopen_s(&file, file_path.c_str(), "rb");
+#else
+			file = fopen(file_path.c_str(), "rb");
+#endif
+			if (file == nullptr) return false;
+
+			struct ImageHead
+			{
+				unsigned int desc = 0;
+				unsigned int count = 0;
+				unsigned int width = 0;
+				unsigned int height = 0;
+			};
+
+			// 读取头信息
+			ImageHead head;
+			size_t read = fread(&head, 1, sizeof(head), file);
+			if (read != sizeof(head))
+			{
+				fclose(file);
+				return false;
+			}
+
+			head.desc = CarpRtpReadUint32(head.desc);
+			head.width = CarpRtpReadUint32(head.width);
+			head.height = CarpRtpReadUint32(head.height);
+			head.count = CarpRtpReadUint32(head.count);
+
+			// 图片像素数量
+			auto pixel_count = head.width * head.height;
+
+			m_images.resize(head.count);
+			std::vector<unsigned char> buffer;
+			buffer.resize(pixel_count);
+			for (size_t i = 0; i < m_images.size(); ++i)
+			{
+				auto& image = m_images[i];
+				image.resize(pixel_count);
+				read = fread(buffer.data(), 1, pixel_count, file);
+				if (read != pixel_count)
+				{
+					fclose(file);
+					return false;
+				}
+				for (size_t j = 0; j < buffer.size(); ++j)
+					image[j] = buffer[j] / 255.0f;
+			}
+
+			fclose(file);
+		}
+
+		// 读取标签
+		{
+			std::string file_path = mnist_path + "/train-labels-idx1-ubyte";
+
+			FILE* file = nullptr;
+#ifdef _WIN32
+			fopen_s(&file, file_path.c_str(), "rb");
+#else
+			file = fopen(file_path.c_str(), "rb");
+#endif
+			if (file == nullptr) return false;
+
+			struct LabelHead
+			{
+				unsigned int desc = 0;
+				unsigned int count = 0;
+			};
+
+			// 读取头信息
+			LabelHead head;
+			size_t read = fread(&head, 1, sizeof(head), file);
+			if (read != sizeof(head))
+			{
+				fclose(file);
+				return false;
+			}
+
+			head.desc = CarpRtpReadUint32(head.desc);
+			head.count = CarpRtpReadUint32(head.count);
+
+			m_labels.resize(head.count);
+			std::vector<unsigned char> buffer;
+			buffer.resize(head.count);
+			read = fread(buffer.data(), 1, head.count, file);
+			if (read != head.count)
+			{
+				fclose(file);
+				return false;
+			}
+
+			for (size_t j = 0; j < m_labels.size(); ++j)
+				m_labels[j] = buffer[j];
+
+			fclose(file);
+		}
+
+		return true;
+	}
+
+	bool GetImage(int index, CarpRobotInput* input)
+	{
+		if (index < (int)m_images.size()) return false;
+		input->Copy(m_images[index]);
+		return true;
+	}
+
+	int GetLabel(int index)
+	{
+		if (index < (int)m_labels.size()) return 0;
+		return m_labels[index];
+	}
+
+	int GetCount()
+	{
+		return (int)m_images.size();
+	}
+
+private:
+	std::vector<std::vector<cr_real>> m_images;
+	std::vector<int> m_labels;
 };
 
 class CarpRobotBind
@@ -82,6 +237,7 @@ public:
 			.addFunction("Invalidate", &CarpRobotComputationGraph::Invalidate)
 			.addFunction("Backward", &CarpRobotComputationGraph::Backward)
 			.addFunction("AsScalar", &CarpRobotComputationGraph::AsScalar)
+			.addFunction("AsVectorAndArgmax", &CarpRobotComputationGraph::AsVectorAndArgmax)
 
 			.addFunction("Negate", &CarpRobotComputationGraph::Negate)
 			.addFunction("Addition", &CarpRobotComputationGraph::Addition)
@@ -137,6 +293,15 @@ public:
 			.addFunction("Calc", &CarpRobotConv2D::Calc)
 			.endClass()
 		
+
+			.beginClass<CarpRobotMnist>("CarpRobotMnist")
+			.addConstructor<void(*)()>()
+			.addFunction("Load", &CarpRobotMnist::Load)
+			.addFunction("GetImage", &CarpRobotMnist::GetImage)
+			.addFunction("GetLabel", &CarpRobotMnist::GetLabel)
+			.addFunction("GetCount", &CarpRobotMnist::GetCount)
+			.endClass()
+
 			.endNamespace();
 	}
 };

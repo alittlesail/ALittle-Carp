@@ -2433,6 +2433,11 @@ public:
 		return GetValue(i).AsScalar();
 	}
 
+	int AsVectorAndArgmax(int i)
+	{
+		return GetValue(i).AsVectorAndArgmax();
+	}
+
 public:
 	// 清理所有信息
 	void Clear()

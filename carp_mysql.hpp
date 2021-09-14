@@ -185,6 +185,17 @@ public:
 	 */
 	bool IsOpen() const { return m_mysql != nullptr; }
 
+	uint64_t GetLastInsertId() const
+	{
+		CARP_CHECK_RETURN(m_mysql, 0);
+		return mysql_insert_id(m_mysql);
+	}
+
+	MYSQL* GetMysql()
+	{
+		return m_mysql;
+	}
+
 public:
 	// mysql stmt info
 	struct MysqlStmtInfo
@@ -282,6 +293,7 @@ public:
 		m_stmt_map[sql] = info;
 		return info;
 	}
+
 	bool ReleaseStmt(const char* sql)
 	{
 		StmtMap::iterator it = m_stmt_map.find(sql);
@@ -505,12 +517,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("m_col_index out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("m_col_index out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return false;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return false;
 		}
 
@@ -519,12 +531,12 @@ public:
 		bool result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return false;
 		}
 		if (data.buffer_type != MYSQL_TYPE_TINY)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_TINY, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_TINY, is:" << data.buffer_type << ", sql:" << m_sql);
 			return false;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -537,12 +549,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("m_col_index out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("m_col_index out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return '?';
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return '?';
 		}
 
@@ -551,12 +563,12 @@ public:
 		char result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return '?';
 		}
 		if (data.buffer_type != MYSQL_TYPE_TINY)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_TINY, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_TINY, is:" << data.buffer_type << ", sql:" << m_sql);
 			return '?';
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -569,12 +581,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -583,12 +595,12 @@ public:
 		short result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_SHORT)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_SHORT, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_SHORT, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -601,12 +613,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -615,12 +627,12 @@ public:
 		int result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_LONG)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_LONG, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_LONG, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -633,12 +645,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -647,12 +659,12 @@ public:
 		long result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_LONG)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_LONG, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_LONG, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -665,12 +677,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -679,12 +691,12 @@ public:
 		long long result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_LONGLONG)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_LONGLONG, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_LONGLONG, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -697,12 +709,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -711,12 +723,12 @@ public:
 		float result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_FLOAT)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_FLOAT, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_FLOAT, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -729,12 +741,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return 0;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return 0;
 		}
 
@@ -743,12 +755,12 @@ public:
 		double result;
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return 0;
 		}
 		if (data.buffer_type != MYSQL_TYPE_DOUBLE)
 		{
-			CARP_ERROR("field type is not MYSQL_TYPE_DOUBLE, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TYPE_DOUBLE, is:" << data.buffer_type << ", sql:" << m_sql);
 			return 0;
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -761,12 +773,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return {0};
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return {0};
 		}
 
@@ -775,7 +787,7 @@ public:
 		MYSQL_TIME result = { 0 };
 		if (data.value_length < sizeof(result))
 		{
-			CARP_ERROR("field length is too small:" << data.value_length);
+			CARP_ERROR("field length is too small:" << data.value_length << ", sql:" << m_sql);
 			return { 0 };
 		}
 		if (data.buffer_type != MYSQL_TYPE_TIME
@@ -783,7 +795,7 @@ public:
 			&& data.buffer_type != MYSQL_TYPE_DATETIME
 			&& data.buffer_type != MYSQL_TYPE_TIMESTAMP)
 		{
-			CARP_ERROR("field type is not MYSQL_TIME type, is:" << data.buffer_type);
+			CARP_ERROR("field type is not MYSQL_TIME type, is:" << data.buffer_type << ", sql:" << m_sql);
 			return { 0 };
 		}
 		memcpy(&result, data.buffer.data(), sizeof(result));
@@ -796,13 +808,13 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			m_temp_string.resize(0);
 			return m_temp_string.c_str();
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			m_temp_string.resize(0);
 			return m_temp_string.c_str();
 		}
@@ -829,12 +841,12 @@ public:
 	{
 		if (m_col_index >= m_col_count)
 		{
-			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count);
+			CARP_ERROR("out of range:" << m_col_index << " >= " << m_col_count << ", sql:" << m_sql);
 			return -1;
 		}
 		if (m_row_index >= m_row_count)
 		{
-			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count);
+			CARP_ERROR("m_row_index out of range:" << m_row_index << " >= " << m_row_count << ", sql:" << m_sql);
 			return -1;
 		}
 
@@ -1050,6 +1062,29 @@ private:
 		}
 
 		mysql_stmt_free_result(stmt_info->stmt);
+
+		while (true)
+		{
+			auto query_result = mysql_stmt_next_result(stmt_info->stmt);
+			if (query_result == -1) break;
+
+			if (query_result == 0)
+			{
+				auto result = mysql_stmt_store_result(stmt_info->stmt);
+				if (result == 0) mysql_stmt_free_result(stmt_info->stmt);
+				else
+				{
+					CARP_WARN("error:" << mysql_stmt_error(stmt_info->stmt) << " sql:" << m_sql);
+					break;
+				}
+			}
+			else
+			{
+				CARP_WARN("error:" << mysql_stmt_error(stmt_info->stmt) << " sql:" << m_sql);
+				break;
+			}
+		}
+
 		return result;
 	}
 	/* clear
@@ -1099,6 +1134,304 @@ private:
 
 private:
 	bool m_need_reset;				// need reset or not
+};
+
+class MysqlQuery
+{
+public:
+	MysqlQuery() {}
+	MysqlQuery(MysqlConnection* conn) { m_conn = conn; }
+	virtual ~MysqlQuery() { Clear(); }
+
+	//===================================================================
+public:
+	// 设置连接
+	void SetConn(MysqlConnection* conn) { Reset(); m_conn = conn; }
+	// 设置脚本
+	void SetSql(const std::string& sql) { Reset(); m_sql = sql; }
+	// 获取脚本
+	const std::string& GetSql() const { return m_sql; }
+
+	//===================================================================
+public:
+	/* execute
+	 * @return succeed or not
+	 */
+	bool Execute() { return Begin(); }
+	/* clear
+	 */
+	void Clear() { End(); m_need_reset = false; }
+
+	//===================================================================
+public:
+	// 获取当前记录条数
+	int64_t GetRowCount() { return m_row_count; }
+	// 获取当前记录列数
+	int64_t GetColCount() { return m_col_count; }
+
+	// 获取当前操作影响的条数
+	int64_t GetAffectCount() { return m_affect_count; }
+	// 获取上一次插入的自增长ID
+	uint64_t GetLastInsertId() { CARP_CHECK_RETURN(m_conn, 0); return m_conn->GetLastInsertId(); }
+
+	// 读取下一条
+	bool Next()
+	{
+		// 检查是否还有数据
+		if (m_row_index + 1 >= static_cast<int64_t>(m_data.size())) return false;
+		// 行索引增加
+		++m_row_index;
+		// 重置索引
+		m_col_index = 0;
+		return true;
+	}
+
+	// 读取数据
+	bool ReadBool()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		return std::atoi(m_data[m_row_index][m_col_index++].c_str()) != 0;
+	}
+	int32_t ReadInt32()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0);
+		return static_cast<int32_t>(std::atoi(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	uint32_t ReadUInt32()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0);
+		return static_cast<uint32_t>(std::atoi(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	int64_t ReadInt64()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0);
+		return static_cast<int64_t>(std::atoll(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	uint64_t ReadUInt64()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0);
+		return static_cast<uint64_t>(std::atoll(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	float ReadFloat()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0.0f);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0.0f);
+		return static_cast<float>(std::atof(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	double ReadDouble()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), 0.0);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), 0.0);
+		return std::atof(m_data[m_row_index][m_col_index++].c_str());
+	}
+	const char* ReadString()
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), m_empty.c_str());
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), m_empty.c_str());
+		return m_data[m_row_index][m_col_index++].c_str();
+	}
+
+	// 并判断错误
+	bool TryReadBool(bool& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = std::atoi(m_data[m_row_index][m_col_index++].c_str()) != 0;
+		return true;
+	}
+	bool TryReadInt32(int32_t& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = static_cast<int32_t>(std::atoi(m_data[m_row_index][m_col_index++].c_str()));
+		return true;
+	}
+	bool TryReadUInt32(uint32_t& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = static_cast<uint32_t>(std::atoi(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	bool TryReadInt64(int64_t& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = static_cast<int64_t>(std::atoll(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	bool TryReadUInt64(uint64_t& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = static_cast<uint64_t>(std::atoll(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	bool TryReadFloat(float& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = static_cast<float>(std::atof(m_data[m_row_index][m_col_index++].c_str()));
+	}
+	bool TryReadDouble(double& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = std::atof(m_data[m_row_index][m_col_index++].c_str());
+	}
+	bool TryReadString(const char*& out)
+	{
+		CARP_CHECK_RETURN(m_col_index >= 0 && m_col_index < static_cast<int64_t>(m_col_count), false);
+		CARP_CHECK_RETURN(m_row_index >= 0 && m_row_index < static_cast<int64_t>(m_data.size()), false);
+		out = m_data[m_row_index][m_col_index++].c_str();
+	}
+
+	//===================================================================
+private:
+	// 开始执行
+	bool Begin()
+	{
+		// must be reset after begin
+		m_need_reset = true;
+
+		// sql must not be empty
+		if (m_sql.size() == 0) return false;
+
+		// connect must not be null
+		if (!m_conn)
+		{
+			End();
+			CARP_ERROR("connection is null, sql:" << m_sql);
+			return false;
+		}
+
+		// get mysql
+		MYSQL* mysql = m_conn->GetMysql();
+		if (mysql == nullptr)
+		{
+			CARP_ERROR("mysql is null, sql:" << m_sql);
+			End();
+			return false;
+		}
+
+		int query_error = 0;
+		int query_result = mysql_query(mysql, m_sql.c_str());
+		if (query_result != 0)
+		{
+			query_error = mysql_errno(mysql);
+			if (query_error == CR_SERVER_GONE_ERROR || query_error == CR_SERVER_LOST)
+			{
+				CARP_ERROR("error:" << query_error << " " << mysql_error(mysql) << " and try reconnect, sql:" << m_sql);
+				if (!m_conn->ReOpen())
+				{
+					End();
+					return false;
+				}
+				mysql = m_conn->GetMysql();
+				if (mysql == nullptr)
+				{
+					CARP_ERROR("mysql is null, sql:" << m_sql);
+					End();
+					return false;
+				}
+				query_error = 0;
+				query_result = mysql_query(mysql, m_sql.c_str());
+				if (query_result != 0) query_error = mysql_errno(mysql);
+			}
+		}
+
+		if (query_result != 0)
+		{
+			CARP_ERROR("error:" << query_error << " " << mysql_error(mysql) << " sql:" << m_sql);
+			End();
+			return false;
+		}
+
+		m_affect_count = mysql_affected_rows(mysql);
+
+		m_row_count = 0;
+		m_col_count = 0;
+		m_row_index = -1;
+		m_data.resize(0);
+
+		MYSQL_RES* result = mysql_store_result(mysql);
+		if (result != nullptr)
+		{
+			m_row_count = mysql_num_rows(result);
+			m_col_count = mysql_num_fields(result);
+
+			// copy data
+			m_data.resize(m_row_count);
+			for (int64_t row = 0; row < m_row_count; ++row)
+			{
+				auto rowData = mysql_fetch_row(result);
+				if (rowData == nullptr)
+				{
+					CARP_ERROR("error:" << mysql_error(mysql) << " sql:" << m_sql);
+					End();
+					return false;
+				}
+				m_data[row].resize(m_col_count);
+				for (int64_t col = 0; col < m_col_count; ++col)
+				{
+					if (rowData[col] != nullptr)
+						m_data[row][col] = rowData[col];
+				}
+			}
+			mysql_free_result(result);
+		}
+
+		while (true)
+		{
+			query_result = mysql_next_result(mysql);
+			if (query_result == -1) break;
+
+			if (query_result == 0)
+			{
+				auto result = mysql_store_result(mysql);
+				if (result != nullptr) mysql_free_result(result);
+			}
+			else
+			{
+				CARP_WARN("error:" << mysql_error(mysql) << " sql:" << m_sql);
+				break;
+			}
+		}
+
+		return true;
+	}
+	// 清理
+	void End()
+	{
+		m_data.resize(0);
+		m_row_index = -1;
+		m_row_count = 0;
+		m_col_index = 0;
+	}
+	// 重置
+	void Reset()
+	{
+		if (!m_need_reset) return;
+		Clear();
+	}
+
+private:
+	MysqlConnection* m_conn = nullptr;            // 连接对象
+	int64_t m_row_index = -1;                     // 当前行数据
+	std::vector<std::vector<std::string>> m_data;
+
+private:
+	int64_t m_col_index = 0;
+	int64_t m_row_count = 0;
+	int64_t m_col_count = 0;
+	int64_t m_affect_count = 0;
+	std::string m_sql;                // SQL string
+	std::string m_empty;
+
+private:
+	bool m_need_reset = false;                // need reset or not
 };
 
 #endif

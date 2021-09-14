@@ -1715,7 +1715,8 @@ protected:
 class CarpRobotDropoutNode : public CarpRobotNode
 {
 public:
-	CarpRobotDropoutNode(const std::vector<int>& a, cr_real v) : CarpRobotNode(a), m_value(v) {}
+	CarpRobotDropoutNode(const std::vector<int>& a, cr_real v, int training) : CarpRobotNode(a), m_value(v), m_training(training), m_ptraining(&m_training) {}
+	CarpRobotDropoutNode(const std::vector<int>& a, cr_real v, const int* ptraining) : CarpRobotNode(a), m_value(v), m_training(0), m_ptraining(ptraining) {}
 	~CarpRobotDropoutNode() {}
 
 protected:
@@ -1727,9 +1728,16 @@ protected:
 
 	void Forward(const std::vector<const CarpRobotTensor*>& xs, CarpRobotTensor& fx) override
 	{
-		m_aux_mem.SetDim(fx.GetDim());
-		m_aux_mem.RandomizeBernoulli((1.f - m_value), 1.f / (1.f - m_value));
-		fx.tvec() = xs[0]->tvec() * m_aux_mem.tvec();
+		if (*m_ptraining)
+		{
+			m_aux_mem.SetDim(fx.GetDim());
+			m_aux_mem.RandomizeBernoulli((1.f - m_value), 1.f / (1.f - m_value));
+			fx.tvec() = xs[0]->tvec() * m_aux_mem.tvec();
+		}
+		else
+		{
+			fx.tvec() = xs[0]->tvec();
+		}
 	}
 
 	void Backward(const std::vector<const CarpRobotTensor*>& xs,
@@ -1738,10 +1746,15 @@ protected:
 		int xs_i,
 		CarpRobotTensor& dEdxi) override
 	{
-		dEdxi.tvec() += dEdf.tvec() * m_aux_mem.tvec();
+		if (*m_ptraining)
+			dEdxi.tvec() += dEdf.tvec() * m_aux_mem.tvec();
+		else
+			dEdxi.tvec() += dEdf.tvec();
 	}
 
 private:
+	int m_training = 0;
+	const int* m_ptraining = nullptr;
 	cr_real m_value;
 	CarpRobotTensor m_aux_mem;
 };
@@ -2291,7 +2304,8 @@ public:
 	CarpRobotExpression LogSoftmax() { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotLogSoftmaxNode(args))); }
 
 	// 功能函数
-	CarpRobotExpression Dropout(cr_real rate) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate))); }
+	CarpRobotExpression Dropout(cr_real rate, bool training=false) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate, training ? 1 : 0))); }
+	CarpRobotExpression Dropout(cr_real rate, const int* ptraining) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotDropoutNode(args, rate, ptraining))); }
 	CarpRobotExpression Conv2D(const CarpRobotExpression& kernel, int stride_width = 1, int stride_height = 1, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); args.push_back(kernel.GetIndex()); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotConv2DNode(args, stride_width, stride_height, padding_type))); }
 	CarpRobotExpression MaxPooling2D(int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotMaxPooling2DNode(args, kernel_width, kernel_height, stride_width, stride_height, padding_type))); }
 	CarpRobotExpression Reshape(const CarpRobotDim& dim) { std::vector<int> args; args.push_back(m_index); return CarpRobotExpression(m_graph, m_graph->AddNode(new CarpRobotReshapeNode(args, dim))); }
@@ -2380,7 +2394,7 @@ public:
 	int LogSoftmax(int index) { return CarpRobotExpression(this, index).LogSoftmax().GetIndex(); }
 
 	// 功能函数
-	int Dropout(int index, cr_real rate) { return CarpRobotExpression(this, index).Dropout(rate).GetIndex(); }
+	int Dropout(int index, cr_real rate, CarpRobotLabel* v) { return CarpRobotExpression(this, index).Dropout(rate, v->GetLabel()).GetIndex(); }
 	int Conv2D(int index, int kernel_expr, int stride_width = 1, int stride_height = 1, bool padding_type = true) { return CarpRobotExpression(this, index).Conv2D(CarpRobotExpression(this, kernel_expr), stride_width, stride_height, padding_type).GetIndex(); }
 	int MaxPooling2D(int index, int kernel_width, int kernel_height, int stride_width = 1, int stride_height = 1, bool padding_type = true) { return CarpRobotExpression(this, index).MaxPooling2D(kernel_width, kernel_height, stride_width, stride_height, padding_type).GetIndex(); }
 	int Reshape(int index, int dim_0, int dim_1, int dim_2)

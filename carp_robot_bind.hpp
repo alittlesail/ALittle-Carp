@@ -556,6 +556,12 @@ public:
 	{
 		luabridge::getGlobalNamespace(l_state)
 			.beginNamespace("carp")
+			.beginClass<CarpRobotDim>("CarpRobotDim")
+			.addConstructor<void(*)()>()
+			.addFunction("Count", &CarpRobotDim::Count)
+			.addFunction("Get", &CarpRobotDim::Get)
+			.endClass()
+
 			.beginClass<CarpRobotComputationGraph>("CarpRobotComputationGraph")
 			.addConstructor<void(*)()>()
 			.addFunction("Clear", &CarpRobotComputationGraph::Clear)
@@ -564,6 +570,7 @@ public:
 			.addFunction("AsScalar", &CarpRobotComputationGraph::AsScalar)
 			.addFunction("AsVectorAndArgmax", &CarpRobotComputationGraph::AsVectorAndArgmax)
 			.addFunction("AsVectorAndMaxValue", &CarpRobotComputationGraph::AsVectorAndMaxValue)
+			.addFunction("GetDim", &CarpRobotComputationGraph::GetDim)
 
 			.addFunction("Negate", &CarpRobotComputationGraph::Negate)
 			.addFunction("Addition", &CarpRobotComputationGraph::Addition)

@@ -171,6 +171,8 @@ public:
 	int Count() const { return (int)m_d.size(); }
 	// 随机存取
 	int operator[](size_t index) const { return index < m_d.size() ? m_d[index] : 1; }
+	// 获取
+	int Get(int index) const { return index < m_d.size() ? m_d[index] : 1; }
 
 public:
 	// 删除某个维度
@@ -1276,7 +1278,7 @@ protected:
 	void Dim(const std::vector<const CarpRobotDim*>& xs) override
 	{
 		CARP_ROBOT_ASSERT(xs.size() == 2, "CarpRobotMatrixMultiplyNode 必须是两个输入");
-		CARP_ROBOT_ASSERT(xs[0]->Cols() == xs[1]->Rows(), u8"CarpRobotMatrixMultiplyNode 前项的列必须等于后项的行");
+		CARP_ROBOT_ASSERT(xs[0]->Cols() == xs[1]->Rows(), u8"CarpRobotMatrixMultiplyNode 前项的列必须等于后项的行:" << xs[0]->Cols() << "!=" << xs[1]->Rows());
 		CARP_ROBOT_ASSERT(xs[0]->Count() <= 2 && xs[1]->Count() <= 2, "CarpRobotMatrixMultiplyNode 矩阵相乘最多是2维的");
 
 		m_dim_out = CarpRobotDim({ xs[0]->Rows(), xs[1]->Cols() });
@@ -2475,6 +2477,12 @@ public:
 		return GetValue(i).AsVectorAndMaxValue();
 	}
 
+	const CarpRobotDim* GetDim(int i) const
+	{
+		CARP_ROBOT_ASSERT(i < (int)m_fx_list.size(), u8"访问越界");
+		return &m_fx_list[i].GetDim();
+	}
+
 public:
 	// 清理所有信息
 	void Clear()
@@ -2623,6 +2631,9 @@ private:
 	std::vector<CarpRobotTensor> m_dEdf_list;		// 保存反向计算的结果
 	int m_evaluated_index = 0;				// 记录当前计算到那个节点
 	bool m_immediate_compute = false;			// 是否立即计算
+
+private:
+	std::string m_string;
 };
 
 class CarpRobotTrainer

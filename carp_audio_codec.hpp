@@ -736,12 +736,12 @@ public:
 		m_head.head_1.fmt_name[3] = ' ';
 		m_head.head_1.fmt_len = 16;
 
-		m_head.head_2.audio_fmt = 6;
+		m_head.head_2.audio_fmt = 1; // PCM
 		m_head.head_2.channel = channel_num;
 		m_head.head_2.sample_rate = sample_rate;
-		m_head.head_2.bytes_per_second = sample_rate * channel_num;
-		m_head.head_2.bytes_per_sample = 1;
-		m_head.head_2.bits_per_sample = 8;
+		m_head.head_2.bits_per_sample = 16;
+		m_head.head_2.bytes_per_second = sample_rate * channel_num * m_head.head_2.bits_per_sample / 8;
+		m_head.head_2.bytes_per_sample = m_head.head_2.bits_per_sample * channel_num / 8;
 
 		m_head.head_3.data_name[0] = 'd';
 		m_head.head_3.data_name[1] = 'a';
@@ -758,7 +758,7 @@ public:
 public:
 	bool Encode(short* sample_data, int sample_count, std::vector<unsigned char>& buffer) override
 	{
-		if (m_pcma.Encode(sample_data, sample_count, buffer) == false)
+		if (m_pcm.Encode(sample_data, sample_count, buffer) == false)
 			return false;
 
 		m_head.head_1.riff_len += (int)buffer.size();
@@ -768,7 +768,7 @@ public:
 
 private:
 	WAVCODERHEAD m_head;
-	CarpPCMAEncoder m_pcma;
+	CarpPCMEncoder m_pcm;
 };
 
 class CarpWAVDecoder : public CarpAudioDecoder

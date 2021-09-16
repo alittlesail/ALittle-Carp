@@ -5,6 +5,7 @@
 #include "carp_robot_model.hpp"
 #include "carp_lua.hpp"
 #include "carp_surface.hpp"
+#include "carp_mfcc.hpp"
 
 class CarpRobotInput
 {
@@ -118,6 +119,49 @@ public:
 
 private:
 	std::vector<cr_real> m_value;
+};
+
+class CarpRobotMFCC
+{
+public:
+	bool Load(const char* wav_path, int param_count)
+	{
+		if (wav_path == nullptr) return false;
+		std::ifstream wav_file(wav_path, std::ios::binary);
+		if (!wav_file.is_open()) return false;
+
+		CarpMFCC mfcc;
+		std::vector<std::vector<double>> mfcc_list;
+		std::string error;
+		if (!mfcc.process(wav_file, mfcc_list, error)) return false;
+
+		m_value.resize(mfcc_list.size());
+		for (size_t i = 0; i < mfcc_list.size(); ++i)
+		{
+			mfcc_list[i].resize(param_count);
+			m_value[i].resize(param_count);
+			for (size_t j = 0; j < mfcc_list[i].size(); ++j)
+				m_value[i][j] = static_cast<cr_real>(mfcc_list[i][j]);
+		}
+
+		return true;
+	}
+
+public:
+	bool GetMFCC(int index, CarpRobotInput* input)
+	{
+		if (index >= (int)m_value.size()) return false;
+		input->Copy(m_value[index]);
+		return true;
+	}
+
+	int GetCount()
+	{
+		return (int)m_value.size();
+	}
+
+private:
+	std::vector<std::vector<cr_real>> m_value;
 };
 
 class CarpRobotMnist
@@ -625,6 +669,15 @@ public:
 			.addFunction("Copy", &CarpRobotConv2D::Copy)
 			.addFunction("Calc", &CarpRobotConv2D::Calc)
 			.endClass()
+
+			.beginClass<CarpRobotLstm>("CarpRobotLstm")
+			.addConstructor<void(*)(CarpRobotParameterCollection*, int, int, int, bool)>()
+			.addFunction("Build", &CarpRobotLstm::BuildForLua)
+			.addFunction("SetDropoutRate", &CarpRobotLstm::SetDropoutRate)
+			.addFunction("SetDropoutRateH", &CarpRobotLstm::SetDropoutRateH)
+			.addFunction("AddInput", &CarpRobotLstm::AddInputForLua)
+			.endClass()
+
 			.beginClass<CarpRobotLabel>("CarpRobotLabel")
 			.addConstructor<void(*)()>()
 			.addFunction("Update", &CarpRobotLabel::Update)
@@ -636,6 +689,13 @@ public:
 			.addFunction("GetImage", &CarpRobotMnist::GetImage)
 			.addFunction("GetLabel", &CarpRobotMnist::GetLabel)
 			.addFunction("GetCount", &CarpRobotMnist::GetCount)
+			.endClass()
+
+			.beginClass<CarpRobotMFCC>("CarpRobotMFCC")
+			.addConstructor<void(*)()>()
+			.addFunction("Load", &CarpRobotMFCC::Load)
+			.addFunction("GetMFCC", &CarpRobotMFCC::GetMFCC)
+			.addFunction("GetCount", &CarpRobotMFCC::GetCount)
 			.endClass()
 
 			.beginClass<CarpRobotSurface>("CarpRobotSurface")

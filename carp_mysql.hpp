@@ -12,11 +12,11 @@
 #pragma comment(lib, "libmysql.lib")
 #endif
 
-class MysqlConnection
+class CarpMysqlConnection
 {
 public:
-	MysqlConnection() {}
-	~MysqlConnection() { Close(); }
+	CarpMysqlConnection() {}
+	~CarpMysqlConnection() { Close(); }
 
 public:
 	/**
@@ -198,26 +198,26 @@ public:
 
 public:
 	// mysql stmt info
-	struct MysqlStmtInfo
+	struct CarpMysqlStmtInfo
 	{
 		MYSQL_STMT* stmt = nullptr;									// stmt object
 		std::vector<MYSQL_BIND> bind_output;				// output bind for read
 		std::vector<unsigned long> value_length;		// output max length for read
-		MysqlConnection* conn = nullptr;								// come from
+		CarpMysqlConnection* conn = nullptr;								// come from
 	};
-	typedef std::shared_ptr<MysqlStmtInfo> MysqlStmtInfoPtr;
+	typedef std::shared_ptr<CarpMysqlStmtInfo> CarpMysqlStmtInfoPtr;
 
 	/* get stmt object
 	 * @param sql: sql string
 	 * @return MysqlStmtInfo
 	 */
-	MysqlStmtInfoPtr GetStmt(const std::string& sql, bool& need_reconnect)
+	CarpMysqlStmtInfoPtr GetStmt(const std::string& sql, bool& need_reconnect)
 	{
 		need_reconnect = false;
 		if (!m_mysql)
 		{
 			CARP_ERROR("m_mysql is null!");
-			return MysqlStmtInfoPtr();
+			return CarpMysqlStmtInfoPtr();
 		}
 
 		// find stmt
@@ -225,7 +225,7 @@ public:
 		if (it != m_stmt_map.end()) return it->second;
 
 		// mysql stmt info
-		MysqlStmtInfoPtr info = MysqlStmtInfoPtr(new MysqlStmtInfo);
+		auto info = std::make_shared<CarpMysqlStmtInfo>();
 		info->conn = this;
 
 		// create stmt
@@ -233,7 +233,7 @@ public:
 		if (!info->stmt)
 		{
 			CARP_ERROR("mysql_stmt_init failed: out of memory!");
-			return MysqlStmtInfoPtr();
+			return CarpMysqlStmtInfoPtr();
 		}
 
 		// check succeed or not
@@ -243,7 +243,7 @@ public:
 			need_reconnect = error == CR_SERVER_GONE_ERROR || error == CR_SERVER_LOST;
 			CARP_ERROR("mysql_stmt_prepare failed: code:" << mysql_stmt_errno(info->stmt) << ", reason:" << mysql_stmt_error(info->stmt));
 			mysql_stmt_close(info->stmt);
-			return MysqlStmtInfoPtr();
+			return CarpMysqlStmtInfoPtr();
 		}
 
 		// get param meta
@@ -266,7 +266,7 @@ public:
 					CARP_ERROR("mysql_fetch_field failed: " << mysql_stmt_error(info->stmt));
 					mysql_free_result(field_meta_result);
 					mysql_stmt_close(info->stmt);
-					return MysqlStmtInfoPtr();
+					return CarpMysqlStmtInfoPtr();
 				}
 
 				// set bind input info
@@ -351,7 +351,7 @@ public:
 private:
 	MYSQL* m_mysql = nullptr;
 
-	typedef std::map<std::string, MysqlStmtInfoPtr> StmtMap;
+	typedef std::map<std::string, CarpMysqlStmtInfoPtr> StmtMap;
 	StmtMap m_stmt_map;
 
 private:
@@ -362,11 +362,11 @@ private:
 	unsigned int m_port = 0;
 };
 
-class MysqlStatementQuery
+class CarpMysqlStatementQuery
 {
 public:
-	MysqlStatementQuery() {}
-	~MysqlStatementQuery() { Clear(); }
+	CarpMysqlStatementQuery() {}
+	~CarpMysqlStatementQuery() { Clear(); }
 
 	//===================================================================
 public:
@@ -390,7 +390,7 @@ public:
 	/* set connect
 	 * @param conn: connect object
 	 */
-	void SetConnection(MysqlConnection* conn)
+	void SetConnection(CarpMysqlConnection* conn)
 	{
 		if (conn == 0) return;
 		m_conn = conn;
@@ -894,7 +894,7 @@ private:
 
 		// create stmt
 		bool need_reconnect = false;
-		MysqlConnection::MysqlStmtInfoPtr stmt_info = m_conn->GetStmt(m_sql, need_reconnect);
+		auto stmt_info = m_conn->GetStmt(m_sql, need_reconnect);
 		if (!stmt_info)
 		{
 			if (!need_reconnect)
@@ -1110,7 +1110,7 @@ private:
 	}
 
 private:
-	MysqlConnection* m_conn = nullptr;		// connect object
+	CarpMysqlConnection* m_conn = nullptr;		// connect object
 
 private:
 	std::string m_sql;				// SQL string
@@ -1136,17 +1136,17 @@ private:
 	bool m_need_reset;				// need reset or not
 };
 
-class MysqlQuery
+class CarpMysqlQuery
 {
 public:
-	MysqlQuery() {}
-	MysqlQuery(MysqlConnection* conn) { m_conn = conn; }
-	virtual ~MysqlQuery() { Clear(); }
+	CarpMysqlQuery() {}
+	CarpMysqlQuery(CarpMysqlConnection* conn) { m_conn = conn; }
+	virtual ~CarpMysqlQuery() { Clear(); }
 
 	//===================================================================
 public:
 	// 设置连接
-	void SetConn(MysqlConnection* conn) { Reset(); m_conn = conn; }
+	void SetConn(CarpMysqlConnection* conn) { Reset(); m_conn = conn; }
 	// 设置脚本
 	void SetSql(const std::string& sql) { Reset(); m_sql = sql; }
 	// 获取脚本
@@ -1308,7 +1308,7 @@ private:
 		}
 
 		// get mysql
-		MYSQL* mysql = m_conn->GetMysql();
+		auto* mysql = m_conn->GetMysql();
 		if (mysql == nullptr)
 		{
 			CARP_ERROR("mysql is null, sql:" << m_sql);
@@ -1418,7 +1418,7 @@ private:
 	}
 
 private:
-	MysqlConnection* m_conn = nullptr;            // 连接对象
+	CarpMysqlConnection* m_conn = nullptr;            // 连接对象
 	int64_t m_row_index = -1;                     // 当前行数据
 	std::vector<std::vector<std::string>> m_data;
 

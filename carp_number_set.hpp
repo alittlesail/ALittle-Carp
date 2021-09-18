@@ -111,7 +111,7 @@ public:
         return true;
     }
 
-    void Insert(const std::string& number, std::vector<CarpNumberNode*>* list)
+    void Insert(const std::string& number, std::vector<CarpNumberNode*>* list=nullptr)
     {
         if (number.size() == 1 && number[0] == '0')
         {

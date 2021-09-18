@@ -40,13 +40,13 @@ public:
 		m_socket->open(local_add.protocol(), ec);
 		if (ec)
 		{
-			CARP_ERROR("udp server socket open failed: " << ec.value());
+			CARP_ERROR("udp server socket open failed! ip:" << local_ip << ", port:" << local_port << " error:" << ec.value());
 			return false;
 		}
 		m_socket->bind(local_add, ec);
 		if (ec)
 		{
-			CARP_ERROR("udp server socket bind failed: " << ec.value());
+			CARP_ERROR("udp server socket bind failed! ip:" << local_ip << ", port:" << local_port << " error:" << ec.value());
 			return false;
 		}
 		m_ip = local_ip;

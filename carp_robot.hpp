@@ -656,6 +656,9 @@ public:
 	// 当做向量，并且返回向量中数值最大的那个值
 	cr_real AsVectorAndMaxValue() const { return m_value[AsVectorAndArgmax()]; }
 
+	// 当做向量，并且返回向量中数值最大的那个值
+	cr_real AsVectorAndGetValue(int index) const { return index >= 0 && index < m_dim.GetTotalSize() ? m_value[index] : 0; }
+
 public:
 	void Serialize(CarpRobotModelSerializer& file) { m_dim.Serialize(file); file.WriteRealArray(m_value, m_dim.GetTotalSize()); }
 	void Deserialize(CarpRobotModelDeserializer& file) { CarpRobotDim tmp; tmp.Deserialize(file); SetDim(tmp); file.ReadRealArray(m_value, m_dim.GetTotalSize()); }
@@ -3027,6 +3030,11 @@ public:
 	cr_real AsVectorAndMaxValue(int i)
 	{
 		return GetValue(i).AsVectorAndMaxValue();
+	}
+
+	cr_real AsVectorAndGetValue(int i, int index)
+	{
+		return GetValue(i).AsVectorAndGetValue(index);
 	}
 
 	const CarpRobotDim* GetDim(int i) const

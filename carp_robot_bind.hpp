@@ -614,6 +614,7 @@ public:
 			.addFunction("AsScalar", &CarpRobotComputationGraph::AsScalar)
 			.addFunction("AsVectorAndArgmax", &CarpRobotComputationGraph::AsVectorAndArgmax)
 			.addFunction("AsVectorAndMaxValue", &CarpRobotComputationGraph::AsVectorAndMaxValue)
+			.addFunction("AsVectorAndGetValue", &CarpRobotComputationGraph::AsVectorAndGetValue)
 			.addFunction("GetDim", &CarpRobotComputationGraph::GetDim)
 
 			.addFunction("Negate", &CarpRobotComputationGraph::Negate)

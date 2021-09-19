@@ -1,10 +1,9 @@
 
-#ifndef CARP_NUMBER_SET_INCLUDED
-#define CARP_NUMBER_SET_INCLUDED
+#ifndef CARP_STRING_SET_INCLUDED
+#define CARP_STRING_SET_INCLUDED
 
 #include <string>
 #include <vector>
-#include <memory>
 
 // 用于管理只包含数字的字符串
 // 对于普通的哈希表，可以节省更多的内存
@@ -12,33 +11,41 @@
 // CarpNumberSet只需要68M
 // 查找速度unordered_set是CarpNumberSet三倍快
 
-class CarpNumberSet
+class CarpStringSet
 {
 public:
-    struct CarpNumberNode
+    struct CarpCharNode
     {
         bool flag = false;  // 标记从根节点到当前是否有字符串
-        unsigned char min_max = 0; // 当前节点范围
-        CarpNumberNode* brother = nullptr;   // 下一个兄弟节点
-        CarpNumberNode* child = nullptr;    // 子节点
+        char min = 0; // 当前节点范围
+        char max = 0; // 当前节点范围
+        CarpCharNode* brother = nullptr;   // 下一个兄弟节点
+        CarpCharNode* child = nullptr;    // 子节点
 
-        CarpNumberNode() {}
-        ~CarpNumberNode() { delete child; delete brother; }
-        CarpNumberNode(unsigned char min, unsigned char max, CarpNumberNode* b)
+        CarpCharNode() {}
+        ~CarpCharNode() { delete child; delete brother; }
+        CarpCharNode(char mi, char ma, CarpCharNode* b)
         {
-            min_max = (min << 4) | max;
+            min = mi;
+            max = ma;
             brother = b;
         }
-        void SetMinMax(unsigned char min, unsigned char max) { min_max = (min << 4) | max; }
-        unsigned char Min() const { return min_max >> 4; }
-        unsigned char Max() const { return min_max & 0x0F; }
-        CarpNumberNode* Clone() const
+        
+        // 克隆
+        CarpCharNode* Clone() const
         {
-            auto node = new CarpNumberNode();
-            node->min_max = min_max;
+            auto node = new CarpCharNode();
+            node->min = min;
+            node->max = max;
             if (brother != nullptr) node->brother = brother->Clone();
             if (child != nullptr) node->child = child->Clone();
             return node;
+        }
+        
+        // 合并兄弟
+        bool CombineBrother()
+        {
+
         }
     };
     
@@ -51,7 +58,7 @@ public:
         for (size_t i = 0; i < number.size(); ++i)
         {
             // 获取整数
-            unsigned char c = number[i] - '0';
+            auto c = number[i];
 
             // 查找兄弟节点
             while (true)
@@ -60,16 +67,12 @@ public:
                 if (node == nullptr)
                     return false;
 
-                // 获取范围
-                auto min = node->Min();
-                auto max = node->Max();
-
                 // 如果比第一个兄弟节点小，那么就查找失败
-                if (c < min)
+                if (c < node->min)
                     return false;
 
                 // 如果满足条件就跳出
-                if (c <= max) break;
+                if (c <= node->max) break;
 
                 // 进入兄弟节点
                 node = node->brother;
@@ -88,17 +91,15 @@ public:
     bool Erase(const std::string& number)
     {
         // 先查找，如果没有就直接返回
-        if (!Find(number))
-            return false;
+        if (!Find(number)) return false;
 
         // 然后先执行插入，因为Insert会对合并过的节点进行拆分
-        std::vector<CarpNumberNode*> list;
+        std::vector<CarpCharNode*> list;
         list.reserve(number.size());
         Insert(number, &list);
 
         // 如果是空的，说明什么都没找到
-        if (list.empty())
-            return false;
+        if (list.empty()) return false;
         // 标记为没有字符串
         if (list.back()->flag) --m_size;
         list.back()->flag = false;
@@ -130,7 +131,7 @@ public:
             if (!node_empty) break;
 
             // 计算父节点
-            CarpNumberNode* parent = i >= 1 ? list[i - 1] : nullptr;
+            CarpCharNode* parent = i >= 1 ? list[i - 1] : nullptr;
             // 计算第一个兄弟节点
             auto* first_child = parent ? parent->child : &m_root;
 
@@ -165,30 +166,30 @@ public:
         return true;
     }
 
-    void Insert(const std::string& number, std::vector<CarpNumberNode*>* list=nullptr)
+    void Insert(const std::string& number, std::vector<CarpCharNode*>* list=nullptr)
     {
         // 初始化为根节点
         auto* node = &m_root;
         // 初始化父节点
-        CarpNumberNode* parent = nullptr;
+        CarpCharNode* parent = nullptr;
         // 遍历所有字符
         for (size_t i = 0; i < number.size(); ++i)
         {
             // 获取整数
-            unsigned char c = number[i] - '0';
+            auto c = number[i];
 
             // 查找兄弟节点
             while (true)
             {
                 // 获取范围
-                auto min = node->Min();
-                auto max = node->Max();
+                auto min = node->min;
+                auto max = node->max;
 
                 // 如果小于当前节点
                 if (c < min)
                 {
                     // 创建一个新的节点，插入到node之前
-                    auto* new_node = new CarpNumberNode(c, c, node);
+                    auto* new_node = new CarpCharNode(c, c, node);
                     // 从第一个node兄弟节点，找到在node前面的那个兄弟节点
                     auto* first_child = parent ? parent->child : &m_root;
                     if (first_child == node)
@@ -221,16 +222,16 @@ public:
                         // 拆成 [min, c], [c+1, max]
                         if (c == min)
                         {
-                            node->SetMinMax(min, c);
-                            auto* new_node = new CarpNumberNode(c + 1, max, node->brother);
+                            node->max = c;
+                            auto* new_node = new CarpCharNode(c + 1, max, node->brother);
                             if (node->child) new_node->child = node->child->Clone();
                             node->brother = new_node;
                         }
                         // 拆成 [min, c-1], [c, max]
                         else if (c == max)
                         {
-                            node->SetMinMax(min, c - 1);
-                            auto* new_node = new CarpNumberNode(c, max, node->brother);
+                            node->max = c - 1;
+                            auto* new_node = new CarpCharNode(c, max, node->brother);
                             if (node->child) new_node->child = node->child->Clone();
                             node->brother = new_node;
                             node = new_node;
@@ -238,12 +239,12 @@ public:
                         // 拆成 [min, c-1], [c, c], [c+1, max]
                         else
                         {
-                            node->SetMinMax(min, c - 1);
-
-                            auto* last_node = new CarpNumberNode(c + 1, max, node->brother);
+                            node->max = c - 1;
+                            
+                            auto* last_node = new CarpCharNode(c + 1, max, node->brother);
                             if (node->child) last_node->child = node->child->Clone();
                             
-                            auto* new_node = new CarpNumberNode(c, c, last_node);
+                            auto* new_node = new CarpCharNode(c, c, last_node);
                             if (node->child) new_node->child = node->child->Clone();
 
                             node->brother = new_node;
@@ -257,7 +258,7 @@ public:
                     // 如果没有兄弟节点了，那么就创建一个跳出
                     if (new_node == nullptr)
                     {
-                        new_node = new CarpNumberNode(c, c, nullptr);
+                        new_node = new CarpCharNode(c, c, nullptr);
                         node->brother = new_node;
                         node = new_node;
                     }
@@ -288,8 +289,8 @@ public:
             // 如果没有子节点，那么就创建一个
             if (node->child == nullptr)
             {
-                auto next_c = number[i + 1] - '0';
-                node->child = new CarpNumberNode(next_c, next_c, nullptr);
+                auto next_c = number[i + 1];
+                node->child = new CarpCharNode(next_c, next_c, nullptr);
             }
 
             // 将子节点作为下一个根节点
@@ -298,11 +299,16 @@ public:
         }
     }
 
+    void Combine()
+    {
+
+    }
+
     size_t Size() const { return m_size; }
 
 private:
     size_t m_size = 0;
-    CarpNumberNode m_root;
+    CarpCharNode m_root;
 };
 
 #endif

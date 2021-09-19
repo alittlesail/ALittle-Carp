@@ -37,15 +37,59 @@ public:
             auto node = new CarpCharNode();
             node->min = min;
             node->max = max;
+            node->flag = flag;
             if (brother != nullptr) node->brother = brother->Clone();
             if (child != nullptr) node->child = child->Clone();
             return node;
         }
+
+        bool Compare(const CarpCharNode& node) const
+        {
+            if (flag != node.flag) return false;
+            if (min != node.min) return false;
+            if (max != node.max) return false;
+
+            return true;
+        }
         
         // 合并兄弟
-        bool CombineBrother()
+        void CombineBrother()
         {
+            // 所有子节点合并处理
+            if (child) child->CombineBrother();
 
+            // 没有兄弟节点就跳过
+            if (brother == nullptr) return;
+
+            // 先处理兄弟的合并
+            if (brother) brother->CombineBrother();
+
+            // 如果不连续，那么就返回
+            if (max + 1 < brother->min) return;
+
+            // 检查自己的子节点和brother的字节点是否一致
+            auto* self_child_node = child;
+            auto* brother_child_node = brother->child;
+            while (true)
+            {
+                if (self_child_node == nullptr && brother_child_node == nullptr) break;
+
+                // 如果有一方有节点，另一方没有节点就返回
+                if (self_child_node == nullptr && brother_child_node != nullptr) return;
+                if (self_child_node != nullptr && brother_child_node == nullptr) return;
+
+                // 比较了，不相等就返回
+                if (!self_child_node->Compare(*brother_child_node)) return;
+                self_child_node = self_child_node->brother;
+                brother_child_node = brother_child_node->brother;
+            }
+
+            // 删除节点
+            auto* node = brother;
+            max = node->max;
+            brother = node->brother;
+            node->brother = nullptr;
+            delete node;
         }
     };
     
@@ -224,6 +268,7 @@ public:
                         {
                             node->max = c;
                             auto* new_node = new CarpCharNode(c + 1, max, node->brother);
+                            new_node->flag = node->flag;
                             if (node->child) new_node->child = node->child->Clone();
                             node->brother = new_node;
                         }
@@ -232,6 +277,7 @@ public:
                         {
                             node->max = c - 1;
                             auto* new_node = new CarpCharNode(c, max, node->brother);
+                            new_node->flag = node->flag;
                             if (node->child) new_node->child = node->child->Clone();
                             node->brother = new_node;
                             node = new_node;
@@ -242,9 +288,11 @@ public:
                             node->max = c - 1;
                             
                             auto* last_node = new CarpCharNode(c + 1, max, node->brother);
+                            last_node->flag = node->flag;
                             if (node->child) last_node->child = node->child->Clone();
                             
                             auto* new_node = new CarpCharNode(c, c, last_node);
+                            new_node->flag = node->flag;
                             if (node->child) new_node->child = node->child->Clone();
 
                             node->brother = new_node;
@@ -301,7 +349,7 @@ public:
 
     void Combine()
     {
-
+        m_root.CombineBrother();
     }
 
     size_t Size() const { return m_size; }

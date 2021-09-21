@@ -78,15 +78,51 @@ public:
 		int width = 0;
 		int height = 0;
 		int comp = 0;
-		stbi_uc* uc = stbi_load_from_memory((unsigned char*)file.GetContent(), (int)file.GetSize(), &width, &height, &comp, 4);
+		stbi_uc* uc = stbi_load_from_memory((unsigned char*)file.GetContent(), (int)file.GetSize(), &width, &height, &comp, 0);
 		if (uc == nullptr) return nullptr;
-		if (comp != 4)
+
+		CarpSurface* surface = nullptr;
+		if (comp == 4)
 		{
-			stbi_image_free(uc);
-			return nullptr;
+			surface = CreateCarpSurface(width, height);
+			if (surface) memcpy(surface->GetPixels(), uc, width * height * comp);
 		}
-		CarpSurface* surface = CreateCarpSurface(width, height);
-		if (surface) memcpy(surface->GetPixels(), uc, width * height * comp);
+		else if (comp == 3)
+		{
+			surface = CreateCarpSurface(width, height);
+			if (surface)
+			{
+				unsigned char color[4];
+				color[3] = 0xFF;
+				const auto size = sizeof(unsigned char) * 3;
+				int count = width * height;
+				auto* pixels = surface->GetPixels();
+				for (int i = 0; i < count; ++i)
+				{
+					memcpy(color, uc + i * size, size);
+					pixels[i] = *(unsigned int*)&color;
+				}
+			}
+		}
+		else if (comp == 1)
+		{
+			surface = CreateCarpSurface(width, height);
+			if (surface)
+			{
+				unsigned char color[4];
+				color[3] = 0xff;
+				int count = width * height;
+				auto* pixels = surface->GetPixels();
+				for (int i = 0; i < count; ++i)
+				{
+					color[0] = uc[i];
+					color[1] = uc[i];
+					color[2] = uc[i];
+					pixels[i] = *(unsigned int*)&color;
+				}
+			}
+		}
+
 		stbi_image_free(uc);
 		return surface;
 	}

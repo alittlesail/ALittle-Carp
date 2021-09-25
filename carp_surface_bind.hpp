@@ -162,25 +162,43 @@ public:
 	static bool	CutBlitCarpSurface(CarpSurface* src, CarpSurface* dest, const char* from, const char* to)
 	{
 		std::vector<std::string> to_list;
-		CarpString::Split(to, ",", false, to_list);
-		if (to_list.size() < 4) return false;
+		CarpSurfaceRect dst_rect;
+		if (to != nullptr)
+		{
+			CarpString::Split(to, ",", false, to_list);
+			if (to_list.size() < 4) return false;
+			dst_rect.x = atoi(to_list[0].c_str());
+			dst_rect.y = atoi(to_list[1].c_str());
+			dst_rect.w = atoi(to_list[2].c_str());
+			dst_rect.h = atoi(to_list[3].c_str());
+		}
+		else
+		{
+			dst_rect.x = 0;
+			dst_rect.y = 0;
+			dst_rect.w = dest->GetWidth();
+			dst_rect.h = dest->GetHeight();
+		}
 
 		std::vector<std::string> from_list;
-		CarpString::Split(from, ",", false, from_list);
-		if (from_list.size() < 4) return false;
-
-		CarpSurfaceRect dst_rect;
-		dst_rect.x = atoi(to_list[0].c_str());
-		dst_rect.y = atoi(to_list[1].c_str());
-		dst_rect.w = atoi(to_list[2].c_str());
-		dst_rect.h = atoi(to_list[3].c_str());
-
 		CarpSurfaceRect src_rect;
-		src_rect.x = atoi(from_list[0].c_str());
-		src_rect.y = atoi(from_list[1].c_str());
-		src_rect.w = atoi(from_list[2].c_str());
-		src_rect.h = atoi(from_list[3].c_str());
-
+		if (from != nullptr)
+		{
+			CarpString::Split(from, ",", false, from_list);
+			if (from_list.size() < 4) return false;
+			src_rect.x = atoi(from_list[0].c_str());
+			src_rect.y = atoi(from_list[1].c_str());
+			src_rect.w = atoi(from_list[2].c_str());
+			src_rect.h = atoi(from_list[3].c_str());
+		}
+		else
+		{
+			src_rect.x = 0;
+			src_rect.y = 0;
+			src_rect.w = src->GetWidth();
+			src_rect.h = src->GetHeight();
+		}
+		
 		dest->ScaleFrom(src, &src_rect, &dst_rect);
 		return true;
 	}

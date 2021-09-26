@@ -400,10 +400,17 @@ private:
 			}
 			else
 			{
-				if (m_response_size < 10 * 1024 * 1024)
-					m_response.reserve(m_response_size);
+				const size_t MAX_RESERVE = 1024 * 1024;
+				if (m_response_size < MAX_RESERVE)
+				{
+					if (m_response.size() < m_response_size)
+						m_response.reserve(m_response_size);
+				}
 				else
-					m_response.reserve(10 * 1024 * 1024);
+				{
+					if (m_response.size() < MAX_RESERVE)
+						m_response.reserve(MAX_RESERVE);
+				}	
 			}
 
 			// split handle

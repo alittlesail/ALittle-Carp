@@ -101,16 +101,18 @@ public:
     static bool SendVirtualKey(unsigned long pid, const char* cmd)
     {
 #ifdef _WIN32
+        if (cmd == NULL) return false;
+
         HWND hWnd = GetWindowHWndByPID(pid);
         if (hWnd == NULL) return false;
-        if (cmd == NULL) return false;
 
         while (*cmd != 0)
         {
             const auto sc = OemKeyScan(*cmd);
             const auto vkey = MapVirtualKey(sc & 0xffff, 1);
 
-            ::PostMessage(hWnd, WM_KEYDOWN, vkey, 1);
+            if (::PostMessage(hWnd, WM_KEYDOWN, vkey, 1) == 0)
+                return false;
             ++cmd;
         }
         return true;

@@ -129,7 +129,26 @@ public:
 
 	static bool SaveCarpSurface(CarpSurface* surface, const char* file_path)
 	{
-		return stbi_write_png(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels(), surface->GetPitch()) != 0;
+		if (surface == nullptr || file_path == nullptr) return;
+
+		std::string ext = "png";
+		{
+			std::string file_path_str = file_path;
+			const auto pos = file_path_str.find_last_of('.');
+			if (pos != std::string::npos)
+				ext = file_path.substr(pos + 1);
+		}
+		CarpString::UpperString(ext);
+		if (ext == "BMP")
+			return stbi_write_bmp(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels()) != 0;
+		else if (ext == "TGA")
+			return stbi_write_tga(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels()) != 0;
+		else if (ext == "HDR")
+			return stbi_write_hdr(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels()) != 0;
+		else if (ext == "JPG")
+			return stbi_write_jpg(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels(), 100) != 0;
+		else
+			return stbi_write_png(file_path, surface->GetWidth(), surface->GetHeight(), 4, surface->GetPixels(), surface->GetPitch()) != 0;
 	}
 
 	static unsigned int GetCarpSurfaceWidth(CarpSurface* surface) { return surface->GetWidth(); }

@@ -22,6 +22,7 @@ public:
 			.addFunction("pinMode", pinMode)
 			.addFunction("softPwmCreate", softPwmCreate)
 			.addFunction("softPwmWrite", softPwmWrite)
+			.addFunction("softPwmStop", softPwmStop)
 			.addFunction("pwmWrite", pwmWrite)
 			.addFunction("softToneCreate", softToneCreate)
 			.addFunction("softToneWrite", softToneWrite)
